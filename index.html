@@ -285,7 +285,7 @@
   <h2>Basic Value — Acompanhamento</h2>
   <p class="muted" style="font-size:13px; margin: 0 0 16px;">Entre com seu e-mail @cobli.co. Você recebe um link mágico por e-mail (sem senha).</p>
   <input id="login-email" type="email" placeholder="seuemail@cobli.co" />
-  <button class="btn" onclick="sendMagicLink()">Enviar link de acesso</button>
+  <button class="btn" onclick="sendMagicLink()">Entrar</button>
   <div id="login-msg"></div>
 </div>
 
@@ -459,11 +459,31 @@ const state = {
 // ---------------------------------------------------------------------------
 // AUTH
 // ---------------------------------------------------------------------------
+// Rodada 5 (2026-08-10): antes, qualquer e-mail @cobli.co disparava o magic
+// link direto -- mesmo gente não cadastrada em team_members conseguia
+// completar o login (só não enxergava dado nenhum depois, por causa da
+// RLS). Agora valida o cadastro ANTES de mandar o e-mail: se não encontrar,
+// nem chama signInWithOtp -- mostra uma mensagem pedindo pra solicitar
+// acesso ao gestor. A checagem usa a função RPC email_is_registered()
+// (security definer, só devolve true/false) porque, neste ponto, quem está
+// clicando ainda não tem sessão -- não dá pra consultar team_members direto
+// via RLS normal. Precisa rodar supabase/patch-login-flow.sql no Supabase
+// antes desta validação funcionar de verdade.
 async function sendMagicLink() {
   const email = document.getElementById("login-email").value.trim();
   const msg = document.getElementById("login-msg");
   if (!email.endsWith("@cobli.co")) {
     msg.textContent = "Use seu e-mail @cobli.co.";
+    return;
+  }
+  msg.textContent = "Verificando cadastro...";
+  const { data: isRegistered, error: checkError } = await sb.rpc("email_is_registered", { check_email: email });
+  if (checkError) {
+    msg.textContent = "Erro ao verificar cadastro: " + checkError.message;
+    return;
+  }
+  if (!isRegistered) {
+    msg.textContent = "Esse e-mail ainda não tem acesso. Peça para seu gestor te convidar no painel de Administração.";
     return;
   }
   const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: DASHBOARD_URL } });
@@ -1299,7 +1319,16 @@ async function inviteMember(e) {
 
   const { error } = await sb.from("team_members").insert({ email, name, squad, role });
   if (error) { alert("Erro ao convidar: " + error.message); return false; }
-  alert(name + " foi cadastrado(a) — já enxerga os tickets em seu nome ao logar.");
+
+  // Rodada 5 (2026-08-10): manda o link de acesso já no convite, em vez de
+  // depender da pessoa achar o dashboard por conta própria e clicar em
+  // "Entrar" -- ela já recebe o e-mail assim que é cadastrada.
+  const { error: otpError } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: DASHBOARD_URL } });
+  if (otpError) {
+    alert(name + " foi cadastrado(a), mas houve um erro ao enviar o link de acesso automaticamente: " + otpError.message + ". Peça pra essa pessoa acessar " + DASHBOARD_URL + " e clicar em \"Entrar\".");
+  } else {
+    alert(name + " foi cadastrado(a) — um link de acesso já foi enviado pro e-mail dela.");
+  }
   loadTeamTable();
   return false;
 }
