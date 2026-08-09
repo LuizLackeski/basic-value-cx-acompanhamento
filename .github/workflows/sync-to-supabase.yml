@@ -1,13 +1,16 @@
 name: Sync to Supabase
 
-# Disparado automaticamente quando a scheduled task do Claude Cowork faz o
-# git push de um novo data/latest-sync.json. Também pode ser rodado manualmente
-# pela aba "Actions" do GitHub (workflow_dispatch) para reprocessar o último
-# arquivo já commitado, sem precisar esperar a próxima sincronização do Claude.
+# Disparado automaticamente quando a scheduled task do Claude Cowork publica um
+# novo data/latest-sync.json e/ou arquivos em data/chunks/ (usado quando o
+# payload é grande demais pra publicar de uma vez só, como na primeira
+# sincronização completa). Também pode ser rodado manualmente pela aba "Actions"
+# do GitHub (workflow_dispatch) para reprocessar o último commit, sem precisar
+# esperar a próxima sincronização do Claude.
 on:
   push:
     paths:
       - "data/latest-sync.json"
+      - "data/chunks/**"
   workflow_dispatch: {}
 
 jobs:
