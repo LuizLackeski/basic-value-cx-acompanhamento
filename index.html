@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basic Value - Acompanhamento de Instalações</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f232c;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #9aa3b2;
+    --accent: #4f8cff;
+    --ok: #2fbf71;
+    --risk: #e5534b;
+    --warn: #e5a83b;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .who { font-size: 13px; color: var(--muted); }
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  #login-screen { max-width: 380px; margin: 80px auto; padding: 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+  #login-screen h2 { margin-top: 0; font-size: 16px; }
+  #login-screen input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); margin-bottom: 12px; }
+  #login-screen button, .btn { padding: 10px 16px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; font-weight: 600; }
+  #login-screen button:hover, .btn:hover { opacity: 0.9; }
+  #login-msg { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 4px; }
+  .tab { padding: 8px 14px; border-radius: 8px 8px 0 0; cursor: pointer; color: var(--muted); border: 1px solid transparent; }
+  .tab.active { background: var(--panel); color: var(--text); border-color: var(--border); border-bottom-color: var(--panel); }
+  .spacer { flex: 1; }
+  select, input[type=text] { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 0 8px 8px 8px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; background: var(--panel-2); position: sticky; top: 0; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge.ok { background: rgba(47,191,113,0.15); color: var(--ok); }
+  .badge.risk { background: rgba(229,83,75,0.15); color: var(--risk); }
+  .badge.stage { background: rgba(79,140,255,0.15); color: var(--accent); }
+  .muted { color: var(--muted); }
+  .products-list { font-size: 12px; color: var(--muted); }
+  .products-list div { margin-bottom: 2px; }
+
+  .tratativa-cell select, .tratativa-cell textarea { width: 100%; font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
+  .tratativa-cell textarea { margin-top: 4px; min-height: 40px; resize: vertical; }
+  .save-hint { font-size: 11px; color: var(--muted); }
+
+  #admin-panel { margin-top: 32px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+  #admin-panel h3 { margin-top: 0; }
+  #admin-panel form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+
+  #empty-state { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h2>Basic Value — Acompanhamento</h2>
+  <p class="muted" style="font-size:13px">Entre com seu e-mail @cobli.co. Você recebe um link mágico por e-mail (sem senha).</p>
+  <input id="login-email" type="email" placeholder="seuemail@cobli.co" />
+  <button class="btn" onclick="sendMagicLink()">Enviar link de acesso</button>
+  <div id="login-msg"></div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>Basic Value — Acompanhamento de Instalações</h1>
+    <div class="who">
+      <span id="who-name"></span> · <span id="who-role"></span>
+      <button class="btn" style="background:transparent;color:var(--muted);border:1px solid var(--border)" onclick="logout()">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <div class="tabs">
+        <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
+        <div class="tab" data-tab="multiplos" onclick="switchTab('multiplos')">Atendimentos múltiplos</div>
+        <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
+      </div>
+      <div class="spacer"></div>
+      <span class="save-hint" id="last-sync"></span>
+      <button class="btn" onclick="loadDashboard()">↻ Atualizar</button>
+    </div>
+
+    <div id="panel-principal">
+      <div id="table-principal-wrap"></div>
+    </div>
+
+    <div id="panel-multiplos" style="display:none">
+      <div id="table-multiplos-wrap"></div>
+    </div>
+
+    <div id="panel-admin" style="display:none">
+      <div id="admin-panel">
+        <h3>Convidar pessoa</h3>
+        <form onsubmit="return inviteMember(event)">
+          <input type="email" id="inv-email" placeholder="email@cobli.co" required />
+          <input type="text" id="inv-name" placeholder="Nome" required />
+          <select id="inv-squad">
+            <option value="onboarding">Onboarding</option>
+            <option value="smb">SMB</option>
+            <option value="icp">ICP</option>
+          </select>
+          <select id="inv-role">
+            <option value="colaborador">Colaborador</option>
+            <option value="gestor_squad">Gestor de squad</option>
+            <option value="gestor_geral">Gestor geral</option>
+          </select>
+          <button class="btn" type="submit">Convidar</button>
+        </form>
+
+        <h3>Delegar visão (cobertura de férias / afastamento / desligamento)</h3>
+        <form onsubmit="return grantAccess(event)">
+          <input type="email" id="grant-grantee" placeholder="quem vai enxergar (e-mail)" required />
+          <input type="email" id="grant-target" placeholder="de quem (e-mail)" required />
+          <input type="text" id="grant-reason" placeholder="motivo (ex.: férias)" />
+          <input type="text" id="grant-ends" placeholder="até quando (YYYY-MM-DD, opcional)" />
+          <button class="btn" type="submit">Liberar acesso</button>
+        </form>
+
+        <h3>Cadastro atual</h3>
+        <div id="team-table-wrap"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ============================================================================
+// CONFIGURAÇÃO — a anon key é feita para ser pública (a segurança de verdade
+// está no RLS do Supabase, não em esconder isto). Troque pela sua.
+// ============================================================================
+const SUPABASE_URL = "https://tmjmjrhgmyqamuphgdvi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtam1qcmhnbXlxYW11cGhnZHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjY4NzMsImV4cCI6MjA5MjcwMjg3M30.gjClWn46TOgfa-y4PAUMBg4ZxS4xhFjep1mk_DcU2QY";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let currentMember = null; // linha de team_members do usuário logado
+
+// ---------------------------------------------------------------------------
+// AUTH
+// ---------------------------------------------------------------------------
+async function sendMagicLink() {
+  const email = document.getElementById("login-email").value.trim();
+  const msg = document.getElementById("login-msg");
+  if (!email.endsWith("@cobli.co")) {
+    msg.textContent = "Use seu e-mail @cobli.co.";
+    return;
+  }
+  const { error } = await sb.auth.signInWithOtp({ email });
+  msg.textContent = error ? ("Erro: " + error.message) : "Link enviado! Confira seu e-mail.";
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+sb.auth.onAuthStateChange(async (_event, session) => {
+  if (session && session.user) {
+    currentUser = session.user;
+    await onLoggedIn();
+  } else {
+    document.getElementById("login-screen").style.display = "block";
+    document.getElementById("app").style.display = "none";
+  }
+});
+
+async function onLoggedIn() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+
+  const { data: member } = await sb.from("team_members").select("*").eq("email", currentUser.email).maybeSingle();
+  currentMember = member;
+
+  document.getElementById("who-name").textContent = member ? member.name : currentUser.email;
+  document.getElementById("who-role").textContent = member ? labelRole(member.role) : "sem cadastro";
+
+  if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) {
+    document.getElementById("tab-admin").style.display = "block";
+  }
+
+  if (!member) {
+    document.getElementById("table-principal-wrap").innerHTML =
+      '<div id="empty-state">Seu e-mail ainda não foi cadastrado no time. Peça para um gestor te convidar.</div>';
+    return;
+  }
+
+  await loadDashboard();
+}
+
+function labelRole(role) {
+  return { colaborador: "Colaborador", gestor_squad: "Gestor de squad", gestor_geral: "Gestor geral" }[role] || role;
+}
+
+// ---------------------------------------------------------------------------
+// TABS
+// ---------------------------------------------------------------------------
+function switchTab(tab) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  document.getElementById("panel-principal").style.display = tab === "principal" ? "block" : "none";
+  document.getElementById("panel-multiplos").style.display = tab === "multiplos" ? "block" : "none";
+  document.getElementById("panel-admin").style.display = tab === "admin" ? "block" : "none";
+  if (tab === "multiplos") loadMultiplos();
+  if (tab === "admin") loadTeamTable();
+}
+
+// ---------------------------------------------------------------------------
+// DASHBOARD PRINCIPAL (respeita RLS automaticamente — vem filtrado do Supabase)
+// ---------------------------------------------------------------------------
+async function loadDashboard() {
+  const wrap = document.getElementById("table-principal-wrap");
+  wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
+
+  const { data, error } = await sb
+    .from("v_dashboard")
+    .select("*")
+    .order("createdate", { ascending: true });
+
+  if (error) {
+    wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + error.message + "</div>";
+    return;
+  }
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket em aberto no seu escopo agora. 🎉</div>';
+    return;
+  }
+
+  document.getElementById("last-sync").textContent =
+    "Atualizado agora · " + data.length + " ticket(s)";
+
+  const productsByTicket = await loadProductsFor(data.map(d => d.ticket_id));
+
+  let html = "<table><thead><tr>" +
+    "<th>Cliente / Ticket</th><th>Aberto há</th><th>Classe</th><th>Produtos</th>" +
+    "<th>Basic Value</th><th>Status Field</th><th>Prestador</th>" +
+    "<th>Tratativa</th><th></th>" +
+    "</tr></thead><tbody>";
+
+  for (const row of data) {
+    const dias = row.dias_aberto != null ? Math.floor(row.dias_aberto) : "-";
+    const riskBadge = row.mrr_status === "em_risco"
+      ? '<span class="badge risk">em risco</span>' : '<span class="badge ok">ok</span>';
+    const products = (productsByTicket[row.ticket_id] || [])
+      .map(p => `<div>${p.quantity}x ${p.product_label}</div>`).join("") || '<span class="muted">-</span>';
+
+    html += `<tr>
+      <td><strong>${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</strong><br/>
+          <span class="muted">Ticket ${row.ticket_id} · ${escapeHtml(row.owner_name || "-")}</span>
+          ${row.hubspot_url ? ` · <a href="${row.hubspot_url}" target="_blank" style="color:var(--accent)">abrir no HubSpot</a>` : ""}
+      </td>
+      <td>${dias} dia(s)</td>
+      <td>${escapeHtml(row.classe_instalacao || "-")}</td>
+      <td class="products-list">${products}</td>
+      <td>
+        Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}<br/>
+        Instalação: <strong>${fmtNum(row.instalation_completeness_grade)}</strong><br/>
+        <span class="muted">MRR: ${fmtCurrency(row.mrr)}</span>
+      </td>
+      <td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
+          ${row.data_agendada ? `<br/><span class="muted">${row.data_agendada}</span>` : ""}
+      </td>
+      <td>${escapeHtml(row.prestador || "-")}</td>
+      <td class="tratativa-cell">
+        <select onchange="saveTratativa('${row.ticket_id}', this.value, null)">
+          <option value="">-- selecionar --</option>
+          ${["Aguardando cliente","Sem previsão de instalação","Veículos indisponíveis","Solicitado cancelamento","Churn"]
+            .map(opt => `<option value="${opt}" ${row.status_tratativa === opt ? "selected" : ""}>${opt}</option>`).join("")}
+        </select>
+        <textarea placeholder="observação..." onblur="saveTratativa('${row.ticket_id}', null, this.value)">${escapeHtml(row.observacao || "")}</textarea>
+      </td>
+      <td></td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+async function loadProductsFor(ticketIds) {
+  if (!ticketIds.length) return {};
+  const { data } = await sb.from("ticket_products").select("*").in("ticket_id", ticketIds);
+  const map = {};
+  (data || []).forEach(p => {
+    map[p.ticket_id] = map[p.ticket_id] || [];
+    map[p.ticket_id].push(p);
+  });
+  return map;
+}
+
+// Salva o status de tratativa e/ou observação. Mantém o valor atual do campo
+// que não foi alterado nesta chamada (busca o último registro do ticket).
+async function saveTratativa(ticketId, status, observacao) {
+  const { data: last } = await sb
+    .from("ticket_checks")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const payload = {
+    ticket_id: ticketId,
+    user_email: currentUser.email,
+    status_tratativa: status !== null ? (status || null) : (last ? last.status_tratativa : null),
+    observacao: observacao !== null ? observacao : (last ? last.observacao : null),
+    updated_at: new Date().toISOString(),
+  };
+
+  await sb.from("ticket_checks").insert(payload);
+}
+
+// ---------------------------------------------------------------------------
+// ABA: ATENDIMENTOS MÚLTIPLOS
+// ---------------------------------------------------------------------------
+async function loadMultiplos() {
+  const wrap = document.getElementById("table-multiplos-wrap");
+  wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
+
+  const { data, error } = await sb.from("v_atendimentos_multiplos").select("*").order("ticket_id");
+  if (error) {
+    wrap.innerHTML = '<div id="empty-state">Erro: ' + error.message + "</div>";
+    return;
+  }
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum atendimento múltiplo no seu escopo agora.</div>';
+    return;
+  }
+
+  let html = "<table><thead><tr><th>Cliente / Ticket</th><th>Ordem de serviço</th><th>Status</th><th>Prestador</th><th>Consultor</th><th>Data agendada</th></tr></thead><tbody>";
+  for (const row of data) {
+    html += `<tr>
+      <td>${escapeHtml(row.display_name || row.ticket_id)}<br/><span class="muted">${escapeHtml(row.owner_name || "-")}</span></td>
+      <td>${escapeHtml(row.ordem_servico_raw)}</td>
+      <td><span class="badge stage">${escapeHtml(row.status || "-")}</span></td>
+      <td>${escapeHtml(row.prestador || "-")}</td>
+      <td>${escapeHtml(row.consultor || "-")}</td>
+      <td>${row.data_agendada || "-"}</td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// ADMIN: convite + delegação + cadastro
+// ---------------------------------------------------------------------------
+async function inviteMember(e) {
+  e.preventDefault();
+  const email = document.getElementById("inv-email").value.trim();
+  const name = document.getElementById("inv-name").value.trim();
+  const squad = document.getElementById("inv-squad").value;
+  const role = document.getElementById("inv-role").value;
+
+  const { error } = await sb.from("team_members").insert({ email, name, squad, role });
+  if (error) { alert("Erro ao convidar: " + error.message); return false; }
+  alert(name + " foi cadastrado(a) — já enxerga os tickets em seu nome ao logar.");
+  loadTeamTable();
+  return false;
+}
+
+async function grantAccess(e) {
+  e.preventDefault();
+  const grantee_email = document.getElementById("grant-grantee").value.trim();
+  const target_email = document.getElementById("grant-target").value.trim();
+  const reason = document.getElementById("grant-reason").value.trim();
+  const endsRaw = document.getElementById("grant-ends").value.trim();
+
+  const { error } = await sb.from("access_grants").insert({
+    grantee_email, target_email, reason: reason || null,
+    ends_at: endsRaw ? new Date(endsRaw).toISOString() : null,
+    created_by: currentUser.email,
+  });
+  if (error) { alert("Erro ao liberar acesso: " + error.message); return false; }
+  alert(grantee_email + " agora também vê os itens de " + target_email + ".");
+  return false;
+}
+
+async function loadTeamTable() {
+  const wrap = document.getElementById("team-table-wrap");
+  const { data, error } = await sb.from("team_members").select("*").order("squad").order("name");
+  if (error) { wrap.innerHTML = "Erro: " + error.message; return; }
+
+  let html = "<table><thead><tr><th>Nome</th><th>E-mail</th><th>Squad</th><th>Papel</th><th>Ativo</th></tr></thead><tbody>";
+  for (const m of data) {
+    html += `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.email)}</td><td>${m.squad}</td><td>${labelRole(m.role)}</td><td>${m.active ? "sim" : "não"}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// utils
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmtNum(n) { return n == null ? "-" : Number(n).toFixed(1); }
+function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 }); }
+</script>
+</body>
+</html>
