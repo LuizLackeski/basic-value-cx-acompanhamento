@@ -425,6 +425,18 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // -- "0-5" é o tipo de objeto "Ticket" no HubSpot, fixo).
 const HUBSPOT_PORTAL_ID = "5282301";
 
+// URL de produção do dashboard (GitHub Pages) -- usada explicitamente como
+// destino do link mágico (ver sendMagicLink() abaixo). Corrige o bug
+// descoberto em 2026-08-10: sem isso, o Supabase usa o "Site URL" cadastrado
+// no painel do projeto pra montar o link do e-mail -- e esse campo, se nunca
+// foi ajustado, fica no valor padrão "http://localhost:3000" (não existe
+// nada rodando lá, então o link dá "Não é possível acessar esse site"/
+// ERR_CONNECTION_REFUSED pra QUALQUER pessoa que pedir o link, inclusive
+// quem já estava logado antes). Com este `emailRedirectTo` fixo, o link do
+// e-mail sempre volta pra cá, direto -- não depende mais daquela
+// configuração do painel do Supabase.
+const DASHBOARD_URL = "https://luizlackeski.github.io/basic-value-cx-acompanhamento/";
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
@@ -454,7 +466,7 @@ async function sendMagicLink() {
     msg.textContent = "Use seu e-mail @cobli.co.";
     return;
   }
-  const { error } = await sb.auth.signInWithOtp({ email });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: DASHBOARD_URL } });
   msg.textContent = error ? ("Erro: " + error.message) : "Link enviado! Confira seu e-mail.";
 }
 
