@@ -266,6 +266,17 @@
   .evo-table-toggle { font-size: 12px; color: var(--royal); cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
   .evo-table-wrap { margin-top: 12px; }
   .evo-empty { padding: 24px; text-align: center; color: var(--ink-mute); font-size: 13px; }
+  .evo-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .evo-toggle { display: inline-flex; background: var(--paper-2); border-radius: 999px; padding: 3px; gap: 2px; }
+  .evo-toggle button {
+    border: none; background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--ink-soft); padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  }
+  .evo-toggle button.active { background: #fff; color: var(--royal); box-shadow: var(--shadow-card); }
+  .evo-range-select {
+    font-family: inherit; font-size: 12.5px; color: var(--ink-soft); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; background: #fff; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -838,16 +849,24 @@ function renderGradeDistribution(rows) {
 // ---------------------------------------------------------------------------
 // Por hora sempre "geral" (não segmentado por squad/usuário) -- o Luiz pediu
 // pra deixar assim por enquanto e ajustar depois, quando tivermos um jeito
-// confiável de identificar a squad "da época" de cada ticket. O histórico é
-// construído a partir de HOJE em diante (1 snapshot agregado por dia,
-// gravado por quem tem visão total -- gestor_geral), não puxa o event_week
-// histórico do Databricks -- ver decisão registrada no doc do projeto.
+// confiável de identificar a squad "da época" de cada ticket.
+//
+// Histórico: o Databricks já guarda o Basic Value por `event_week` desde
+// 2025-10-27 -- rodamos um backfill único (supabase/backfill-evolucao.sql)
+// puxando essa série semanal completa pra bv_grade_snapshots. Dali em diante,
+// cada abertura da aba por um gestor_geral grava um snapshot novo do dia
+// (maybeCaptureSnapshotIfGestorGeral), então o gráfico segue crescendo com
+// pontos novos conforme as sincronizações manuais forem acontecendo.
 //
 // Paleta: rampa ordinal de 1 hue (verde), validada com o script do skill de
 // dataviz (todos os checks passam -- ver comentário no CSS, seção :root).
 const EVO_RAMP = { "4": "#154735", "3": "#1e674c", "2": "#278663", "1": "#30a67b", "0": "#39c692", sem_dado: "#ABB0C4" };
 const EVO_LABELS = { "4": "Grau 4 · completo", "3": "Grau 3", "2": "Grau 2", "1": "Grau 1", "0": "Grau 0 · não iniciado", sem_dado: "Sem dado" };
 const EVO_ORDER = ["4", "3", "2", "1", "0", "sem_dado"];
+
+let evoRawRows = [];
+let evoMode = "weekly";       // "weekly" | "monthly"
+let evoWeeklyRange = 5;       // 5 | 10 | "all" -- só se aplica no modo "weekly"
 
 function todayDateStr() {
   const d = new Date();
@@ -893,17 +912,29 @@ async function loadEvolucao() {
     wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
     return;
   }
-  renderEvolucaoChart(data || []);
+  evoRawRows = data || [];
+  renderEvolucaoChart();
 }
 
-function renderEvolucaoChart(rows) {
+function setEvoMode(mode) {
+  evoMode = mode;
+  renderEvolucaoChart();
+}
+
+function setEvoRange(v) {
+  evoWeeklyRange = v === "all" ? "all" : Number(v);
+  renderEvolucaoChart();
+}
+
+function renderEvolucaoChart() {
   const wrap = document.getElementById("evolucao-wrap");
+  const rows = evoRawRows;
 
   if (!rows.length) {
     wrap.innerHTML = `
       <div class="evo-card">
         <h3>Evolução do Basic Value de instalação</h3>
-        <p class="form-desc">Ainda não há histórico registrado. O primeiro snapshot é gravado automaticamente quando um gestor geral abre esta aba -- a partir daí, um ponto novo se acumula por dia.</p>
+        <p class="form-desc">Ainda não há histórico registrado. Rode o backfill (supabase/backfill-evolucao.sql) pra trazer o histórico semanal do Databricks, ou abra esta aba como gestor geral pra começar a acumular um snapshot novo por dia.</p>
         <div class="evo-empty">Sem dados ainda.</div>
       </div>`;
     return;
@@ -914,43 +945,77 @@ function renderEvolucaoChart(rows) {
     if (!byDate.has(r.snapshot_date)) byDate.set(r.snapshot_date, {});
     byDate.get(r.snapshot_date)[r.grade] = r;
   });
-  const dates = Array.from(byDate.keys()).sort();
+  const allDates = Array.from(byDate.keys()).sort();
 
-  // Layout do SVG: um grupo de barras empilhadas (100%) por data.
+  let dates, byGroup, labelFormat;
+  if (evoMode === "monthly") {
+    // Uma barra por mês -- usa o snapshot mais recente dentro de cada mês
+    // como representante daquele mês (mesma simplificação já usada hoje
+    // pra "empresa" -- pega a leitura mais atual do período).
+    const byMonth = new Map();
+    allDates.forEach(d => {
+      const ym = d.slice(0, 7);
+      if (!byMonth.has(ym) || d > byMonth.get(ym)) byMonth.set(ym, d);
+    });
+    const months = Array.from(byMonth.keys()).sort();
+    dates = months;
+    byGroup = new Map(months.map(ym => [ym, byDate.get(byMonth.get(ym))]));
+    labelFormat = (ym) => new Date(ym + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+  } else {
+    dates = evoWeeklyRange === "all" ? allDates : allDates.slice(-evoWeeklyRange);
+    byGroup = byDate;
+    labelFormat = (d) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  }
+
+  // Layout do SVG: um grupo de barras empilhadas (100%) por ponto (semana/mês).
   const W = 900, H = 260, padL = 20, padR = 12, padT = 10, padB = 28;
   const chartW = W - padL - padR, chartH = H - padT - padB;
   const groupW = chartW / dates.length;
   const barW = Math.min(48, groupW * 0.55);
 
   let bars = "";
-  dates.forEach((date, i) => {
-    const dayData = byDate.get(date);
-    const total = EVO_ORDER.reduce((sum, g) => sum + (dayData[g] ? dayData[g].company_count : 0), 0) || 1;
+  dates.forEach((key, i) => {
+    const groupData = byGroup.get(key) || {};
+    const total = EVO_ORDER.reduce((sum, g) => sum + (groupData[g] ? groupData[g].company_count : 0), 0) || 1;
     let yCursor = padT + chartH;
     const cx = padL + groupW * i + groupW / 2;
     EVO_ORDER.forEach(g => {
-      const count = dayData[g] ? dayData[g].company_count : 0;
+      const count = groupData[g] ? groupData[g].company_count : 0;
       if (!count) return;
       const segH = (count / total) * chartH;
       const y = yCursor - segH;
       bars += `<rect x="${(cx - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${segH.toFixed(1)}" fill="${EVO_RAMP[g]}"
-        data-date="${date}" data-grade="${g}" data-count="${count}" data-total="${total}" class="evo-bar-seg"></rect>`;
+        data-date="${key}" data-grade="${g}" data-count="${count}" data-total="${total}" class="evo-bar-seg"></rect>`;
       yCursor = y;
     });
-    const label = new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const label = labelFormat(key);
     bars += `<text x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#8288A3">${label}</text>`;
   });
 
   const legend = EVO_ORDER.map(g => `<span class="evo-legend-item"><span class="evo-legend-dot" style="background:${EVO_RAMP[g]}"></span>${EVO_LABELS[g]}</span>`).join("");
 
-  const noteHistorico = dates.length < 3
-    ? `<p class="form-desc" style="margin-top:14px">Histórico começou a ser registrado em ${new Date(dates[0] + "T00:00:00").toLocaleDateString("pt-BR")} -- conforme os dias passam, este gráfico passa a mostrar a evolução real.</p>`
+  const noteHistorico = (allDates.length < 3 && (Date.now() - new Date(allDates[0] + "T00:00:00").getTime()) < 14 * 86400000)
+    ? `<p class="form-desc" style="margin-top:14px">Histórico começou a ser registrado em ${new Date(allDates[0] + "T00:00:00").toLocaleDateString("pt-BR")} -- rode o backfill (supabase/backfill-evolucao.sql) pra trazer o histórico semanal completo do Databricks.</p>`
     : "";
+
+  const rangeSelect = evoMode === "weekly" ? `
+    <select class="evo-range-select" onchange="setEvoRange(this.value)">
+      <option value="5" ${evoWeeklyRange === 5 ? "selected" : ""}>Últimas 5 semanas</option>
+      <option value="10" ${evoWeeklyRange === 10 ? "selected" : ""}>Últimas 10 semanas</option>
+      <option value="all" ${evoWeeklyRange === "all" ? "selected" : ""}>Todo o período</option>
+    </select>` : "";
 
   wrap.innerHTML = `
     <div class="evo-card">
       <h3>Evolução do Basic Value de instalação</h3>
-      <p class="form-desc">% de empresas em cada grau de instalação, por dia de sincronização. Visão geral (todas as squads juntas) por enquanto -- segmentação por squad/usuário entra numa próxima rodada.</p>
+      <p class="form-desc">% de empresas em cada grau de instalação. Visão geral (todas as squads juntas) por enquanto -- segmentação por squad/usuário entra numa próxima rodada.</p>
+      <div class="evo-controls">
+        <div class="evo-toggle">
+          <button class="${evoMode === "weekly" ? "active" : ""}" onclick="setEvoMode('weekly')">Semanal</button>
+          <button class="${evoMode === "monthly" ? "active" : ""}" onclick="setEvoMode('monthly')">Mensal</button>
+        </div>
+        ${rangeSelect}
+      </div>
       <div class="evo-chart-wrap">
         <svg class="evo-chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução da distribuição de empresas por grau de Basic Value de instalação" style="width:100%;height:auto">${bars}</svg>
         <div class="evo-tooltip" id="evo-tooltip"></div>
@@ -962,7 +1027,7 @@ function renderEvolucaoChart(rows) {
     </div>`;
 
   attachEvoTooltip();
-  renderEvoTable(dates, byDate);
+  renderEvoTable(dates, byGroup, labelFormat);
 }
 
 function attachEvoTooltip() {
@@ -973,7 +1038,10 @@ function attachEvoTooltip() {
     seg.addEventListener("mousemove", (e) => {
       const rect = svg.parentElement.getBoundingClientRect();
       const pct = Math.round((Number(seg.dataset.count) / Number(seg.dataset.total)) * 100);
-      const dateLabel = new Date(seg.dataset.date + "T00:00:00").toLocaleDateString("pt-BR");
+      const rawKey = seg.dataset.date;
+      const dateLabel = rawKey.length === 7
+        ? new Date(rawKey + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+        : new Date(rawKey + "T00:00:00").toLocaleDateString("pt-BR");
       const gradeLabel = EVO_LABELS[seg.dataset.grade] || seg.dataset.grade;
       tooltip.textContent = `${dateLabel} · ${gradeLabel}: ${seg.dataset.count} empresa(s) (${pct}%)`;
       tooltip.style.left = (e.clientX - rect.left) + "px";
@@ -990,16 +1058,16 @@ function toggleEvoTable() {
 }
 
 // Tabela como alternativa acessível ao gráfico (mesmo dado, formato de tabela).
-function renderEvoTable(dates, byDate) {
+function renderEvoTable(keys, byGroup, labelFormat) {
   const el = document.getElementById("evo-table-wrap");
   if (!el) return;
-  let html = "<table><thead><tr><th>Data</th>" + EVO_ORDER.map(g => `<th>${EVO_LABELS[g]}</th>`).join("") + "</tr></thead><tbody>";
-  dates.forEach(date => {
-    const dayData = byDate.get(date);
-    const total = EVO_ORDER.reduce((sum, g) => sum + (dayData[g] ? dayData[g].company_count : 0), 0) || 1;
-    html += `<tr><td>${new Date(date + "T00:00:00").toLocaleDateString("pt-BR")}</td>` +
+  let html = "<table><thead><tr><th>Período</th>" + EVO_ORDER.map(g => `<th>${EVO_LABELS[g]}</th>`).join("") + "</tr></thead><tbody>";
+  keys.forEach(key => {
+    const groupData = byGroup.get(key) || {};
+    const total = EVO_ORDER.reduce((sum, g) => sum + (groupData[g] ? groupData[g].company_count : 0), 0) || 1;
+    html += `<tr><td>${labelFormat(key)}</td>` +
       EVO_ORDER.map(g => {
-        const count = dayData[g] ? dayData[g].company_count : 0;
+        const count = groupData[g] ? groupData[g].company_count : 0;
         const pct = Math.round((count / total) * 100);
         return `<td>${count} (${pct}%)</td>`;
       }).join("") + "</tr>";
@@ -1188,7 +1256,7 @@ async function loadMultiplos() {
 
 // Rodada 3: gestor de squad só pode convidar como "colaborador" e só pra
 // própria squad -- evita que ele crie sem querer (ou por engano de UI) outro
-// gestor de squad/geral, ou cadastre alguém em outra squad. gestor_geral
+// gestor de squad/geral, ou cadastre alguém na squad errada. gestor_geral
 // continua com o formulário aberto, sem restrição.
 function applyInviteFormRestrictions(member) {
   if (!member) return;
