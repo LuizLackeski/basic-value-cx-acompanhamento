@@ -3,72 +3,169 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Basic Value - Acompanhamento de Instalações</title>
+<title>Basic Value — Acompanhamento de Instalações</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #171a21;
-    --panel-2: #1f232c;
-    --border: #2a2f3a;
-    --text: #e6e8ec;
-    --muted: #9aa3b2;
-    --accent: #4f8cff;
-    --ok: #2fbf71;
-    --risk: #e5534b;
-    --warn: #e5a83b;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* Paleta oficial Cobli */
+    --indigo:      #07074E;
+    --royal:       #001BB8;
+    --green:       #0FFDC9;
+    --paper:       #F5F7FA;
+    --paper-2:     #ECEFF5;
+    --ink:         #07074E;
+    --ink-soft:    #4A4F73;
+    --ink-mute:    #8288A3;
+    --line:        rgba(7,7,78,0.10);
+    --royal-soft:  rgba(0,27,184,0.07);
+    --royal-soft-2: rgba(0,27,184,0.14);
+    --green-soft:  rgba(15,253,201,0.20);
+    --risk:        #C7362C;
+    --risk-soft:   rgba(199,54,44,0.10);
+    --warn:        #B7791F;
+    --warn-soft:   rgba(183,121,31,0.12);
+    --ok-text:     #0E7D5F;
+    --ok-soft:     rgba(15,253,201,0.22);
+    --radius-card: 14px;
+    --radius-pill: 999px;
+    --shadow-card: 0 1px 2px rgba(7,7,78,0.05), 0 8px 24px rgba(7,7,78,0.07);
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); }
-  header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  header h1 { font-size: 18px; margin: 0; }
-  header .who { font-size: 13px; color: var(--muted); }
-  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: inherit; -webkit-font-smoothing: antialiased; }
 
-  #login-screen { max-width: 380px; margin: 80px auto; padding: 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
-  #login-screen h2 { margin-top: 0; font-size: 16px; }
-  #login-screen input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); margin-bottom: 12px; }
-  #login-screen button, .btn { padding: 10px 16px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; font-weight: 600; }
-  #login-screen button:hover, .btn:hover { opacity: 0.9; }
-  #login-msg { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  header {
+    padding: 14px 28px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 26px; height: 29px; flex-shrink: 0; }
+  .brand-text h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+  .brand-text p { font-size: 12px; margin: 2px 0 0; color: var(--ink-mute); }
+  .who { display: flex; align-items: center; gap: 10px; }
+  .who-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .role-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-pill);
+    background: var(--royal-soft-2); color: var(--royal); text-transform: uppercase; letter-spacing: 0.02em;
+  }
 
-  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .tabs { display: flex; gap: 4px; }
-  .tab { padding: 8px 14px; border-radius: 8px 8px 0 0; cursor: pointer; color: var(--muted); border: 1px solid transparent; }
-  .tab.active { background: var(--panel); color: var(--text); border-color: var(--border); border-bottom-color: var(--panel); }
+  main { padding: 24px 28px 60px; max-width: 1440px; margin: 0 auto; }
+
+  #login-screen {
+    max-width: 380px; margin: 100px auto; padding: 32px; background: #fff;
+    border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+  }
+  #login-screen h2 { margin: 0 0 6px; font-size: 18px; color: var(--ink); }
+  #login-screen input {
+    width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink); margin-bottom: 12px; font-family: inherit; font-size: 14px;
+  }
+  #login-screen input:focus { outline: none; border-color: var(--royal); }
+  .btn {
+    padding: 9px 16px; border-radius: 8px; border: none; background: var(--royal); color: #fff;
+    cursor: pointer; font-weight: 600; font-size: 13px; font-family: inherit; transition: opacity .15s;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  .btn.ghost:hover { background: var(--paper-2); opacity: 1; }
+  #login-msg { font-size: 13px; color: var(--ink-mute); margin-top: 8px; }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi-card {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card); padding: 16px 18px; display: flex; flex-direction: column; gap: 6px;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card.clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
+  .kpi-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(7,7,78,0.06), 0 14px 28px rgba(7,7,78,0.10); }
+  .kpi-card.active { border-color: var(--risk); box-shadow: 0 0 0 2px rgba(199,54,44,0.15); }
+  .kpi-top { display: flex; align-items: center; justify-content: space-between; }
+  .kpi-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .kpi-icon svg { width: 16px; height: 16px; }
+  .kpi-icon.royal { background: var(--royal-soft-2); color: var(--royal); }
+  .kpi-icon.risk { background: var(--risk-soft); color: var(--risk); }
+  .kpi-icon.green { background: var(--green-soft); color: var(--ok-text); }
+  .kpi-icon.warn { background: var(--warn-soft); color: var(--warn); }
+  .kpi-number { font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1; letter-spacing: -0.02em; }
+  .kpi-number.risk { color: var(--risk); }
+  .kpi-label { font-size: 12.5px; color: var(--ink-mute); font-weight: 500; }
+  .kpi-hint { font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 2px; }
+  .tab { padding: 9px 16px; border-radius: 10px 10px 0 0; cursor: pointer; color: var(--ink-mute); font-size: 13px; font-weight: 600; border: 1px solid transparent; }
+  .tab.active { background: #fff; color: var(--ink); border-color: var(--line); border-bottom-color: #fff; }
   .spacer { flex: 1; }
-  select, input[type=text] { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
+  select, input[type=text] {
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    font-family: inherit; font-size: 13px;
+  }
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft);
+    background: var(--paper-2); padding: 5px 12px; border-radius: var(--radius-pill); border: 1px solid var(--line);
+    font-weight: 500;
+  }
+  .sync-badge svg { width: 12px; height: 12px; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    background: var(--risk-soft); color: var(--risk); padding: 5px 10px 5px 12px; border-radius: var(--radius-pill);
+    cursor: pointer; border: 1px solid rgba(199,54,44,0.25);
+  }
+  .filter-chip span.x { font-size: 14px; line-height: 1; }
 
-  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 0 8px 8px 8px; overflow: hidden; }
-  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; background: var(--panel-2); position: sticky; top: 0; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 0 12px 12px 12px; overflow: hidden; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
+  th { color: var(--ink-mute); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; background: var(--paper-2); position: sticky; top: 57px; }
+  tbody tr:nth-child(even) td { background: rgba(7,7,78,0.012); }
+  tbody tr:hover td { background: var(--royal-soft); }
+  tbody tr:last-child td { border-bottom: none; }
 
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-  .badge.ok { background: rgba(47,191,113,0.15); color: var(--ok); }
-  .badge.risk { background: rgba(229,83,75,0.15); color: var(--risk); }
-  .badge.stage { background: rgba(79,140,255,0.15); color: var(--accent); }
-  .muted { color: var(--muted); }
-  .products-list { font-size: 12px; color: var(--muted); }
-  .products-list div { margin-bottom: 2px; }
+  .client-name { font-weight: 600; color: var(--ink); font-size: 13.5px; }
+  .meta-line { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
+  .meta-line a { color: var(--royal); text-decoration: none; font-weight: 600; }
+  .meta-line a:hover { text-decoration: underline; }
 
-  .tratativa-cell select, .tratativa-cell textarea { width: 100%; font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
-  .tratativa-cell textarea { margin-top: 4px; min-height: 40px; resize: vertical; }
-  .save-hint { font-size: 11px; color: var(--muted); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok-text); }
+  .badge.risk { background: var(--risk-soft); color: var(--risk); }
+  .badge.stage { background: var(--royal-soft-2); color: var(--royal); }
+  .badge.squad { background: var(--paper-2); color: var(--ink-soft); border: 1px solid var(--line); }
+  .badge.squad.onboarding { background: rgba(0,27,184,0.08); color: var(--royal); }
+  .badge.squad.smb { background: rgba(183,121,31,0.10); color: var(--warn); }
+  .badge.squad.icp { background: var(--green-soft); color: var(--ok-text); }
+  .muted { color: var(--ink-mute); }
 
-  #admin-panel { margin-top: 32px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
-  #admin-panel h3 { margin-top: 0; }
-  #admin-panel form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .products-wrap { display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px; }
+  .chip { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: var(--paper-2); color: var(--ink-soft); border: 1px solid var(--line); white-space: nowrap; }
+  .chip.empty { background: transparent; color: var(--ink-mute); font-weight: 500; font-style: italic; border-style: dashed; }
 
-  #empty-state { padding: 40px; text-align: center; color: var(--muted); }
+  .bv-cell .bv-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin-bottom: 3px; }
+  .bv-cell .bv-row b { color: var(--ink); }
+  .bv-cell .mrr-line { font-size: 11.5px; color: var(--ink-mute); }
+
+  .tratativa-cell select, .tratativa-cell textarea { width: 100%; font-size: 12px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-family: inherit; }
+  .tratativa-cell textarea { margin-top: 6px; min-height: 44px; resize: vertical; }
+  .tratativa-cell select:focus, .tratativa-cell textarea:focus { outline: none; border-color: var(--royal); }
+
+  #admin-panel { margin-top: 8px; padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+  #admin-panel h3 { margin: 0 0 12px; font-size: 14px; color: var(--ink); }
+  #admin-panel form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+
+  #empty-state { padding: 48px; text-align: center; color: var(--ink-mute); background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); font-size: 13px; }
 </style>
 </head>
 <body>
 
 <div id="login-screen">
   <h2>Basic Value — Acompanhamento</h2>
-  <p class="muted" style="font-size:13px">Entre com seu e-mail @cobli.co. Você recebe um link mágico por e-mail (sem senha).</p>
+  <p class="muted" style="font-size:13px; margin: 0 0 16px;">Entre com seu e-mail @cobli.co. Você recebe um link mágico por e-mail (sem senha).</p>
   <input id="login-email" type="email" placeholder="seuemail@cobli.co" />
   <button class="btn" onclick="sendMagicLink()">Enviar link de acesso</button>
   <div id="login-msg"></div>
@@ -76,14 +173,23 @@
 
 <div id="app" style="display:none">
   <header>
-    <h1>Basic Value — Acompanhamento de Instalações</h1>
+    <div class="brand">
+      <svg viewBox="0 0 1100.05 1214.25" style="color: var(--royal)" fill="currentColor"><path d="M530.24,400.11c21.82-8.1,44.81-12.67,68.31-13.59,35.67-1.4,70.01,5.53,102.08,20.55,3.79,1.77,7.77,2.61,11.69,2.61,10.37,0,20.31-5.88,25.01-15.89,6.47-13.8,.52-30.23-13.28-36.7-39.57-18.54-83.71-27.43-127.65-25.73-29.35,1.14-58.07,6.86-85.38,16.99-14.29,5.3-21.57,21.19-16.27,35.47,5.3,14.29,21.19,21.57,35.48,16.27Z"></path><path d="M800.24,272.45c-13.19-7.63-30.08-3.12-37.7,10.08-7.63,13.19-3.12,30.07,10.08,37.7,41.55,24.02,78.1,57.48,105.7,96.76,5.37,7.65,13.92,11.73,22.6,11.73,5.48,0,11.02-1.63,15.84-5.02,12.47-8.76,15.48-25.98,6.71-38.45-32.18-45.79-74.79-84.8-123.23-112.81Z"></path><path d="M1099.95,908.94c-2.96-76.18-67.12-135.53-143.3-132.57-36.24,1.41-68.65,16.69-92.38,40.5-1.52,1.17-2.94,2.51-4.23,4.03-59.91,70.83-147.4,113.52-240.04,117.13-88.4,3.46-172.82-27.75-237.76-87.82-64.93-60.07-102.58-141.83-106.02-230.22-3.44-88.39,27.75-172.82,87.82-237.76,60.07-64.93,141.83-102.58,230.22-106.02,34.19-1.33,68.09,2.55,100.75,11.52,14.69,4.04,29.88-4.6,33.92-19.3,3.87-14.06-3.89-28.55-17.45-33.31-22.61-6.36-46.01-10.72-70.01-12.85-.11,0-.22-.02-.33-.03-3-.26-6.01-.49-9.04-.68-.26-.02-.52-.04-.78-.05-6.16-.38-12.35-.61-18.58-.7-.7,0-1.4-.01-2.1-.02-2.34-.02-4.69-.02-7.04,0-.83,0-1.66,.01-2.48,.03-2.85,.05-5.71,.12-8.57,.22-.14,0-.28,0-.43,.01-103.12,4.01-198.5,47.94-268.58,123.69-.19,.21-.38,.43-.57,.64-1.96,2.13-3.9,4.27-5.81,6.44-1.29,1.46-2.54,2.94-3.8,4.42-.78,.92-1.58,1.82-2.36,2.74-1.66,1.97-3.28,3.97-4.89,5.97-.35,.43-.71,.86-1.06,1.29-1.83,2.29-3.63,4.6-5.4,6.93-.11,.15-.23,.29-.34,.44-7.55,9.93-14.59,20.16-21.1,30.67h0c-40.13,64.78-60.13,139.99-57.11,217.83,.59,15.23-11.27,28.06-26.5,28.65-.37,.01-.73,.02-1.09,.02-14.75,0-26.98-11.66-27.56-26.52-4.07-104.59,28.25-205.02,91.56-286.81,.15-.19,.29-.38,.44-.57,2.69-3.46,5.43-6.89,8.23-10.29,.55-.67,1.1-1.35,1.65-2.02,.85-1.01,1.71-2.01,2.56-3.02,.9-1.06,1.78-2.12,2.69-3.17,.39-.45,.79-.88,1.18-1.33,1.16-1.33,2.33-2.64,3.5-3.96,1.3-1.46,2.6-2.91,3.92-4.34,.46-.5,.89-1,1.35-1.5,.58-.62,1.17-1.22,1.75-1.84,1.46-1.56,2.92-3.1,4.39-4.64,1.01-1.05,2.02-2.08,3.03-3.12,1.47-1.5,2.96-2.99,4.45-4.47,1.1-1.09,2.2-2.17,3.3-3.24,1.37-1.33,2.75-2.65,4.14-3.96,1.29-1.22,2.58-2.43,3.88-3.63,1.15-1.07,2.32-2.12,3.48-3.17,1.57-1.42,3.15-2.84,4.74-4.24,.82-.72,1.64-1.43,2.46-2.14,1.97-1.71,3.95-3.4,5.95-5.07,.33-.27,.66-.54,.99-.81,60.83-50.56,133.54-83.49,211.77-95.85,.23-.04,.45-.07,.68-.1,3.16-.49,6.33-.96,9.5-1.39,.68-.09,1.36-.17,2.03-.25,2.76-.36,5.53-.71,8.3-1.02,.07,0,.14-.02,.21-.03,15.15-1.68,26.07-15.32,24.39-30.46-1.65-14.95-14.97-25.75-29.88-24.43-1.42,.16-2.83,.31-4.25,.48-1.12,.13-2.23,.27-3.35,.41-72.82,9.16-142.86,34.29-204.67,73.72-28.94,18.47-55.84,39.87-80.28,63.77-.35,.35-.71,.7-1.06,1.04-5.01,4.92-9.9,9.95-14.7,15.08-.87,.93-1.74,1.87-2.61,2.81-1.3,1.41-2.59,2.82-3.87,4.24-1.84,2.05-3.67,4.11-5.47,6.18-3.31,3.8-6.55,7.66-9.75,11.55-.23,.28-.46,.55-.68,.83-1.33,1.63-2.64,3.27-3.95,4.92-.44,.56-.89,1.11-1.33,1.67-1.12,1.42-2.22,2.85-3.33,4.28-.64,.83-1.28,1.66-1.91,2.49-.92,1.2-1.82,2.41-2.73,3.63-.83,1.11-1.65,2.22-2.47,3.34-.71,.97-1.43,1.95-2.13,2.93-1,1.39-2,2.79-2.99,4.19-.53,.75-1.06,1.5-1.58,2.25-1.15,1.65-2.29,3.31-3.42,4.97-.37,.55-.75,1.1-1.12,1.65-1.25,1.85-2.48,3.71-3.7,5.57-7.87,12.01-15.24,24.37-22.05,37.06-7.21,13.43-23.94,18.46-37.37,11.26-13.43-7.21-18.47-23.94-11.25-37.37,44.7-83.23,110.43-154.09,190.07-204.9,37-23.6,76.64-42.58,117.98-56.68,.53-.18,1.07-.36,1.6-.54,1.82-.61,3.64-1.22,5.47-1.82,1.44-.47,2.89-.93,4.34-1.39,1.05-.33,2.11-.67,3.16-1,2.54-.79,5.08-1.56,7.64-2.31,.05-.02,.1-.03,.15-.05,31.55-9.31,64.31-15.88,98.01-19.43,.06,0,.13-.01,.2-.02,2.82-.3,5.66-.57,8.49-.82,.24-.02,.49-.05,.73-.07,2.68-.23,5.36-.45,8.05-.65,.36-.03,.73-.06,1.09-.08,2.71-.19,5.43-.37,8.15-.52,.3-.02,.6-.04,.89-.06,3.02-.17,6.04-.31,9.07-.43,4.48-.17,8.97-.29,13.46-.35,1.92-.03,3.83-.02,5.74-.02,2.55-.01,5.1-.03,7.66,0,2.19,.02,4.37,.08,6.55,.12,2.32,.05,4.64,.09,6.96,.17,2.12,.07,4.22,.17,6.33,.26,2.47,.11,4.93,.23,7.39,.37,1.85,.11,3.7,.23,5.55,.36,2.84,.19,5.69,.41,8.52,.64,1.42,.12,2.83,.24,4.25,.37,3.44,.31,6.87,.66,10.3,1.04,.81,.09,1.61,.18,2.42,.27,4.24,.49,8.47,1.02,12.69,1.6,.02,0,.04,0,.05,0,1.49,.21,2.99,.39,4.47,.6,15.08,2.21,29.1-8.22,31.31-23.29,2.21-15.08-8.21-29.1-23.29-31.31-36.98-5.43-74.83-7.45-112.49-5.98C421.49,6.77,271.6,75.8,161.47,194.84,51.34,313.88-5.83,468.68,.47,630.72c6.3,162.04,75.33,311.94,194.37,422.06,113.11,104.64,258.48,161.47,411.71,161.47,8.03,0,16.11-.16,24.18-.47,86.03-3.35,168.48-24.23,245.08-62.06,69.93-34.55,131.67-81.53,183.72-139.74,26.29-26.26,41.98-62.98,40.42-103.04Z"></path><path d="M449.27,413.4c-10.88-10.68-28.35-10.52-39.03,.36-53.06,54.05-81.81,128.44-78.87,204.09,5.77,148.42,128.35,265.25,275.62,265.24,3.6,0,7.23-.07,10.86-.21,43.56-1.7,84.87-13.19,122.77-34.17,13.33-7.38,18.16-24.17,10.78-37.51-7.38-13.33-24.18-18.16-37.51-10.78-30.28,16.76-63.32,25.95-98.19,27.3-58.91,2.29-115.22-18.5-158.5-58.54-43.29-40.05-68.39-94.55-70.68-153.48-2.39-61.42,20.02-119.4,63.1-163.28,10.68-10.88,10.52-28.35-.36-39.03Z"></path><path d="M978.61,356.07c3.03,4.08,6.59,7.84,9.75,11.81,5.45,6.84,13.48,10.4,21.6,10.4,6.03,0,12.1-1.97,17.18-6.02,11.92-9.5,13.88-26.86,4.38-38.78-3.56-4.47-7.43-8.79-10.97-13.28-92.07-116.85-237.77-195.61-366.63-207.65-15.17-1.42-28.63,9.74-30.04,24.91-1.42,15.18,9.73,28.63,24.91,30.04,114.5,10.7,253.61,85.88,329.82,188.57Z"></path><path d="M776.54,77.3c67.12,22.26,158.55,72.18,228.77,142.86,4.68,4.71,11.14,6.61,17.29,6.8,7.97,.24,15.99-2.95,21.64-9.43,10.03-11.48,7.89-27.91-2.63-38.94-60.91-63.83-174.22-127.7-246.69-153.32-14.37-5.08-30.14,2.45-35.22,16.82-5.08,14.37,2.35,30.42,16.82,35.22Z"></path></svg>
+      <div class="brand-text">
+        <h1>Basic Value — Acompanhamento de Instalações</h1>
+        <p>Cobli · Onboarding · SMB · ICP</p>
+      </div>
+    </div>
     <div class="who">
-      <span id="who-name"></span> · <span id="who-role"></span>
-      <button class="btn" style="background:transparent;color:var(--muted);border:1px solid var(--border)" onclick="logout()">Sair</button>
+      <span class="who-name" id="who-name"></span>
+      <span class="role-badge" id="who-role"></span>
+      <button class="btn ghost" onclick="logout()">Sair</button>
     </div>
   </header>
 
   <main>
+    <div class="kpi-row" id="kpi-row"></div>
+
     <div class="toolbar">
       <div class="tabs">
         <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
@@ -91,8 +197,18 @@
         <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
       </div>
       <div class="spacer"></div>
-      <span class="save-hint" id="last-sync"></span>
-      <button class="btn" onclick="loadDashboard()">↻ Atualizar</button>
+      <select id="squad-filter" style="display:none" onchange="onSquadFilterChange()">
+        <option value="todas">Todas as squads</option>
+        <option value="onboarding">Onboarding</option>
+        <option value="smb">SMB</option>
+        <option value="icp">ICP</option>
+        <option value="sem_squad">Sem squad definido</option>
+      </select>
+      <span class="sync-badge" id="last-sync">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+        <span id="last-sync-text">carregando...</span>
+      </span>
+      <button class="btn ghost" onclick="loadDashboard()">↻ Atualizar</button>
     </div>
 
     <div id="panel-principal">
@@ -146,10 +262,24 @@
 const SUPABASE_URL = "https://tmjmjrhgmyqamuphgdvi.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtam1qcmhnbXlxYW11cGhnZHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjY4NzMsImV4cCI6MjA5MjcwMjg3M30.gjClWn46TOgfa-y4PAUMBg4ZxS4xhFjep1mk_DcU2QY";
 
+// ID do portal HubSpot da Cobli, usado para montar o link "abrir no HubSpot"
+// direto a partir do ticket_id (formato: /contacts/<portal>/record/0-5/<ticket_id>/
+// -- "0-5" é o tipo de objeto "Ticket" no HubSpot, fixo).
+const HUBSPOT_PORTAL_ID = "5282301";
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
 let currentMember = null; // linha de team_members do usuário logado
+let appInitialized = false; // evita re-renderizar tudo (e resetar a aba ativa) quando o Supabase só faz refresh de token
+
+// state do dashboard principal
+const state = {
+  allRows: [],       // tudo que veio de v_dashboard para este usuário (já filtrado pelo RLS)
+  squadFilter: "todas",
+  riskFilterActive: false,
+  productsByTicket: {},
+};
 
 // ---------------------------------------------------------------------------
 // AUTH
@@ -170,11 +300,22 @@ async function logout() {
   location.reload();
 }
 
+// IMPORTANTE (corrigido 2026-08-09): o Supabase dispara onAuthStateChange não
+// só no login, mas também em eventos como TOKEN_REFRESHED (renovação
+// silenciosa do token, que acontece sozinha, inclusive quando você troca de
+// aba do navegador e volta). Antes, isso rodava onLoggedIn() de novo inteiro
+// a cada disparo -- recarregando a tela, resetando a aba ativa e perdendo
+// filtros. Agora só inicializa a tela uma vez; disparos seguintes só
+// atualizam o usuário em memória, sem re-renderizar nada.
 sb.auth.onAuthStateChange(async (_event, session) => {
   if (session && session.user) {
     currentUser = session.user;
-    await onLoggedIn();
+    if (!appInitialized) {
+      appInitialized = true;
+      await onLoggedIn();
+    }
   } else {
+    appInitialized = false;
     document.getElementById("login-screen").style.display = "block";
     document.getElementById("app").style.display = "none";
   }
@@ -193,6 +334,9 @@ async function onLoggedIn() {
   if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) {
     document.getElementById("tab-admin").style.display = "block";
   }
+  if (member && member.role === "gestor_geral") {
+    document.getElementById("squad-filter").style.display = "inline-block";
+  }
 
   if (!member) {
     document.getElementById("table-principal-wrap").innerHTML =
@@ -205,6 +349,12 @@ async function onLoggedIn() {
 
 function labelRole(role) {
   return { colaborador: "Colaborador", gestor_squad: "Gestor de squad", gestor_geral: "Gestor geral" }[role] || role;
+}
+function labelSquad(squad) {
+  return { onboarding: "Onboarding", smb: "SMB", icp: "ICP" }[squad] || "Sem squad";
+}
+function squadClass(squad) {
+  return ["onboarding", "smb", "icp"].includes(squad) ? squad : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +370,17 @@ function switchTab(tab) {
 }
 
 // ---------------------------------------------------------------------------
-// DASHBOARD PRINCIPAL (respeita RLS automaticamente — vem filtrado do Supabase)
+// ICONS (inline, sem dependência externa)
+// ---------------------------------------------------------------------------
+const ICONS = {
+  ticket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 1 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 1 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M13 5v2M13 17v2M13 11v2"></path></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>',
+};
+
+// ---------------------------------------------------------------------------
+// DASHBOARD PRINCIPAL
 // ---------------------------------------------------------------------------
 async function loadDashboard() {
   const wrap = document.getElementById("table-principal-wrap");
@@ -232,47 +392,150 @@ async function loadDashboard() {
     .order("createdate", { ascending: true });
 
   if (error) {
-    wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + error.message + "</div>";
+    wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
     return;
   }
+
+  state.allRows = data || [];
+  state.productsByTicket = await loadProductsFor(state.allRows.map(d => d.ticket_id));
+
+  renderAll();
+}
+
+function applyFilters() {
+  let rows = state.allRows;
+  if (state.squadFilter !== "todas") {
+    rows = rows.filter(r => {
+      const sq = r.owner_squad || "sem_squad";
+      return sq === state.squadFilter;
+    });
+  }
+  const squadFiltered = rows;
+  if (state.riskFilterActive) {
+    rows = rows.filter(r => r.mrr_status === "em_risco");
+  }
+  return { squadFiltered, displayRows: rows };
+}
+
+function renderAll() {
+  const { squadFiltered, displayRows } = applyFilters();
+  renderLastSync();
+  renderKpis(squadFiltered);
+  renderTable(displayRows);
+}
+
+function renderLastSync() {
+  const el = document.getElementById("last-sync-text");
+  const times = state.allRows.map(r => r.synced_at).filter(Boolean).sort();
+  if (!times.length) { el.textContent = "sem dados ainda"; return; }
+  const last = new Date(times[times.length - 1]);
+  el.textContent = "Sincronizado em " + last.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderKpis(rows) {
+  const total = rows.length;
+  const emRisco = rows.filter(r => r.mrr_status === "em_risco").length;
+  const agendados = rows.filter(r => r.field_status).length;
+  const diasValidos = rows.map(r => r.dias_aberto).filter(v => v != null);
+  const mediaDias = diasValidos.length ? Math.round(diasValidos.reduce((a, b) => a + b, 0) / diasValidos.length) : 0;
+
+  const kpiRow = document.getElementById("kpi-row");
+  kpiRow.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-label">Tickets em aberto</div>
+        <div class="kpi-icon royal">${ICONS.ticket}</div>
+      </div>
+      <div class="kpi-number">${total}</div>
+      <div class="kpi-hint">em "Agendar Instalação" no seu escopo</div>
+    </div>
+
+    <div class="kpi-card clickable ${state.riskFilterActive ? "active" : ""}" onclick="toggleRiskFilter()">
+      <div class="kpi-top">
+        <div class="kpi-label">Empresas com MRR em risco</div>
+        <div class="kpi-icon risk">${ICONS.alert}</div>
+      </div>
+      <div class="kpi-number risk">${emRisco}</div>
+      <div class="kpi-hint">${state.riskFilterActive ? "clique para ver todos" : "clique para ver a lista"}</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-label">Já agendados na Field</div>
+        <div class="kpi-icon green">${ICONS.calendar}</div>
+      </div>
+      <div class="kpi-number">${agendados}<span style="font-size:16px;color:var(--ink-mute);font-weight:600"> / ${total}</span></div>
+      <div class="kpi-hint">${total ? Math.round((agendados / total) * 100) : 0}% do escopo atual</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-label">Tempo médio em aberto</div>
+        <div class="kpi-icon warn">${ICONS.clock}</div>
+      </div>
+      <div class="kpi-number">${mediaDias}<span style="font-size:16px;color:var(--ink-mute);font-weight:600"> dias</span></div>
+      <div class="kpi-hint">desde a criação do ticket</div>
+    </div>
+  `;
+}
+
+function toggleRiskFilter() {
+  state.riskFilterActive = !state.riskFilterActive;
+  renderAll();
+}
+
+function onSquadFilterChange() {
+  state.squadFilter = document.getElementById("squad-filter").value;
+  renderAll();
+}
+
+function hubspotTicketUrl(ticketId) {
+  return `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/0-5/${ticketId}/`;
+}
+
+function renderTable(data) {
+  const wrap = document.getElementById("table-principal-wrap");
+
   if (!data || data.length === 0) {
-    wrap.innerHTML = '<div id="empty-state">Nenhum ticket em aberto no seu escopo agora. 🎉</div>';
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
     return;
   }
-
-  document.getElementById("last-sync").textContent =
-    "Atualizado agora · " + data.length + " ticket(s)";
-
-  const productsByTicket = await loadProductsFor(data.map(d => d.ticket_id));
 
   let html = "<table><thead><tr>" +
-    "<th>Cliente / Ticket</th><th>Aberto há</th><th>Classe</th><th>Produtos</th>" +
+    "<th>Cliente / Ticket</th><th>Squad</th><th>Aberto há</th><th>Classe</th><th>Produtos</th>" +
     "<th>Basic Value</th><th>Status Field</th><th>Prestador</th>" +
-    "<th>Tratativa</th><th></th>" +
+    "<th>Tratativa</th>" +
     "</tr></thead><tbody>";
 
   for (const row of data) {
     const dias = row.dias_aberto != null ? Math.floor(row.dias_aberto) : "-";
     const riskBadge = row.mrr_status === "em_risco"
       ? '<span class="badge risk">em risco</span>' : '<span class="badge ok">ok</span>';
-    const products = (productsByTicket[row.ticket_id] || [])
-      .map(p => `<div>${p.quantity}x ${p.product_label}</div>`).join("") || '<span class="muted">-</span>';
+    const squadBadge = `<span class="badge squad ${squadClass(row.owner_squad)}">${labelSquad(row.owner_squad)}</span>`;
+
+    const products = state.productsByTicket[row.ticket_id] || [];
+    const productsHtml = products.length
+      ? '<div class="products-wrap">' + products.map(p => `<span class="chip">${p.quantity}x ${escapeHtml(p.product_label)}</span>`).join("") + '</div>'
+      : '<div class="products-wrap"><span class="chip empty">não informado</span></div>';
 
     html += `<tr>
-      <td><strong>${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</strong><br/>
-          <span class="muted">Ticket ${row.ticket_id} · ${escapeHtml(row.owner_name || "-")}</span>
-          ${row.hubspot_url ? ` · <a href="${row.hubspot_url}" target="_blank" style="color:var(--accent)">abrir no HubSpot</a>` : ""}
+      <td>
+        <div class="client-name">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
+        <div class="meta-line">Ticket ${row.ticket_id} · ${escapeHtml(row.owner_name || "-")}
+          · <a href="${hubspotTicketUrl(row.ticket_id)}" target="_blank" rel="noopener">abrir no HubSpot</a>
+        </div>
       </td>
+      <td>${squadBadge}</td>
       <td>${dias} dia(s)</td>
       <td>${escapeHtml(row.classe_instalacao || "-")}</td>
-      <td class="products-list">${products}</td>
-      <td>
-        Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}<br/>
-        Instalação: <strong>${fmtNum(row.instalation_completeness_grade)}</strong><br/>
-        <span class="muted">MRR: ${fmtCurrency(row.mrr)}</span>
+      <td>${productsHtml}</td>
+      <td class="bv-cell">
+        <div class="bv-row">Geral: <b>${fmtNum(row.basic_value_score)}</b> ${riskBadge}</div>
+        <div class="bv-row">Instalação: <b>${fmtNum(row.instalation_completeness_grade)}</b></div>
+        <div class="mrr-line">MRR: ${fmtCurrency(row.mrr)}</div>
       </td>
       <td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
-          ${row.data_agendada ? `<br/><span class="muted">${row.data_agendada}</span>` : ""}
+          ${row.data_agendada ? `<div class="meta-line">${row.data_agendada}</div>` : ""}
       </td>
       <td>${escapeHtml(row.prestador || "-")}</td>
       <td class="tratativa-cell">
@@ -283,7 +546,6 @@ async function loadDashboard() {
         </select>
         <textarea placeholder="observação..." onblur="saveTratativa('${row.ticket_id}', null, this.value)">${escapeHtml(row.observacao || "")}</textarea>
       </td>
-      <td></td>
     </tr>`;
   }
   html += "</tbody></table>";
@@ -332,7 +594,7 @@ async function loadMultiplos() {
 
   const { data, error } = await sb.from("v_atendimentos_multiplos").select("*").order("ticket_id");
   if (error) {
-    wrap.innerHTML = '<div id="empty-state">Erro: ' + error.message + "</div>";
+    wrap.innerHTML = '<div id="empty-state">Erro: ' + escapeHtml(error.message) + "</div>";
     return;
   }
   if (!data || data.length === 0) {
@@ -343,7 +605,7 @@ async function loadMultiplos() {
   let html = "<table><thead><tr><th>Cliente / Ticket</th><th>Ordem de serviço</th><th>Status</th><th>Prestador</th><th>Consultor</th><th>Data agendada</th></tr></thead><tbody>";
   for (const row of data) {
     html += `<tr>
-      <td>${escapeHtml(row.display_name || row.ticket_id)}<br/><span class="muted">${escapeHtml(row.owner_name || "-")}</span></td>
+      <td><div class="client-name">${escapeHtml(row.display_name || row.ticket_id)}</div><div class="meta-line">${escapeHtml(row.owner_name || "-")}</div></td>
       <td>${escapeHtml(row.ordem_servico_raw)}</td>
       <td><span class="badge stage">${escapeHtml(row.status || "-")}</span></td>
       <td>${escapeHtml(row.prestador || "-")}</td>
@@ -392,11 +654,11 @@ async function grantAccess(e) {
 async function loadTeamTable() {
   const wrap = document.getElementById("team-table-wrap");
   const { data, error } = await sb.from("team_members").select("*").order("squad").order("name");
-  if (error) { wrap.innerHTML = "Erro: " + error.message; return; }
+  if (error) { wrap.innerHTML = "Erro: " + escapeHtml(error.message); return; }
 
   let html = "<table><thead><tr><th>Nome</th><th>E-mail</th><th>Squad</th><th>Papel</th><th>Ativo</th></tr></thead><tbody>";
   for (const m of data) {
-    html += `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.email)}</td><td>${m.squad}</td><td>${labelRole(m.role)}</td><td>${m.active ? "sim" : "não"}</td></tr>`;
+    html += `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.email)}</td><td><span class="badge squad ${squadClass(m.squad)}">${labelSquad(m.squad)}</span></td><td>${labelRole(m.role)}</td><td>${m.active ? "sim" : "não"}</td></tr>`;
   }
   html += "</tbody></table>";
   wrap.innerHTML = html;
