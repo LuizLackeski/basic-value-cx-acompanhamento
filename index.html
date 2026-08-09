@@ -28,6 +28,22 @@
     --warn-soft:   rgba(183,121,31,0.12);
     --ok-text:     #0E7D5F;
     --ok-soft:     rgba(15,253,201,0.22);
+    /* Rampa ordinal de 1 hue só (verde), validada com o script do skill de
+       dataviz (node validate_palette.js ... --ordinal -- todos os checks
+       passam: monotonicidade de luminância, contraste do degrau mais claro
+       e hue único). Usada SÓ no gráfico de evolução (aba "Evolução B.V.") --
+       ali vários graus aparecem lado a lado na mesma visualização, onde a
+       distinguibilidade entre cores adjacentes importa de verdade. Os badges
+       existentes (.grade-pill, aprovados na Rodada 2) continuam com suas
+       cores de status (risco/aviso/ok) -- lá cada grau aparece isolado, não
+       em comparação direta lado a lado, então o rigor de paleta categórica
+       não se aplica do mesmo jeito. */
+    --bv-ramp-0: #39c692;
+    --bv-ramp-1: #30a67b;
+    --bv-ramp-2: #278663;
+    --bv-ramp-3: #1e674c;
+    --bv-ramp-4: #154735;
+    --bv-ramp-x: #ABB0C4;
     --radius-card: 14px;
     --radius-pill: 999px;
     --shadow-card: 0 1px 2px rgba(7,7,78,0.05), 0 8px 24px rgba(7,7,78,0.07);
@@ -65,12 +81,13 @@
   /* Indicadores + toolbar: altura natural, não rolam -- só o painel abaixo rola. */
   .sticky-zone { flex-shrink: 0; }
 
-  /* Os 3 painéis (Tickets / Atendimentos múltiplos / Administração) ocupam
-     o espaço restante e rolam por dentro -- a página/tela em si não rola. */
-  #panel-principal, #panel-multiplos, #panel-admin {
+  /* Os painéis (Tickets / Atendimentos múltiplos / Evolução B.V. /
+     Administração) ocupam o espaço restante e rolam por dentro -- a
+     página/tela em si não rola. */
+  #panel-principal, #panel-multiplos, #panel-evolucao, #panel-admin {
     flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; overflow-x: auto;
   }
-  #panel-principal, #panel-multiplos {
+  #panel-principal, #panel-multiplos, #panel-evolucao {
     border: 1px solid var(--line); border-radius: 0 12px 12px 12px; background: #fff;
   }
 
@@ -216,6 +233,39 @@
   .form-actions { display: flex; justify-content: flex-end; }
 
   #empty-state { padding: 48px; text-align: center; color: var(--ink-mute); background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); font-size: 13px; }
+
+  /* Rodada 3: busca unificada de cliente/empresa (aba Tickets) */
+  #search-cliente { min-width: 240px; }
+
+  /* Rodada 3: ordenação clicável nas colunas */
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--ink); }
+  th.sortable .sort-arrow { margin-left: 4px; opacity: 0.55; font-size: 10px; }
+  th.sortable.sort-active .sort-arrow { opacity: 1; color: var(--royal); }
+
+  /* Rodada 3: badge de sincronização "desatualizada" (> 2 dias) */
+  .sync-badge.stale { background: var(--warn-soft); color: var(--warn); border-color: rgba(183,121,31,0.3); }
+
+  /* Rodada 3: campos travados no formulário de convite (gestor de squad) */
+  .locked-value { padding: 9px 10px; font-size: 13px; color: var(--ink-soft); background: var(--paper-2); border-radius: 8px; border: 1px solid var(--line); }
+
+  /* Rodada 3: aba "Evolução B.V." */
+  .evo-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); padding: 20px 24px; margin: 0 0 16px; }
+  .evo-card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
+  .evo-card .form-desc { font-size: 12.5px; color: var(--ink-mute); margin: 0 0 18px; }
+  .evo-chart-wrap { position: relative; }
+  .evo-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 12px; color: var(--ink-soft); }
+  .evo-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .evo-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .evo-tooltip {
+    position: absolute; background: var(--ink); color: #fff; font-size: 11.5px; padding: 6px 10px;
+    border-radius: 6px; pointer-events: none; white-space: nowrap; box-shadow: var(--shadow-card);
+    z-index: 30; opacity: 0; transition: opacity .1s; transform: translate(-50%, -100%);
+  }
+  .evo-tooltip.show { opacity: 1; }
+  .evo-table-toggle { font-size: 12px; color: var(--royal); cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
+  .evo-table-wrap { margin-top: 12px; }
+  .evo-empty { padding: 24px; text-align: center; color: var(--ink-mute); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -252,9 +302,11 @@
       <div class="tabs">
         <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
         <div class="tab" data-tab="multiplos" onclick="switchTab('multiplos')">Atendimentos múltiplos</div>
+        <div class="tab" data-tab="evolucao" onclick="switchTab('evolucao')">Evolução B.V.</div>
         <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
       </div>
       <div class="spacer"></div>
+      <input type="text" id="search-cliente" placeholder="Buscar cliente, empresa, ticket..." oninput="onSearchChange()" />
       <select id="gestor-filter" style="display:none" onchange="onGestorFilterChange()">
         <option value="todos">Todos os gestores</option>
       </select>
@@ -283,6 +335,10 @@
       <div id="table-multiplos-wrap"></div>
     </div>
 
+    <div id="panel-evolucao" style="display:none">
+      <div id="evolucao-wrap"></div>
+    </div>
+
     <div id="panel-admin" style="display:none">
       <div class="admin-panel-card">
         <h3>Convidar pessoa</h3>
@@ -295,14 +351,17 @@
             <label>Nome
               <input type="text" id="inv-name" placeholder="Nome completo" required />
             </label>
-            <label>Squad
+            <label id="inv-squad-label">Squad
               <select id="inv-squad">
                 <option value="onboarding">Onboarding</option>
                 <option value="smb">SMB</option>
                 <option value="icp">ICP</option>
               </select>
             </label>
-            <label>Papel
+            <label id="inv-squad-locked-label" style="display:none">Squad
+              <div class="locked-value" id="inv-squad-locked-text"></div>
+            </label>
+            <label id="inv-role-label">Papel
               <select id="inv-role">
                 <option value="colaborador">Colaborador</option>
                 <option value="gestor_squad">Gestor de squad</option>
@@ -369,6 +428,9 @@ const state = {
   responsavelFilter: "todos",  // Rodada 2: filtro de "Responsável"/"Usuário" (gestor_squad e gestor_geral)
   riskFilterActive: false,
   productsByTicket: {},
+  searchQuery: "",             // Rodada 3: busca unificada de cliente/empresa (aba Tickets)
+  sortKey: null,               // Rodada 3: "dias_aberto" | "basic_value" | null (ordem original de createdate)
+  sortDir: 1,                  // 1 = crescente, -1 = decrescente
 };
 
 // ---------------------------------------------------------------------------
@@ -443,6 +505,10 @@ async function onLoggedIn() {
     document.getElementById("gestor-filter").style.display = "inline-block";
     await populateGestorOptions();
   }
+  // Rodada 3: gestor de squad só pode convidar "colaborador" pra própria
+  // squad (não pode criar outro gestor, nem cadastrar gente em outra
+  // squad) -- gestor_geral continua sem restrição no formulário.
+  applyInviteFormRestrictions(member);
 
   if (!member) {
     document.getElementById("table-principal-wrap").innerHTML =
@@ -473,8 +539,10 @@ function switchTab(tab) {
   // "block" aqui sobrescreveria isso pelo estilo inline.
   document.getElementById("panel-principal").style.display = tab === "principal" ? "flex" : "none";
   document.getElementById("panel-multiplos").style.display = tab === "multiplos" ? "flex" : "none";
+  document.getElementById("panel-evolucao").style.display = tab === "evolucao" ? "flex" : "none";
   document.getElementById("panel-admin").style.display = tab === "admin" ? "flex" : "none";
   if (tab === "multiplos") loadMultiplos();
+  if (tab === "evolucao") loadEvolucao();
   if (tab === "admin") loadTeamTable();
 }
 
@@ -575,7 +643,66 @@ function applyFilters() {
   if (state.riskFilterActive) {
     rows = rows.filter(r => r.mrr_status === "em_risco");
   }
+  // Rodada 3: busca unificada -- nome do cliente/empresa, ticket_id,
+  // company_id e grupo econômico (deal_id ainda não está disponível na
+  // nossa sincronização -- ver nota no doc do projeto). Aplicada depois do
+  // filtro de risco, igual às outras: só restringe o que já está na tela.
+  const q = state.searchQuery.trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(r => {
+      const haystack = [
+        r.display_name, r.subject_raw, r.company_name, r.ticket_id,
+        r.company_id, r.id_grupo_economico,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+  // Rodada 3: ordenação clicável. "basic_value" ordena pelo grau de
+  // instalação (instalation_completeness_grade) -- é o que importa mais pra
+  // squad, não pelo Basic Value geral (a pedido do Luiz) -- com o score
+  // geral como critério de desempate.
+  if (state.sortKey) {
+    const dir = state.sortDir;
+    rows = rows.slice().sort((a, b) => {
+      let av, bv;
+      if (state.sortKey === "dias_aberto") { av = a.dias_aberto; bv = b.dias_aberto; }
+      else { av = a.instalation_completeness_grade; bv = b.instalation_completeness_grade; }
+      const aNull = av == null, bNull = bv == null;
+      if (aNull && bNull) {
+        if (state.sortKey !== "basic_value") return 0;
+        return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0));
+      }
+      if (aNull) return 1;  // sem dado sempre por último, em qualquer direção
+      if (bNull) return -1;
+      if (av !== bv) return dir * (av - bv);
+      if (state.sortKey === "basic_value") return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0));
+      return 0;
+    });
+  }
   return { squadFiltered, displayRows: rows };
+}
+
+function onSearchChange() {
+  state.searchQuery = document.getElementById("search-cliente").value;
+  renderAll();
+}
+
+function onSortClick(key) {
+  if (state.sortKey === key) {
+    state.sortDir = -state.sortDir;
+  } else {
+    state.sortKey = key;
+    state.sortDir = 1;
+  }
+  renderAll();
+}
+
+function sortArrowClass(key) {
+  return state.sortKey === key ? "sort-active" : "";
+}
+function sortArrowHtml(key) {
+  if (state.sortKey !== key) return '<span class="sort-arrow">↕</span>';
+  return `<span class="sort-arrow">${state.sortDir === 1 ? "↑" : "↓"}</span>`;
 }
 
 function renderAll() {
@@ -586,12 +713,23 @@ function renderAll() {
   renderTable(displayRows);
 }
 
+// Rodada 3 (item 9): acima desse número de dias, o badge de sincronização
+// muda pra cor de aviso -- lembrete visual de que o dado pode estar
+// desatualizado, já que a sincronização é manual (não em tempo real).
+const SYNC_STALE_DAYS = 2;
+
 function renderLastSync() {
   const el = document.getElementById("last-sync-text");
+  const badge = document.getElementById("last-sync");
   const times = state.allRows.map(r => r.synced_at).filter(Boolean).sort();
   if (!times.length) { el.textContent = "sem dados ainda"; return; }
   const last = new Date(times[times.length - 1]);
   el.textContent = "Sincronizado em " + last.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const ageDays = (Date.now() - last.getTime()) / 86400000;
+  badge.classList.toggle("stale", ageDays > SYNC_STALE_DAYS);
+  badge.title = ageDays > SYNC_STALE_DAYS
+    ? `Última sincronização há ${Math.floor(ageDays)} dia(s) -- dado pode estar desatualizado (sincronização é manual)`
+    : "";
 }
 
 // Um mesmo company_id pode aparecer em vários tickets (várias instalações
@@ -695,6 +833,181 @@ function renderGradeDistribution(rows) {
     }).join("");
 }
 
+// ---------------------------------------------------------------------------
+// ABA: EVOLUÇÃO B.V. (Rodada 3, item 5)
+// ---------------------------------------------------------------------------
+// Por hora sempre "geral" (não segmentado por squad/usuário) -- o Luiz pediu
+// pra deixar assim por enquanto e ajustar depois, quando tivermos um jeito
+// confiável de identificar a squad "da época" de cada ticket. O histórico é
+// construído a partir de HOJE em diante (1 snapshot agregado por dia,
+// gravado por quem tem visão total -- gestor_geral), não puxa o event_week
+// histórico do Databricks -- ver decisão registrada no doc do projeto.
+//
+// Paleta: rampa ordinal de 1 hue (verde), validada com o script do skill de
+// dataviz (todos os checks passam -- ver comentário no CSS, seção :root).
+const EVO_RAMP = { "4": "#154735", "3": "#1e674c", "2": "#278663", "1": "#30a67b", "0": "#39c692", sem_dado: "#ABB0C4" };
+const EVO_LABELS = { "4": "Grau 4 · completo", "3": "Grau 3", "2": "Grau 2", "1": "Grau 1", "0": "Grau 0 · não iniciado", sem_dado: "Sem dado" };
+const EVO_ORDER = ["4", "3", "2", "1", "0", "sem_dado"];
+
+function todayDateStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// Só gestor_geral grava o snapshot -- é o único papel cujo state.allRows
+// representa de verdade "todas as empresas" (bypass de RLS); se um
+// colaborador/gestor_squad gravasse, o snapshot ficaria incompleto (só o
+// próprio recorte) e corromperia o histórico geral.
+async function maybeCaptureSnapshotIfGestorGeral() {
+  if (!currentMember || currentMember.role !== "gestor_geral") return;
+  const today = todayDateStr();
+  const { data: existing } = await sb.from("bv_grade_snapshots").select("grade").eq("snapshot_date", today).limit(1);
+  if (existing && existing.length) return; // já capturado hoje
+
+  const companies = distinctCompanies(state.allRows);
+  const total = companies.length;
+  if (!total) return;
+  const buckets = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, sem_dado: 0 };
+  companies.forEach(c => {
+    const g = c.instalation_completeness_grade;
+    const key = String(g);
+    if (g == null || !(key in buckets)) buckets.sem_dado++;
+    else buckets[key]++;
+  });
+
+  const rows = Object.keys(buckets).map(grade => ({
+    snapshot_date: today, grade, company_count: buckets[grade], total_companies: total,
+  }));
+  const { error } = await sb.from("bv_grade_snapshots").insert(rows);
+  if (error) console.error("Erro ao gravar snapshot de evolução:", error.message);
+}
+
+async function loadEvolucao() {
+  const wrap = document.getElementById("evolucao-wrap");
+  wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
+
+  await maybeCaptureSnapshotIfGestorGeral();
+
+  const { data, error } = await sb.from("bv_grade_snapshots").select("*").order("snapshot_date", { ascending: true });
+  if (error) {
+    wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
+    return;
+  }
+  renderEvolucaoChart(data || []);
+}
+
+function renderEvolucaoChart(rows) {
+  const wrap = document.getElementById("evolucao-wrap");
+
+  if (!rows.length) {
+    wrap.innerHTML = `
+      <div class="evo-card">
+        <h3>Evolução do Basic Value de instalação</h3>
+        <p class="form-desc">Ainda não há histórico registrado. O primeiro snapshot é gravado automaticamente quando um gestor geral abre esta aba -- a partir daí, um ponto novo se acumula por dia.</p>
+        <div class="evo-empty">Sem dados ainda.</div>
+      </div>`;
+    return;
+  }
+
+  const byDate = new Map();
+  rows.forEach(r => {
+    if (!byDate.has(r.snapshot_date)) byDate.set(r.snapshot_date, {});
+    byDate.get(r.snapshot_date)[r.grade] = r;
+  });
+  const dates = Array.from(byDate.keys()).sort();
+
+  // Layout do SVG: um grupo de barras empilhadas (100%) por data.
+  const W = 900, H = 260, padL = 20, padR = 12, padT = 10, padB = 28;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const groupW = chartW / dates.length;
+  const barW = Math.min(48, groupW * 0.55);
+
+  let bars = "";
+  dates.forEach((date, i) => {
+    const dayData = byDate.get(date);
+    const total = EVO_ORDER.reduce((sum, g) => sum + (dayData[g] ? dayData[g].company_count : 0), 0) || 1;
+    let yCursor = padT + chartH;
+    const cx = padL + groupW * i + groupW / 2;
+    EVO_ORDER.forEach(g => {
+      const count = dayData[g] ? dayData[g].company_count : 0;
+      if (!count) return;
+      const segH = (count / total) * chartH;
+      const y = yCursor - segH;
+      bars += `<rect x="${(cx - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${segH.toFixed(1)}" fill="${EVO_RAMP[g]}"
+        data-date="${date}" data-grade="${g}" data-count="${count}" data-total="${total}" class="evo-bar-seg"></rect>`;
+      yCursor = y;
+    });
+    const label = new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    bars += `<text x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#8288A3">${label}</text>`;
+  });
+
+  const legend = EVO_ORDER.map(g => `<span class="evo-legend-item"><span class="evo-legend-dot" style="background:${EVO_RAMP[g]}"></span>${EVO_LABELS[g]}</span>`).join("");
+
+  const noteHistorico = dates.length < 3
+    ? `<p class="form-desc" style="margin-top:14px">Histórico começou a ser registrado em ${new Date(dates[0] + "T00:00:00").toLocaleDateString("pt-BR")} -- conforme os dias passam, este gráfico passa a mostrar a evolução real.</p>`
+    : "";
+
+  wrap.innerHTML = `
+    <div class="evo-card">
+      <h3>Evolução do Basic Value de instalação</h3>
+      <p class="form-desc">% de empresas em cada grau de instalação, por dia de sincronização. Visão geral (todas as squads juntas) por enquanto -- segmentação por squad/usuário entra numa próxima rodada.</p>
+      <div class="evo-chart-wrap">
+        <svg class="evo-chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução da distribuição de empresas por grau de Basic Value de instalação" style="width:100%;height:auto">${bars}</svg>
+        <div class="evo-tooltip" id="evo-tooltip"></div>
+      </div>
+      <div class="evo-legend">${legend}</div>
+      ${noteHistorico}
+      <span class="evo-table-toggle" onclick="toggleEvoTable()">ver como tabela</span>
+      <div class="evo-table-wrap" id="evo-table-wrap" style="display:none"></div>
+    </div>`;
+
+  attachEvoTooltip();
+  renderEvoTable(dates, byDate);
+}
+
+function attachEvoTooltip() {
+  const svg = document.querySelector(".evo-chart-svg");
+  const tooltip = document.getElementById("evo-tooltip");
+  if (!svg || !tooltip) return;
+  svg.querySelectorAll(".evo-bar-seg").forEach(seg => {
+    seg.addEventListener("mousemove", (e) => {
+      const rect = svg.parentElement.getBoundingClientRect();
+      const pct = Math.round((Number(seg.dataset.count) / Number(seg.dataset.total)) * 100);
+      const dateLabel = new Date(seg.dataset.date + "T00:00:00").toLocaleDateString("pt-BR");
+      const gradeLabel = EVO_LABELS[seg.dataset.grade] || seg.dataset.grade;
+      tooltip.textContent = `${dateLabel} · ${gradeLabel}: ${seg.dataset.count} empresa(s) (${pct}%)`;
+      tooltip.style.left = (e.clientX - rect.left) + "px";
+      tooltip.style.top = (e.clientY - rect.top) + "px";
+      tooltip.classList.add("show");
+    });
+    seg.addEventListener("mouseleave", () => tooltip.classList.remove("show"));
+  });
+}
+
+function toggleEvoTable() {
+  const el = document.getElementById("evo-table-wrap");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+// Tabela como alternativa acessível ao gráfico (mesmo dado, formato de tabela).
+function renderEvoTable(dates, byDate) {
+  const el = document.getElementById("evo-table-wrap");
+  if (!el) return;
+  let html = "<table><thead><tr><th>Data</th>" + EVO_ORDER.map(g => `<th>${EVO_LABELS[g]}</th>`).join("") + "</tr></thead><tbody>";
+  dates.forEach(date => {
+    const dayData = byDate.get(date);
+    const total = EVO_ORDER.reduce((sum, g) => sum + (dayData[g] ? dayData[g].company_count : 0), 0) || 1;
+    html += `<tr><td>${new Date(date + "T00:00:00").toLocaleDateString("pt-BR")}</td>` +
+      EVO_ORDER.map(g => {
+        const count = dayData[g] ? dayData[g].company_count : 0;
+        const pct = Math.round((count / total) * 100);
+        return `<td>${count} (${pct}%)</td>`;
+      }).join("") + "</tr>";
+  });
+  html += "</tbody></table>";
+  el.innerHTML = html;
+}
+
 function toggleRiskFilter() {
   state.riskFilterActive = !state.riskFilterActive;
   renderAll();
@@ -728,8 +1041,11 @@ function renderTable(data) {
   }
 
   let html = "<table><thead><tr>" +
-    "<th>Cliente / Ticket</th><th>Squad</th><th>Aberto há</th><th>Classe</th><th>Produtos</th>" +
-    "<th>Basic Value</th><th>Status Field</th>" +
+    "<th>Cliente / Ticket</th><th>Squad</th>" +
+    `<th class="sortable ${sortArrowClass("dias_aberto")}" onclick="onSortClick('dias_aberto')">Aberto há${sortArrowHtml("dias_aberto")}</th>` +
+    "<th>Classe</th><th>Produtos</th>" +
+    `<th class="sortable ${sortArrowClass("basic_value")}" onclick="onSortClick('basic_value')">Basic Value${sortArrowHtml("basic_value")}</th>` +
+    "<th>Status Field</th>" +
     "<th>Tratativa</th>" +
     "</tr></thead><tbody>";
 
@@ -772,8 +1088,8 @@ function renderTable(data) {
       <td>${escapeHtml(row.classe_instalacao || "-")}</td>
       <td>${productsHtml}</td>
       <td class="bv-cell">
-        <div class="bv-row">Geral: <b>${fmtNum(row.basic_value_score)}</b> ${riskBadge}</div>
-        <div class="bv-row">Instalação: <b>${fmtNum(row.instalation_completeness_grade)}</b></div>
+        <div class="bv-row" style="font-size:13.5px">Instalação: <b>${fmtNum(row.instalation_completeness_grade)}</b></div>
+        <div class="bv-row muted">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>
         <div class="mrr-line">MRR: ${fmtCurrency(row.mrr)}</div>
       </td>
       <td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
@@ -869,12 +1185,37 @@ async function loadMultiplos() {
 // ---------------------------------------------------------------------------
 // ADMIN: convite + delegação + cadastro
 // ---------------------------------------------------------------------------
+
+// Rodada 3: gestor de squad só pode convidar como "colaborador" e só pra
+// própria squad -- evita que ele crie sem querer (ou por engano de UI) outro
+// gestor de squad/geral, ou cadastre alguém em outra squad. gestor_geral
+// continua com o formulário aberto, sem restrição.
+function applyInviteFormRestrictions(member) {
+  if (!member) return;
+  const isSquadManager = member.role === "gestor_squad";
+
+  document.getElementById("inv-squad-label").style.display = isSquadManager ? "none" : "flex";
+  document.getElementById("inv-squad-locked-label").style.display = isSquadManager ? "flex" : "none";
+  document.getElementById("inv-role-label").style.display = isSquadManager ? "none" : "flex";
+
+  if (isSquadManager) {
+    document.getElementById("inv-squad-locked-text").textContent = labelSquad(member.squad);
+  }
+}
+
 async function inviteMember(e) {
   e.preventDefault();
   const email = document.getElementById("inv-email").value.trim();
   const name = document.getElementById("inv-name").value.trim();
-  const squad = document.getElementById("inv-squad").value;
-  const role = document.getElementById("inv-role").value;
+  // Rodada 3: quando o campo está travado (gestor de squad), não confia no
+  // <select> escondido (que fica parado no valor padrão) -- usa o dado real
+  // do usuário logado. Isso é só uma trava de UI, não substitui RLS: o
+  // insert em team_members ainda passa pela policy normal (qualquer
+  // gestor_squad/gestor_geral pode inserir); a restrição de qual papel/squad
+  // é atribuído vive só aqui no front, por hora.
+  const isSquadManager = currentMember && currentMember.role === "gestor_squad";
+  const squad = isSquadManager ? currentMember.squad : document.getElementById("inv-squad").value;
+  const role = isSquadManager ? "colaborador" : document.getElementById("inv-role").value;
 
   const { error } = await sb.from("team_members").insert({ email, name, squad, role });
   if (error) { alert("Erro ao convidar: " + error.message); return false; }
