@@ -111,6 +111,42 @@ def replace_ticket_products(rows: list):
     print(f"ticket_products: {len(ticket_ids)} ticket(s), {len(rows)} linha(s) de produto gravada(s)")
 
 
+def update_owner_ids(rows: list):
+    """Preenche o hubspot_owner_id de pessoas já cadastradas em team_members
+    (resolvido pela scheduled task via busca por e-mail no HubSpot).
+
+    Importante: isto faz um PATCH (update), nunca um upsert/insert. Se
+    fizéssemos upsert normal (POST + on_conflict=email) e a pessoa ainda não
+    tivesse sido cadastrada manualmente (convite via tela de Administração ou
+    INSERT direto), o Postgres tentaria criar uma linha nova só com
+    email/hubspot_owner_id e quebraria na constraint not-null de
+    name/squad/role (foi exatamente o erro 23502 visto em produção). Com
+    PATCH, se a pessoa não existir ainda, simplesmente não atualiza nada (0
+    linhas afetadas, sem erro) -- o cadastro em si continua sendo manual."""
+    if not rows:
+        print("team_members: nada para atualizar (0 linhas)")
+        return
+    updated = 0
+    for row in rows:
+        email = row.get("email")
+        owner_id = row.get("hubspot_owner_id")
+        if not email or owner_id is None:
+            continue
+        url = f"{SUPABASE_URL}/rest/v1/team_members?email=eq.{email}"
+        r = requests.patch(
+            url,
+            headers={**HEADERS, "Prefer": "return=representation"},
+            data=json.dumps({"hubspot_owner_id": owner_id}),
+            timeout=60,
+        )
+        if not r.ok:
+            print(f"ERRO ao atualizar team_members ({email}): {r.status_code} {r.text}", file=sys.stderr)
+            r.raise_for_status()
+        if r.json():
+            updated += 1
+    print(f"team_members: {updated}/{len(rows)} pessoa(s) já cadastrada(s) tiveram hubspot_owner_id atualizado")
+
+
 def main():
     payload = load_payload()
 
@@ -118,11 +154,7 @@ def main():
     upsert("basic_value_snapshot", payload["basic_value"], on_conflict="company_id")
     upsert("field_status_snapshot", payload["field_status"], on_conflict="ordem_servico_raw")
     replace_ticket_products(payload["ticket_products"])
-
-    # Preenche o hubspot_owner_id de pessoas recém-convidadas (resolvido pela
-    # scheduled task via busca por e-mail no HubSpot). Só atualiza essa coluna,
-    # não mexe em squad/papel/nome que o convite já definiu.
-    upsert("team_members", payload["team_members_updates"], on_conflict="email")
+    update_owner_ids(payload["team_members_updates"])
 
     print("Sincronização com o Supabase concluída.")
 
