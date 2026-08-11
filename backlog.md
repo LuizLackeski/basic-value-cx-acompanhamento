@@ -7,10 +7,10 @@ A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de um
 - Rode `supabase/patch-rodada6.sql` inteiro no SQL Editor do Supabase (idempotente, pode rodar mais de uma vez sem problema).
 - Esse mesmo patch já inclui o vínculo pontual do `hubspot_owner_id` da Danielle Couto (199072037) -- ver item 8 abaixo.
 
-## ⚠️ Ação pendente do Luiz: rodar `supabase/patch-completude-instalacao.sql`
-A Completude de Instalação (item novo abaixo, 2026-08-11) já está publicada no `index.html`, mas depende de uma migração de banco nova que **ainda não foi rodada** (cria a tabela `completude_instalacao_snapshot` e recria a `v_dashboard` com os 5 campos novos). Sem isso, a coluna nova simplesmente não aparece (fica vazia, sem erro).
-- Rode `supabase/patch-completude-instalacao.sql` inteiro no SQL Editor do Supabase (idempotente).
-- Depois disso, a coluna só é preenchida de verdade quando a sincronização (Passo 4B do `sync-runbook.md`) rodar pelo menos uma vez com a query de `queries/query-completude-instalacao-sync.sql` -- até lá fica em branco (esperado, não é bug).
+## ✅ Completude de Instalação: patch SQL rodado + primeira sincronização feita (2026-08-11)
+O Luiz já rodou `supabase/patch-completude-instalacao.sql` no Supabase. Em seguida, a sincronização (Passo 4B do `sync-runbook.md`) foi executada manualmente nesta sessão: a query `queries/query-completude-instalacao-sync.sql` rodou no Databricks (448 empresas elegíveis), os resultados foram publicados em `data/chunks/completude_instalacao-00.json` a `-04.json` (commit `61edca7`), o que deve disparar o `sync-to-supabase.yml` e popular `completude_instalacao_snapshot` de verdade.
+- Verificação: soma/contagens do JSON publicado batem exatamente com a agregação rodada direto no Databricks (448 linhas, 4338/2035/1803 nos totais de completude/instalada/falta, 204 SMB / 125 ICP / 119 Onboarding).
+- Não foi possível confirmar diretamente no Supabase (sem acesso de rede a partir desta sessão) nem checar o status do GitHub Actions -- se a coluna "Compl. instalação" não aparecer no dashboard depois de recarregar, o próximo passo é olhar a aba Actions do repo pra ver se o workflow rodou com erro.
 
 ## ✅ Completude de Instalação (2026-08-11) — implementada e publicada no `index.html`
 *Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main`: `6923531` (`supabase/patch-completude-instalacao.sql` + `scripts/upsert_to_supabase.py`), `b4fffe9` (`sync-runbook.md`), `4fa7b06` (queries), `52d3ef4` (`index.html`, versão final corrigida). Depende do patch SQL acima ser rodado.*
@@ -24,7 +24,7 @@ Nova métrica por empresa: % de instalações já concluídas em relação ao qu
 - **Cálculo**: feito por empresa (`company_id` = `associated_company_id` no Databricks = mesmo `hs_object_id` usado no resto do dashboard), não por deal -- soma o contratado e o instalado só dos deals elegíveis, calcula o %, e quantas faltam pra bater 80% (`GREATEST(CEIL(0.8 * contratado) - instalado, 0)`).
 - **Pipeline**: nova query (`queries/query-completude-instalacao-sync.sql`, fonte `gold.cubo_contratos.fct_contract_products` + `gold.cubo_supply.supply_cube` + `supply_team.supply_db.*`) roda no Databricks como Passo 4B do `sync-runbook.md`, independente dos tickets abertos no HubSpot. Nova tabela `completude_instalacao_snapshot` no Supabase (mesmo padrão de RLS de `basic_value_snapshot`), nova chave `completude_instalacao` no JSON de sincronização, `v_dashboard` recriada com os 5 campos novos.
 - **Validado**: query testada contra dados reais do Databricks (448 empresas elegíveis, ex. TRACBEL AGRO: 73 contratado / 4 instalado = 5,48%, faltam 55 pra bater 80%); patch SQL testado num Postgres local simulando RLS de usuário permitido e bloqueado; função JS `completudeInstalacaoHtml` testada isoladamente (5 casos: sem dado, zero, baixo/médio/alto %, meta batida).
-- **Pendente**: rodar o patch SQL (ver aviso acima) e rodar a sincronização (Passo 4B) pelo menos uma vez pra popular dados reais. A coluna Basic Value (BV) equivalente foi propositalmente deixada pra depois, a pedido do próprio Luiz ("um de cada vez").
+- **Status (2026-08-11)**: patch SQL rodado pelo Luiz + primeira sincronização real feita (ver seção acima) -- 448 empresas publicadas em `data/chunks/completude_instalacao-*.json`, commit `61edca7`. Falta só confirmar visualmente no dashboard depois do Actions processar. A coluna Basic Value (BV) equivalente foi propositalmente deixada pra depois, a pedido do próprio Luiz ("um de cada vez").
 
 ## Novo pedido (2026-08-11, pós-Rodada 6) — só anotado, nada implementado ainda
 
