@@ -12,22 +12,25 @@
 -- BI tool com measure()) -- esta aqui junta os 3 segmentos (Onboarding, ICP,
 -- SMB) numa linha só por empresa, pronta pra virar JSON.
 --
--- Regra de elegibilidade (o que entra na soma de cada empresa), por segmento:
---   Onboarding: só deals cujo classe_deal contém 'Primeira venda', até 90
---     dias da data de início de assinatura.
+-- Regra de elegibilidade por TIPO (o que entra na soma de cada empresa, sem
+-- corte de dias), por segmento:
+--   Onboarding: só deals cujo classe_deal contém 'Primeira venda'.
 --   ICP e SMB: o INVERSO -- só deals cujo classe_deal NÃO contém 'Primeira
---     venda' (Upsell/Troca/Upgrade/Downgrade), até 60 dias da assinatura.
+--     venda' (Upsell/Troca/Upgrade/Downgrade).
 --   Meta de instalação nos três casos: 80%.
--- Confirmado com o Luiz em 2026-08-11, mas sinalizado por ele como "ainda
--- vamos ajustar" -- não é regra definitiva. Pontos em aberto (ver também
--- query-completude-instalacao-onboarding.sql):
+-- Ajuste de 2026-08-11 (pedido do Luiz): o corte de 60 dias (ICP/SMB) / 90
+-- dias (Onboarding) NÃO exclui mais o deal da soma -- os dados continuam
+-- aparecendo mesmo depois do prazo vencer. O corte agora só alimenta o campo
+-- "dentro_do_prazo" (por empresa: TRUE se ao menos 1 deal elegível por tipo
+-- ainda está dentro do prazo: "ainda dá pra completar"; FALSE se todos já
+-- passaram: "já passou do prazo"). Ver ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO x
+-- DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO no deal_metrics abaixo.
+-- Pontos em aberto (ver também query-completude-instalacao-onboarding.sql):
 --   1. "vinculando o company id do ticket aberto" interpretado como agregar
 --      por associated_company_id (a mesma chave usada em basic_value etc.).
 --   2. Um deal com classe_deal misto (ex. "Primeira venda, Upsell") conta
 --      inteiro como "Primeira venda" -- aproximação, a query não separa por
 --      linha de produto dentro do deal.
---   3. O corte de 60/90 dias exclui o deal inteiro (dos dois lados da conta)
---      quando vencido, não só a instalação.
 -- ============================================================================
 
 WITH q AS (
@@ -384,23 +387,43 @@ WITH q AS (
         ROUND((b.QTD_INSTALADA + b.QTD_AGENDADO) / NULLIF(CASE WHEN b.GRUPO_DEAL = 'TROCA' THEN b.QTD_ENVIADA ELSE b.QTD_CONTRATADA_VENDA END, 0), 2),
         1
       ) AS PCT_COMPLETUDE_COM_AGENDADO,
-      -- Elegibilidade para a Completude de Instalação (ver regra no cabeçalho).
+      -- Elegibilidade por TIPO de deal (SEM corte de dias) -- decide o que
+      -- entra na soma da empresa. Ajustado em 2026-08-11 a pedido do Luiz:
+      -- "mesmo se já tiver passado [do prazo] pode trazer" -- ou seja, o dado
+      -- não deve mais sumir quando o deal envelhece, só o corte de dias abaixo
+      -- (DENTRO_DO_PRAZO) sinaliza se ainda dá pra completar dentro do prazo.
       CASE
         WHEN b.TIME = 'Onboarding'
-          THEN b.CLASSE_DEAL LIKE '%Primeira venda%' AND b.DIAS_DESDE_ASSINATURA <= 90
+          THEN b.CLASSE_DEAL LIKE '%Primeira venda%'
         WHEN b.TIME IN ('ICP', 'SMB')
-          THEN b.CLASSE_DEAL NOT LIKE '%Primeira venda%' AND b.DIAS_DESDE_ASSINATURA <= 60
+          THEN b.CLASSE_DEAL NOT LIKE '%Primeira venda%'
         ELSE FALSE
-      END AS ELEGIVEL_COMPLETUDE_INSTALACAO
+      END AS ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO,
+      -- Este deal, isoladamente, ainda está dentro do prazo (90 dias
+      -- Onboarding / 60 dias ICP-SMB) contado da assinatura?
+      CASE
+        WHEN b.TIME = 'Onboarding' THEN b.DIAS_DESDE_ASSINATURA <= 90
+        WHEN b.TIME IN ('ICP', 'SMB') THEN b.DIAS_DESDE_ASSINATURA <= 60
+        ELSE FALSE
+      END AS DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO
     FROM base_deal_filtered b
   ),
   completude_empresa AS (
     SELECT
       *,
-      SUM(CASE WHEN ELEGIVEL_COMPLETUDE_INSTALACAO THEN QTD_COMPLETUDE ELSE 0 END)
+      SUM(CASE WHEN ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO THEN QTD_COMPLETUDE ELSE 0 END)
         OVER (PARTITION BY associated_company_id) AS QTD_COMPLETUDE_INSTALACAO_EMPRESA,
-      SUM(CASE WHEN ELEGIVEL_COMPLETUDE_INSTALACAO THEN QTD_INSTALADA ELSE 0 END)
-        OVER (PARTITION BY associated_company_id) AS QTD_INSTALADA_INSTALACAO_EMPRESA
+      SUM(CASE WHEN ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO THEN QTD_INSTALADA ELSE 0 END)
+        OVER (PARTITION BY associated_company_id) AS QTD_INSTALADA_INSTALACAO_EMPRESA,
+      -- Empresa ainda "dentro do prazo" pra completar = existe ao menos 1 deal
+      -- elegível por tipo cujo prazo (60/90 dias) ainda não venceu. Quando
+      -- TODOS os deals elegíveis já passaram do prazo, vira FALSE ("já passou").
+      MAX(
+        CASE
+          WHEN ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO AND DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO THEN 1
+          ELSE 0
+        END
+      ) OVER (PARTITION BY associated_company_id) AS DENTRO_DO_PRAZO_EMPRESA
     FROM deal_metrics
   )
   SELECT
@@ -423,7 +446,8 @@ SELECT
   MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) AS qtd_completude,
   MAX(QTD_INSTALADA_INSTALACAO_EMPRESA)  AS qtd_instalada,
   MAX(PCT_COMPLETUDE_INSTALACAO)         AS pct_completude,
-  MAX(QTD_FALTA_PARA_META_80_INSTALACAO) AS qtd_falta_meta_80
+  MAX(QTD_FALTA_PARA_META_80_INSTALACAO) AS qtd_falta_meta_80,
+  MAX(DENTRO_DO_PRAZO_EMPRESA) = 1       AS dentro_do_prazo
 FROM q
 GROUP BY associated_company_id
 HAVING MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) > 0
