@@ -1,11 +1,14 @@
 -- ============================================================================
 -- Query: Completude de Instalação — versão de SINCRONIZAÇÃO (1 linha por empresa)
--- Gerado em 2026-08-11. Testado direto no Databricks (dados reais).
+-- Gerado em 2026-08-11. Atualizado em 2026-08-11 (Rodada 8) com a nota de
+-- Basic Value de Instalação (nota_instalacao) e o gap pra nota 3
+-- (qtd_falta_nota_3). Testado direto no Databricks (dados reais).
 --
 -- Esta é a versão usada pelo pipeline (Passo 4B do sync-runbook.md): roda no
 -- Databricks, o resultado vira a chave "completude_instalacao" do
 -- data/latest-sync.json, e o upsert_to_supabase.py grava em
--- completude_instalacao_snapshot (ver supabase/patch-completude-instalacao.sql).
+-- completude_instalacao_snapshot (ver supabase/patch-completude-instalacao.sql
+-- e supabase/patch-completude-instalacao-nota.sql).
 --
 -- Difere de queries/query-completude-instalacao-onboarding.sql (que era a
 -- versão "debug", 1 linha por deal, filtrada só em Onboarding, no formato de
@@ -25,6 +28,25 @@
 -- ainda está dentro do prazo: "ainda dá pra completar"; FALSE se todos já
 -- passaram: "já passou do prazo"). Ver ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO x
 -- DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO no deal_metrics abaixo.
+--
+-- NOVO (2026-08-11, Rodada 8) -- Nota de Basic Value de Instalação: pedido do
+-- Luiz pra substituir o "Instalação" que vinha do Databricks
+-- (gold.customer_success_reports.basic_value.instalation_completeness_grade,
+-- que não cobre 100% das empresas com ticket aberto) por uma nota calculada
+-- por nós, direto do mesmo % instalado/total já usado na Completude, com
+-- faixas por segmento:
+--   SMB (e Onboarding com potencial <= 50): 0%=0; até 75%=1; 76-89%=2;
+--     90-95%=3; acima de 95%=4.
+--   ICP (e Onboarding com potencial > 50): 0%=0; até 75%=1; 76-79%=2;
+--     80-85%=3; acima de 85%=4.
+-- O "potencial" usado pra decidir a escala do Onboarding é o mesmo campo já
+-- usado internamente pra decidir se uma empresa pós-90-dias vira ICP ou SMB
+-- (GRUPO_POTENCIAL / potencial_total_da_empresa, coalescidos) -- cobertura
+-- 100% nas 3 populações (validado: 757 SMB, 366 ICP, 120 Onboarding, nenhuma
+-- sem potencial). qtd_falta_nota_3 = quantas instalações faltam pra cruzar o
+-- piso da faixa que dá nota 3 (90% na escala SMB, 80% na escala ICP) -- 0 se
+-- a nota já é 3 ou 4 ("meta batida").
+--
 -- Pontos em aberto (ver também query-completude-instalacao-onboarding.sql):
 --   1. "vinculando o company id do ticket aberto" interpretado como agregar
 --      por associated_company_id (a mesma chave usada em basic_value etc.).
@@ -437,17 +459,72 @@ WITH q AS (
       0
     ) AS QTD_FALTA_PARA_META_80_INSTALACAO
   FROM completude_empresa
+),
+-- ---- Agregação final por empresa (1 linha) ----
+empresa_resumo AS (
+  SELECT
+    associated_company_id AS company_id,
+    MAX(TIME)                              AS time_segmento,
+    MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) AS qtd_completude,
+    MAX(QTD_INSTALADA_INSTALACAO_EMPRESA)  AS qtd_instalada,
+    MAX(PCT_COMPLETUDE_INSTALACAO)         AS pct_completude,
+    MAX(QTD_FALTA_PARA_META_80_INSTALACAO) AS qtd_falta_meta_80,
+    MAX(DENTRO_DO_PRAZO_EMPRESA) = 1       AS dentro_do_prazo,
+    MAX(COALESCE(GRUPO_POTENCIAL, potencial_total_da_empresa)) AS potencial_empresa
+  FROM q
+  GROUP BY associated_company_id
+  HAVING MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) > 0
+),
+-- ---- NOVO (Rodada 8): escala de nota por segmento (SMB/ICP direto pelo
+-- TIME; Onboarding decide pela mesma variável de potencial já usada pra
+-- classificar ICP x SMB pós-90-dias -- cobertura 100% validada) ----
+empresa_escala AS (
+  SELECT
+    *,
+    CASE
+      WHEN time_segmento = 'ICP' THEN 'ICP_SCALE'
+      WHEN time_segmento = 'SMB' THEN 'SMB_SCALE'
+      WHEN time_segmento = 'Onboarding' AND COALESCE(potencial_empresa, 0) > 50 THEN 'ICP_SCALE'
+      ELSE 'SMB_SCALE'
+    END AS escala_nota,
+    ROUND(pct_completude * 100) AS pct_inteiro
+  FROM empresa_resumo
 )
 -- ---- Resultado final: 1 linha por empresa, pronto pra virar a chave
 -- "completude_instalacao" do data/latest-sync.json ----
 SELECT
-  associated_company_id AS company_id,
-  MAX(TIME)                              AS time_segmento,
-  MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) AS qtd_completude,
-  MAX(QTD_INSTALADA_INSTALACAO_EMPRESA)  AS qtd_instalada,
-  MAX(PCT_COMPLETUDE_INSTALACAO)         AS pct_completude,
-  MAX(QTD_FALTA_PARA_META_80_INSTALACAO) AS qtd_falta_meta_80,
-  MAX(DENTRO_DO_PRAZO_EMPRESA) = 1       AS dentro_do_prazo
-FROM q
-GROUP BY associated_company_id
-HAVING MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) > 0
+  company_id,
+  time_segmento,
+  qtd_completude,
+  qtd_instalada,
+  pct_completude,
+  qtd_falta_meta_80,
+  dentro_do_prazo,
+  -- Nota de Basic Value de Instalação (0-4), calculada por faixas de % por
+  -- segmento (ver cabeçalho). Substitui o instalation_completeness_grade do
+  -- Databricks pra garantir cobertura total nas empresas com ticket aberto.
+  CASE
+    WHEN escala_nota = 'SMB_SCALE' THEN
+      CASE
+        WHEN pct_inteiro = 0 THEN 0
+        WHEN pct_inteiro <= 75 THEN 1
+        WHEN pct_inteiro <= 89 THEN 2
+        WHEN pct_inteiro <= 95 THEN 3
+        ELSE 4
+      END
+    ELSE
+      CASE
+        WHEN pct_inteiro = 0 THEN 0
+        WHEN pct_inteiro <= 75 THEN 1
+        WHEN pct_inteiro <= 79 THEN 2
+        WHEN pct_inteiro <= 85 THEN 3
+        ELSE 4
+      END
+  END AS nota_instalacao,
+  -- Quantas instalações faltam pra cruzar o piso da faixa que dá nota 3
+  -- (90% na escala SMB, 80% na escala ICP) -- 0 se a nota já é 3 ou 4.
+  GREATEST(
+    CAST(CEIL((CASE WHEN escala_nota = 'SMB_SCALE' THEN 0.90 ELSE 0.80 END) * qtd_completude) AS BIGINT) - qtd_instalada,
+    0
+  ) AS qtd_falta_nota_3
+FROM empresa_escala
