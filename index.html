@@ -1334,6 +1334,7 @@ function renderTable(data) {
       <td class="bv-cell">
         <div class="bv-row" style="font-size:13.5px">Instalação: <b>${fmtNum(row.instalation_completeness_grade)}</b></div>
         <div class="bv-row muted">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>
+        ${completudeInstalacaoHtml(row)}
       </td>
       <td>${fmtCurrency(row.mrr)}</td>
       <td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
@@ -1645,6 +1646,23 @@ function escapeHtml(s) {
 }
 function fmtNum(n) { return n == null ? "-" : Number(n).toFixed(1); }
 function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 }); }
+
+// Completude de Instalação (2026-08-11) -- % já instalado sobre o que é
+// elegível por empresa e quanto falta pra bater a meta de 80%. Vem de
+// completude_instalacao_snapshot (Databricks -> sync -> Supabase). Regra
+// ainda sujeita a ajuste (sinalizado pelo Luiz) -- ver
+// supabase/patch-completude-instalacao.sql e
+// queries/query-completude-instalacao-sync.sql.
+function completudeInstalacaoHtml(row) {
+  if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) return "";
+  const pct = Math.round((row.completude_pct || 0) * 100);
+  const faltam = row.completude_qtd_falta || 0;
+  const cor = pct >= 80 ? "var(--ok-text)" : (pct >= 50 ? "var(--warn)" : "var(--risk)");
+  const faltamTxt = faltam > 0
+    ? ` <span class="muted">(faltam ${faltam} p/ 80%)</span>`
+    : ` <span class="muted">(meta batida)</span>`;
+  return `<div class="bv-row muted">Compl. instalação: <b style="color:${cor}</b>${faltamTxt}</div>`;
+}
 </script>
 </body>
 </html>
