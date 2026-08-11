@@ -1,30 +1,46 @@
 # Backlog — Basic Value / ICP Dashboard
 
-*Atualizado em 2026-08-11 (Rodada 6 + correção de paleta pendente). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
+*Atualizado em 2026-08-11 (Rodada 7: coluna própria de Completude + indicador de prazo). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
+
+## ⚠️ Ação pendente do Luiz: rodar `supabase/patch-completude-instalacao-prazo.sql`
+A Rodada 7 (ver seção abaixo) já está publicada no `index.html` e a query/sync já rodou (1027 empresas), mas depende de uma migração de banco que **ainda não foi rodada**: sem ela, a coluna `dentro_do_prazo` não existe em `completude_instalacao_snapshot` e o campo `completude_dentro_do_prazo` não existe em `v_dashboard` -- então o badge "dentro do prazo" / "prazo encerrado" não aparece (fica em branco), mesmo a coluna "Compl. instalação" já mostrando o %.
+- Rode `supabase/patch-completude-instalacao-prazo.sql` inteiro no SQL Editor do Supabase (idempotente, depende de `patch-completude-instalacao.sql` já ter sido rodado antes -- e já foi).
+- Depois de rodar o patch, a próxima sincronização (Passo 4B do `sync-runbook.md`) já publica o valor de `dentro_do_prazo` de cada empresa -- essa sincronização já foi feita nesta rodada (1027 empresas, ver seção abaixo), então basta rodar o patch e recarregar o dashboard.
 
 ## ⚠️ Ação pendente do Luiz: rodar `supabase/patch-rodada6.sql`
 A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de uma migração de banco que **ainda não foi rodada**. Sem isso, convidar/editar um gestor_geral vai dar erro (squad ainda é obrigatória no banco) e as regras novas de permissão (insert/update/delete de `team_members`) ainda não estarão em vigor.
 - Rode `supabase/patch-rodada6.sql` inteiro no SQL Editor do Supabase (idempotente, pode rodar mais de uma vez sem problema).
 - Esse mesmo patch já inclui o vínculo pontual do `hubspot_owner_id` da Danielle Couto (199072037) -- ver item 8 abaixo.
 
+## ✅ Rodada 7 (2026-08-11) — coluna própria de Completude de Instalação + indicador de prazo
+*Commit `93a3411…` (na verdade publicado via GitHub API, sha final `2330263…`) no `index.html`. Query/sync: commit `04a0430` (ajuste de regra) + chunks `data/chunks/completude_instalacao-00.json` a `-10.json` (1027 empresas). Depende do patch SQL novo (`supabase/patch-completude-instalacao-prazo.sql`) ser rodado -- ver aviso no topo deste arquivo.*
+
+Pedido do Luiz: a Completude de Instalação estava aparecendo dentro da mesma célula do Basic Value -- ele pediu uma coluna própria. E pediu também que o dado continue aparecendo mesmo depois do prazo (60/90 dias) já ter passado, desde que fique claro se a empresa ainda está dentro do prazo pra completar ou se o prazo já encerrou.
+
+- **Coluna própria**: "Compl. instalação" agora é uma coluna separada na tabela de Tickets, entre "Basic Value" e "MRR" -- antes vinha junto dentro da célula de Basic Value.
+- **Mudança de regra (o que mais importa aqui)**: antes, um deal que já tivesse passado do prazo (90 dias Onboarding / 60 dias ICP-SMB, contados da assinatura) parava de contar na soma da empresa -- se todos os deals dela tivessem passado do prazo, a empresa sumia do dashboard inteira. Agora a soma da empresa usa só a elegibilidade por **tipo** de deal (Onboarding = "Primeira venda"; ICP/SMB = o inverso), sem corte de dias -- o dado nunca mais some por causa do tempo.
+- **Indicador de prazo**: um badge novo, separado do %, mostra se a empresa **"dentro do prazo"** (ainda tem pelo menos um deal elegível dentro da janela de 90/60 dias) ou **"prazo encerrado"** (todos os deals elegíveis dela já passaram do prazo). Vem do campo novo `dentro_do_prazo` (`completude_instalacao_snapshot`) / `completude_dentro_do_prazo` (`v_dashboard`).
+- **Resultado da resincronização**: 1027 empresas publicadas (antes eram 448 -- o salto reflete exatamente as empresas que tinham TODOS os deals elegíveis já fora do prazo e por isso sumiam da soma anterior). Conferido: as 448 empresas antigas continuam todas presentes nas 1027 novas (nenhuma perdida), e os totais batem com uma agregação independente rodada direto no Databricks (soma qtd_completude = 10518, soma qtd_instalada = 5726).
+- **Pendente**: rodar `supabase/patch-completude-instalacao-prazo.sql` no Supabase (ver aviso no topo) -- só depois disso o badge de prazo aparece de fato (os dados já estão sincronizados, só falta a coluna existir no banco).
+
 ## ✅ Completude de Instalação: patch SQL rodado + primeira sincronização feita (2026-08-11)
-O Luiz já rodou `supabase/patch-completude-instalacao.sql` no Supabase. Em seguida, a sincronização (Passo 4B do `sync-runbook.md`) foi executada manualmente nesta sessão: a query `queries/query-completude-instalacao-sync.sql` rodou no Databricks (448 empresas elegíveis), os resultados foram publicados em `data/chunks/completude_instalacao-00.json` a `-04.json` (commit `61edca7`), o que deve disparar o `sync-to-supabase.yml` e popular `completude_instalacao_snapshot` de verdade.
-- Verificação: soma/contagens do JSON publicado batem exatamente com a agregação rodada direto no Databricks (448 linhas, 4338/2035/1803 nos totais de completude/instalada/falta, 204 SMB / 125 ICP / 119 Onboarding).
+O Luiz já rodou `supabase/patch-completude-instalacao.sql` no Supabase. Em seguida, a sincronização (Passo 4B do `sync-runbook.md`) foi executada manualmente nesta sessão: a query `queries/query-completude-instalacao-sync.sql` rodou no Databricks (448 empresas elegíveis na primeira rodada, depois 1027 na Rodada 7 -- ver seção acima), os resultados foram publicados em `data/chunks/completude_instalacao-*.json`, o que deve disparar o `sync-to-supabase.yml` e popular `completude_instalacao_snapshot` de verdade.
+- Verificação: soma/contagens do JSON publicado batem exatamente com a agregação rodada direto no Databricks.
 - Não foi possível confirmar diretamente no Supabase (sem acesso de rede a partir desta sessão) nem checar o status do GitHub Actions -- se a coluna "Compl. instalação" não aparecer no dashboard depois de recarregar, o próximo passo é olhar a aba Actions do repo pra ver se o workflow rodou com erro.
 
 ## ✅ Completude de Instalação (2026-08-11) — implementada e publicada no `index.html`
 *Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main`: `6923531` (`supabase/patch-completude-instalacao.sql` + `scripts/upsert_to_supabase.py`), `b4fffe9` (`sync-runbook.md`), `4fa7b06` (queries), `52d3ef4` (`index.html`, versão final corrigida). Depende do patch SQL acima ser rodado.*
 
-Nova métrica por empresa: % de instalações já concluídas em relação ao que é elegível pra ela, e quantas faltam pra bater a meta de 80%. Aparece como uma linha extra ("Compl. instalação: X% (faltam N p/ 80%)") no card de Basic Value de cada linha da tabela de Tickets.
+Nova métrica por empresa: % de instalações já concluídas em relação ao que é elegível pra ela, e quantas faltam pra bater a meta de 80%. Ver Rodada 7 acima pra como isso evoluiu (coluna própria + indicador de prazo).
 
-- **Elegibilidade por segmento** (regra confirmada com o Luiz em 2026-08-11, mas explicitamente sinalizada por ele como "ainda vamos ajustar" -- não é definitiva):
-  - **Onboarding**: só deals com `classe_deal` contendo "Primeira venda", dentro de até 90 dias da data de início de assinatura.
-  - **ICP e SMB**: o inverso -- só deals SEM "Primeira venda" (Upsell/Troca/Upgrade/Downgrade), dentro de até 60 dias da data de início de assinatura.
+- **Elegibilidade por segmento** (regra confirmada com o Luiz em 2026-08-11; a parte de TIPO de deal permanece igual, a parte de dias virou só indicador de prazo -- ver Rodada 7):
+  - **Onboarding**: só deals com `classe_deal` contendo "Primeira venda"; dentro de até 90 dias da assinatura = "dentro do prazo".
+  - **ICP e SMB**: o inverso -- só deals SEM "Primeira venda" (Upsell/Troca/Upgrade/Downgrade); dentro de até 60 dias da assinatura = "dentro do prazo".
   - Meta de 80% de instalação nos três casos.
-- **Cálculo**: feito por empresa (`company_id` = `associated_company_id` no Databricks = mesmo `hs_object_id` usado no resto do dashboard), não por deal -- soma o contratado e o instalado só dos deals elegíveis, calcula o %, e quantas faltam pra bater 80% (`GREATEST(CEIL(0.8 * contratado) - instalado, 0)`).
-- **Pipeline**: nova query (`queries/query-completude-instalacao-sync.sql`, fonte `gold.cubo_contratos.fct_contract_products` + `gold.cubo_supply.supply_cube` + `supply_team.supply_db.*`) roda no Databricks como Passo 4B do `sync-runbook.md`, independente dos tickets abertos no HubSpot. Nova tabela `completude_instalacao_snapshot` no Supabase (mesmo padrão de RLS de `basic_value_snapshot`), nova chave `completude_instalacao` no JSON de sincronização, `v_dashboard` recriada com os 5 campos novos.
-- **Validado**: query testada contra dados reais do Databricks (448 empresas elegíveis, ex. TRACBEL AGRO: 73 contratado / 4 instalado = 5,48%, faltam 55 pra bater 80%); patch SQL testado num Postgres local simulando RLS de usuário permitido e bloqueado; função JS `completudeInstalacaoHtml` testada isoladamente (5 casos: sem dado, zero, baixo/médio/alto %, meta batida).
-- **Status (2026-08-11)**: patch SQL rodado pelo Luiz + primeira sincronização real feita (ver seção acima) -- 448 empresas publicadas em `data/chunks/completude_instalacao-*.json`, commit `61edca7`. Falta só confirmar visualmente no dashboard depois do Actions processar. A coluna Basic Value (BV) equivalente foi propositalmente deixada pra depois, a pedido do próprio Luiz ("um de cada vez").
+- **Cálculo**: feito por empresa (`company_id` = `associated_company_id` no Databricks = mesmo `hs_object_id` usado no resto do dashboard), não por deal -- soma o contratado e o instalado só dos deals elegíveis por tipo, calcula o %, e quantas faltam pra bater 80% (`GREATEST(CEIL(0.8 * contratado) - instalado, 0)`).
+- **Pipeline**: query (`queries/query-completude-instalacao-sync.sql`, fonte `gold.cubo_contratos.fct_contract_products` + `gold.cubo_supply.supply_cube` + `supply_team.supply_db.*`) roda no Databricks como Passo 4B do `sync-runbook.md`, independente dos tickets abertos no HubSpot. Tabela `completude_instalacao_snapshot` no Supabase (mesmo padrão de RLS de `basic_value_snapshot`), chave `completude_instalacao` no JSON de sincronização, `v_dashboard` recriada com os campos novos.
+- **Validado**: query testada contra dados reais do Databricks; patch SQL testado num Postgres local simulando RLS de usuário permitido e bloqueado; função JS `completudeInstalacaoHtml` testada isoladamente.
+- **Status (2026-08-11)**: ver Rodada 7 acima -- 1027 empresas publicadas, falta só rodar o patch de prazo no Supabase. A coluna Basic Value (BV) equivalente foi propositalmente deixada pra depois, a pedido do próprio Luiz ("um de cada vez").
 
 ## Novo pedido (2026-08-11, pós-Rodada 6) — só anotado, nada implementado ainda
 

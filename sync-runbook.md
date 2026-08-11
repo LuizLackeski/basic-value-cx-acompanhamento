@@ -68,7 +68,7 @@ Para cada linha:
 - Se não houver sufixo, `suffix_num = null`.
 - Guardar a linha "principal" (sem sufixo, ou o menor sufixo) para juntar no dashboard principal; guardar todas (inclusive com sufixo) para a aba de atendimentos múltiplos.
 
-## Passo 4B — Completude de Instalação (Databricks, novo em 2026-08-11)
+## Passo 4B — Completude de Instalação (Databricks, novo em 2026-08-11, regra ajustada em 2026-08-11)
 Query completa (testada e validada contra dados reais) em
 `queries/query-completude-instalacao-sync.sql`. Roda direto no Databricks
 (fonte diferente do Passo 4: `gold.cubo_contratos.fct_contract_products` +
@@ -82,19 +82,35 @@ SELECT
   MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA)        AS qtd_completude,
   MAX(QTD_INSTALADA_INSTALACAO_EMPRESA)         AS qtd_instalada,
   MAX(PCT_COMPLETUDE_INSTALACAO)                AS pct_completude,
-  MAX(QTD_FALTA_PARA_META_80_INSTALACAO)        AS qtd_falta_meta_80
+  MAX(QTD_FALTA_PARA_META_80_INSTALACAO)        AS qtd_falta_meta_80,
+  MAX(DENTRO_DO_PRAZO_EMPRESA) = 1              AS dentro_do_prazo
 FROM q  -- CTE completa em queries/query-completude-instalacao-sync.sql
 GROUP BY associated_company_id
 HAVING MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) > 0
 ```
 
-Regra de elegibilidade (o que entra na soma de cada empresa), por segmento:
-- **Onboarding**: só deals com `classe_deal` contendo "Primeira venda", até 90
-  dias da data de início de assinatura.
-- **ICP / SMB**: o inverso — só deals SEM "Primeira venda" (Upsell, Troca,
-  Upgrade, Downgrade), até 60 dias da data de início de assinatura.
-- Meta 80% nos três casos. Confirmado com o Luiz em 2026-08-11, mas sinalizado
-  por ele como "ainda vamos ajustar" — não é regra definitiva.
+Regra de elegibilidade — **ajustada em 2026-08-11 a pedido do Luiz** ("mesmo se
+já tiver passado [do prazo] pode trazer"). Duas coisas separadas agora, onde
+antes era uma só:
+- **O que entra na soma da empresa** (por TIPO de deal, sem corte de dias —
+  isto é o que decide se o dado aparece ou não):
+  - **Onboarding**: só deals com `classe_deal` contendo "Primeira venda".
+  - **ICP / SMB**: o inverso — só deals SEM "Primeira venda" (Upsell, Troca,
+    Upgrade, Downgrade).
+  - Meta 80% nos três casos.
+- **`dentro_do_prazo`** (novo campo, não afeta a soma — só indica se ainda dá
+  tempo de completar): true se pelo menos um dos deals elegíveis da empresa
+  ainda está dentro de 90 dias (Onboarding) / 60 dias (ICP-SMB) contados da
+  data de início de assinatura; false se todos os deals elegíveis já
+  passaram do prazo.
+- Antes desse ajuste, o corte de dias fazia parte da elegibilidade em si — uma
+  empresa com todos os deals fora do prazo sumia inteira do dashboard. Isso
+  não acontece mais: o dado de completude é sempre exibido, e
+  `dentro_do_prazo` é só o indicador visual de prazo (badge "dentro do
+  prazo" / "prazo encerrado" no `index.html`).
+- Depende de `supabase/patch-completude-instalacao-prazo.sql` ter sido
+  rodado no Supabase (adiciona a coluna `dentro_do_prazo` e recria
+  `v_dashboard` com `completude_dentro_do_prazo`) — ver `backlog.md`.
 
 ## Passo 6 — Montar o JSON e publicar
 Montar um objeto:
@@ -105,13 +121,15 @@ Montar um objeto:
   "ticket_products": [ { "ticket_id": "...", "product_label": "Trava de Ignição", "quantity": 2 } ],
   "basic_value": [ { "company_id": "...", "company_name": "...", "id_grupo_economico": "...", "event_week": "...", "basic_value_score": 1.5, "instalation_completeness_grade": 2, "mrr": 1234.56, "csm": "..." } ],
   "field_status": [ { "ordem_servico_raw": "123456789-1", "ticket_id": "123456789", "suffix_num": 1, "status": "...", "prestador": "...", "consultor": "...", "data_agendada": "2026-08-10", "cliente": "..." } ],
-  "completude_instalacao": [ { "company_id": "...", "time_segmento": "ICP", "qtd_completude": 73, "qtd_instalada": 4, "pct_completude": 0.0548, "qtd_falta_meta_80": 55 } ]
+  "completude_instalacao": [ { "company_id": "...", "time_segmento": "ICP", "qtd_completude": 73, "qtd_instalada": 4, "pct_completude": 0.0548, "qtd_falta_meta_80": 55, "dentro_do_prazo": true } ]
 }
 ```
 
 Importante: `completude_instalacao` usa `company_id` (`associated_company_id`
 no Databricks) como chave, igual a `basic_value` — não depende de ticket
-aberto no HubSpot, então roda independente dos Passos 1-3.
+aberto no HubSpot, então roda independente dos Passos 1-3. O campo
+`dentro_do_prazo` (booleano, novo desde 2026-08-11) é sempre incluído junto
+com o resto — não é um payload separado.
 
 Para `display_name`: tentar limpar o `subject` usando o `company_name` do Basic Value quando disponível (o padrão real observado é `[SUPPLY | <motivo>] Instalação <EMPRESA> Deal ID: <id>` — extrair o nome ou substituir pelo `company_name`); se não der, manter o `subject` original.
 
