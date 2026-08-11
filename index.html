@@ -1273,6 +1273,7 @@ function renderTable(data) {
     `<th class="sortable ${sortArrowClass("dias_aberto")}" onclick="onSortClick('dias_aberto')">Aberto há${sortArrowHtml("dias_aberto")}</th>` +
     "<th>Classe</th><th>Produtos</th>" +
     `<th class="sortable ${sortArrowClass("basic_value")}" onclick="onSortClick('basic_value')">Basic Value${sortArrowHtml("basic_value")}</th>` +
+    "<th>Compl. instalação</th>" +
     `<th class="sortable ${sortArrowClass("mrr")}" onclick="onSortClick('mrr')">MRR${sortArrowHtml("mrr")}</th>` +
     "<th>Status Field</th>" +
     "<th>Tratativa</th>" +
@@ -1309,8 +1310,8 @@ function renderTable(data) {
       <td class="bv-cell">
         <div class="bv-row" style="font-size:13.5px">Instalação: <b>${fmtNum(row.instalation_completeness_grade)}</b></div>
         <div class="bv-row muted">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>
-        ${completudeInstalacaoHtml(row)}
       </td>
+      <td class="bv-cell">${completudeInstalacaoHtml(row)}</td>
       <td>${fmtCurrency(row.mrr)}</td>
       <td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
           ${row.data_agendada ? `<div class="meta-line">${row.data_agendada}</div>` : ""}
@@ -1569,21 +1570,34 @@ function escapeHtml(s) {
 function fmtNum(n) { return n == null ? "-" : Number(n).toFixed(1); }
 function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 }); }
 
-// Completude de Instalação (2026-08-11) -- % já instalado sobre o que é
-// elegível por empresa e quanto falta pra bater a meta de 80%. Vem de
-// completude_instalacao_snapshot (Databricks -> sync -> Supabase). Regra
-// ainda sujeita a ajuste (sinalizado pelo Luiz) -- ver
-// supabase/patch-completude-instalacao.sql e
+// Completude de Instalação (2026-08-11, ajustado em 2026-08-11 a pedido do
+// Luiz) -- % já instalado sobre o que é elegível por empresa e quanto falta
+// pra bater a meta de 80%. Vem de completude_instalacao_snapshot
+// (Databricks -> sync -> Supabase), agora em coluna própria (não mais dentro
+// da célula de Basic Value). O dado é sempre exibido, mesmo se a empresa já
+// passou do prazo (90 dias Onboarding / 60 dias ICP-SMB contados da
+// assinatura) -- o campo completude_dentro_do_prazo apenas sinaliza se ainda
+// dá tempo de completar dentro do prazo ou se o prazo já encerrou. Ver
+// supabase/patch-completude-instalacao.sql,
+// supabase/patch-completude-instalacao-prazo.sql e
 // queries/query-completude-instalacao-sync.sql.
 function completudeInstalacaoHtml(row) {
-  if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) return "";
+  if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) {
+    return '<span class="muted">-</span>';
+  }
   const pct = Math.round((row.completude_pct || 0) * 100);
   const faltam = row.completude_qtd_falta || 0;
   const cor = pct >= 80 ? "var(--ok-text)" : (pct >= 50 ? "var(--warn)" : "var(--risk)");
   const faltamTxt = faltam > 0
     ? ` <span class="muted">(faltam ${faltam} p/ 80%)</span>`
     : ` <span class="muted">(meta batida)</span>`;
-  return `<div class="bv-row muted">Compl. instalação: <b style="color:${cor}">${pct}%</b>${faltamTxt}</div>`;
+  const prazoBadge = row.completude_dentro_do_prazo === false
+    ? '<span class="badge risk">prazo encerrado</span>'
+    : (row.completude_dentro_do_prazo === true
+        ? '<span class="badge ok">dentro do prazo</span>'
+        : "");
+  return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
+    (prazoBadge ? `<div class="bv-row muted">${prazoBadge}</div>` : "");
 }
 </script>
 </body>
