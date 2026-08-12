@@ -247,8 +247,19 @@
 
   #empty-state { padding: 48px; text-align: center; color: var(--ink-mute); background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); font-size: 13px; }
 
-  /* Rodada 3: busca unificada de cliente/empresa (aba Tickets) */
-  #search-cliente { min-width: 240px; }
+  /* Rodada 3: busca unificada de cliente/empresa (aba Tickets).
+     Rodada 11 (2026-08-12): removido o `min-width: 240px` daqui -- era da
+     época em que a busca vivia na toolbar horizontal (espaço de sobra).
+     Desde a Rodada 9 ela mora na sidebar (hoje 222px de área útil interna) --
+     esse min-width forçava o input a ficar sempre com 240px, 18px mais largo
+     que a sidebar, e isso é EXATAMENTE o que causava tanto o scroll
+     horizontal (antes do fix de overflow-x) quanto o corte visual (depois do
+     fix, que só trocou "aparece scroll" por "aparece cortado" -- o input
+     continuava largo demais, só a barra de rolagem que sumiu). Confirmado
+     medindo scrollWidth/clientWidth com Playwright: sem este min-width, o
+     input já respeita `.search-wrap input[type=text] { width: 100% }` e cabe
+     exatamente nos 222px, sem sobra nenhuma. */
+  #search-cliente { min-width: 0; }
 
   /* Rodada 3: ordenação clicável nas colunas */
   th.sortable { cursor: pointer; user-select: none; }
@@ -2197,12 +2208,45 @@ function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleStr
 // supabase/patch-completude-instalacao.sql,
 // supabase/patch-completude-instalacao-prazo.sql e
 // queries/query-completude-instalacao-sync.sql.
-// Rodada 11 (2026-08-12): pedido do Luiz -- trazer a quantidade de dias que
-// falta pra completar o prazo de 60/90 dias (reaproveita diasRestantes(),
-// já usada no filtro de Prioridades). "10% | faltam 2 p/ 80%" na 1a linha;
-// 2a linha "dentro do prazo · faltam N dia(s)" quando ainda dá tempo, ou só
-// "prazo encerrado" (sem contagem de dias, que já seria negativa/inútil)
-// quando já venceu.
+// Rodada 11 (2026-08-12): pedido do Luiz -- formato "10% | +2 para 80%" na
+// 1a linha, e na 2a linha o status do prazo.
+//
+// Correção da mesma Rodada 11 (depois do Luiz reportar "faltam 0 dia(s)"
+// aparecendo em toda linha, mesmo em tickets claramente vencidos -- ex.
+// ticket 36311791626/W.P. Construtora, 258 dias desde a assinatura real):
+// a 1a versão desta função reaproveitava diasRestantes(), que usa
+// row.dias_aberto (há quantos dias o TICKET está aberto no HubSpot) como se
+// fosse "dias desde a assinatura do contrato" -- são relógios diferentes! Um
+// ticket pode ficar meses parado em "Agendar instalação" bem depois do
+// prazo de 60/90 dias da assinatura já ter vencido (ou nem ter relação com
+// qual assinatura conta pro prazo -- ver nota grande abaixo). Isso fazia
+// diasRestantes() dar sempre um número bem negativo, que o Math.max(...,0)
+// zerava -- daí "faltam 0 dia(s)" em quase toda linha, mesmo mostrando
+// "dentro do prazo". Removido até termos o dado certo vindo do Databricks
+// (contagem de dias real, a partir da assinatura elegível mais recente
+// dentro do prazo) -- por ora mostra só o status (badge), sem contagem de
+// dias, exatamente como pedido pro caso "encerrado" ("e o que encerrou só o
+// texto mesmo").
+//
+// ATENÇÃO -- limitação maior, achada ao investigar o ticket 36311791626
+// (ver conversa): completude_instalacao_snapshot é por EMPRESA
+// (company_id), não por ticket/negócio. Uma empresa com mais de uma venda
+// Upsell ao longo do tempo (comum) tem UM SÓ valor de "dentro_do_prazo"/pct
+// pra TODOS os tickets dela -- calculado como "existe ALGUMA venda elegível
+// da empresa ainda dentro do prazo dela". Ou seja: um ticket antigo, cuja
+// própria venda já venceu há muito, ainda pode aparecer como "dentro do
+// prazo" só porque a empresa fechou uma venda NOVA depois. Confirmado no
+// Databricks pra este ticket específico: deal 49779167653 (do próprio
+// ticket) assinado em 2025-11-27, 258 dias atrás -- muito além do prazo de
+// 60 dias (Upsell/ICP-SMB) -- mas a mesma empresa (9608025244) tem outra
+// venda Upsell mais recente (deal 62115236907, assinada 2026-07-06, só 37
+// dias atrás, ainda dentro do prazo), e é essa venda nova que está
+// "carregando" o dentro_do_prazo=true e o % mostrados em TODOS os tickets
+// da empresa, inclusive neste aqui. Combinar com o Luiz se isso deve
+// continuar sendo uma métrica por empresa (aí talvez precise de um aviso
+// deixando isso claro) ou se cada ticket deveria mostrar o status da SUA
+// PRÓPRIA venda (precisaria vincular ticket -> deal_id na query, mudança
+// maior no pipeline do Databricks).
 function completudeInstalacaoHtml(row) {
   if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) {
     return '<span class="muted">-</span>';
@@ -2211,15 +2255,13 @@ function completudeInstalacaoHtml(row) {
   const faltam = row.completude_qtd_falta || 0;
   const cor = pct >= 80 ? "var(--ok-text)" : (pct >= 50 ? "var(--warn)" : "var(--risk)");
   const faltamTxt = faltam > 0
-    ? ` <span class="muted">| faltam ${faltam} p/ 80%</span>`
+    ? ` <span class="muted">| +${faltam} para 80%</span>`
     : ` <span class="muted">| meta batida</span>`;
   let prazoLine = "";
   if (row.completude_dentro_do_prazo === false) {
     prazoLine = '<span class="badge risk">prazo encerrado</span>';
   } else if (row.completude_dentro_do_prazo === true) {
-    const dias = diasRestantes(row);
-    const diasTxt = dias != null ? ` <span class="muted">· faltam ${Math.max(Math.round(dias), 0)} dia(s)</span>` : "";
-    prazoLine = `<span class="badge ok">dentro do prazo</span>${diasTxt}`;
+    prazoLine = '<span class="badge ok">dentro do prazo</span>';
   }
   return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
     (prazoLine ? `<div class="bv-row muted" style="margin-top:2px">${prazoLine}</div>` : "");
