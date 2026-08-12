@@ -158,7 +158,17 @@
 
   table { width: 100%; border-collapse: collapse; background: #fff; }
   th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
-  th { color: var(--ink-mute); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; background: var(--paper-2); position: sticky; top: 0; z-index: 5; }
+  /* Rodada 12 (2026-08-12): removido `text-transform: uppercase` -- pedido do
+     Luiz ("ajusta esses nomes deixa só a primeira letra maiuscula para não
+     quebrar linha"). Texto em CAIXA ALTA ocupa mais largura que o mesmo texto
+     em caixa normal no mesmo tamanho de fonte -- era isso que fazia
+     cabeçalhos como "Aberto há" ("ABERTO HÁ") ou "Compl. instalação"
+     ("COMPL. INSTALAÇÃO") quebrarem em 2 linhas em colunas estreitas. O texto
+     de origem (`<th>Aberto há</th>` etc.) já estava em caixa normal -- só o
+     CSS forçava maiúsculas. `white-space: nowrap` adicionado como garantia
+     extra (mesma lógica do fix de `.bv-cell .bv-row`): na pior das hipóteses
+     a tabela ganha scroll horizontal em vez de cabeçalho quebrado. */
+  th { color: var(--ink-mute); font-weight: 600; font-size: 11.5px; letter-spacing: 0.01em; white-space: nowrap; background: var(--paper-2); position: sticky; top: 0; z-index: 5; }
   tbody tr:nth-child(even) td { background: rgba(7,7,78,0.012); }
   tbody tr:hover td { background: var(--royal-soft); }
   tbody tr:last-child td { border-bottom: none; }
@@ -456,6 +466,9 @@
      clicável (ver .tratativa-trigger). */
   .tratativa-trigger { cursor: pointer; }
   .tratativa-trigger:hover { text-decoration: underline; }
+  /* Rodada 12: trunca motivo+observação concatenados (podem ficar longos) --
+     mesmo padrão de .client-name. Texto completo disponível no title. */
+  .tratativa-text { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(7,7,78,0.35); z-index: 50;
     display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -1233,6 +1246,27 @@ function diasRestantes(row) {
   if (row.completude_time_segmento == null || row.dias_aberto == null) return null;
   return prazoTotalDias(row.completude_time_segmento) - row.dias_aberto;
 }
+
+// Rodada 12 (2026-08-12): dias restantes do prazo pra mostrar dentro do badge
+// "dentro do prazo Nd" na coluna Compl. instalação (pedido do Luiz: "sei que
+// tem 10 dias ainda dentro do prazo, casando com o filtro de prioridades").
+// `completude_dias_restantes_prazo` é o campo CERTO (calculado por deal, a
+// partir da assinatura do PRÓPRIO deal do ticket) -- ainda não existe em
+// produção, vem da migração "completude por deal" (agendada pra rodar às
+// 17h30 de hoje, ver backlog.md). Até essa migração publicar o campo, cai
+// pro diasRestantes() já existente (mesmo cálculo do filtro de Prioridades,
+// baseado em dias_aberto -- daí "casando com o filtro"), mas só usa esse
+// valor de fallback quando dá um número positivo plausível: como
+// diasRestantes() usa um relógio diferente (idade do TICKET, não da
+// assinatura -- ver Rodada 11), ele pode contradizer completude_dentro_do_prazo
+// em alguns casos, e mostrar um número negativo do lado de "dentro do prazo"
+// ficaria pior que não mostrar nada. Depois que a migração por deal publicar
+// completude_dias_restantes_prazo, essa função passa a usar o valor certo
+// automaticamente, sem precisar mexer no front-end de novo.
+function diasRestantesPrazoCompletude(row) {
+  if (row.completude_dias_restantes_prazo != null) return row.completude_dias_restantes_prazo;
+  return diasRestantes(row);
+}
 function inFaixaQtdFalta(qtd, faixa) {
   if (qtd == null) return false;
   if (faixa === "1-4") return qtd >= 1 && qtd <= 4;
@@ -1493,20 +1527,24 @@ function renderKpis(rows) {
 // o mesmo padrão do completude o texto, pra ficarem iguais"): valor em
 // negrito + "| +N para <meta>" (ou "| meta batida") na mesma linha, sem
 // rótulo extra antes do número (o cabeçalho da coluna já diz "Basic Value").
+// Rodada 12 (2026-08-12), 2º ajuste do mesmo dia: o Luiz pediu de volta o
+// comentário ("+N para nota 3") numa linha SEPARADA, embaixo do valor --
+// "deixa o comentário na linha de baixo, assim dá pra reduzir a largura um
+// pouco" (2 linhas mais estreitas cabem em menos largura de coluna que 1
+// linha longa). Diferente da Completude (que continua numa linha só, "67% |
+// +3 para 80%" já é curto o suficiente).
 function basicValueCellHtml(row, riskBadge) {
   const nota = row.completude_nota_instalacao;
   const gap = row.completude_qtd_falta_nota_3;
-  const gapTxt = gap == null
+  const gapHtml = gap == null
     ? ""
-    : (gap > 0
-        ? ` <span class="muted">| +${gap} para nota 3</span>`
-        : ` <span class="muted">| meta batida</span>`);
-  const notaHtml = `<div class="bv-row" style="font-size:13.5px"><b>${fmtNum(nota)}</b>${gapTxt}</div>`;
+    : `<div class="bv-row muted" style="margin-top:2px">${gap > 0 ? `+${gap} para nota 3` : "meta batida"}</div>`;
+  const notaHtml = `<div class="bv-row" style="font-size:13.5px"><b>${fmtNum(nota)}</b></div>`;
   if (row.completude_time_segmento === "Onboarding") {
-    return notaHtml +
+    return notaHtml + gapHtml +
       `<div class="bv-row muted" style="margin-top:2px">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>`;
   }
-  return notaHtml;
+  return notaHtml + gapHtml;
 }
 
 // Distribuição de empresas (dedup por company_id) pelo grau de completude da
@@ -1822,6 +1860,25 @@ function squadBadgeHtml(row) {
   return squadBadge;
 }
 
+// Rodada 12 (2026-08-12): antes a célula só mostrava um badge genérico com o
+// status_tratativa (motivo), ou "com observação"/"Clique p/..." quando não
+// tinha motivo -- nunca o texto de fato registrado. Pedido do Luiz: mostrar
+// motivo + observação concatenados (ex. "Aguardando cliente - Cliente irá
+// retornar amanhã"), pra dar pra ler o que já foi registrado sem precisar
+// abrir o popup. `.tratativa-text` trunca com "..." (mesmo padrão do nome do
+// cliente) -- texto completo continua no title do <span>.
+function tratativaCellHtml(row) {
+  const motivo = row.status_tratativa;
+  const obs = row.observacao;
+  let texto = null;
+  if (motivo && obs) texto = `${motivo} - ${obs}`;
+  else if (motivo) texto = motivo;
+  else if (obs) texto = obs;
+  return texto
+    ? `<span class="muted tratativa-text" title="${escapeHtml(texto)}">${escapeHtml(texto)}</span>`
+    : '<span class="muted">-</span>';
+}
+
 function renderTable(data) {
   const wrap = document.getElementById("table-principal-wrap");
 
@@ -1898,10 +1955,8 @@ function renderTable(data) {
       ${SHOW_FIELD_STATUS ? `<td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
           ${row.data_agendada ? `<div class="meta-line">${row.data_agendada}</div>` : ""}
       </td>` : ""}
-      <td class="tratativa-trigger" onclick="openTratativaModal('${row.ticket_id}')" title="Clique para ver/editar a observação do agendamento">
-        ${row.status_tratativa
-          ? `<span class="badge stage">${escapeHtml(row.status_tratativa)}</span>`
-          : (row.observacao ? '<span class="muted">com observação</span>' : '<span class="muted">Clique p/ observação do agendamento</span>')}
+      <td class="tratativa-trigger" onclick="openTratativaModal('${row.ticket_id}')" title="Clique para registrar uma observação">
+        ${tratativaCellHtml(row)}
       </td>
     </tr>`;
   }
@@ -2277,7 +2332,9 @@ function completudeInstalacaoHtml(row) {
   if (row.completude_dentro_do_prazo === false) {
     prazoLine = '<span class="badge risk">prazo encerrado</span>';
   } else if (row.completude_dentro_do_prazo === true) {
-    prazoLine = '<span class="badge ok">dentro do prazo</span>';
+    const dias = diasRestantesPrazoCompletude(row);
+    const diasTxt = (dias != null && dias > 0) ? ` ${Math.round(dias)}d` : "";
+    prazoLine = `<span class="badge ok">dentro do prazo${diasTxt}</span>`;
   }
   return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
     (prazoLine ? `<div class="bv-row muted" style="margin-top:2px">${prazoLine}</div>` : "");
