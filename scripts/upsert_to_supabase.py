@@ -69,6 +69,90 @@ def load_payload() -> dict:
     return payload
 
 
+def fetch_all_ids(table: str, id_column: str) -> set:
+    """GET paginado só da coluna de ID -- o Supabase (PostgREST) limita cada
+    resposta a um teto de linhas ("Max Rows" do projeto, hoje 1000), mesma
+    razão pela qual o front-end (index.html) usa fetchAllPages(). Usa o
+    header Range em vez de .range() (isso aqui é a API REST crua, não o
+    client JS)."""
+    ids = set()
+    page_size = 1000
+    start = 0
+    while True:
+        url = f"{SUPABASE_URL}/rest/v1/{table}?select={id_column}"
+        headers = {**HEADERS, "Range-Unit": "items", "Range": f"{start}-{start + page_size - 1}"}
+        r = requests.get(url, headers=headers, timeout=60)
+        if not r.ok:
+            print(f"ERRO ao ler {table}: {r.status_code} {r.text}", file=sys.stderr)
+            r.raise_for_status()
+        page = r.json()
+        ids.update(row[id_column] for row in page)
+        if len(page) < page_size:
+            break
+        start += page_size
+    return ids
+
+
+# Rodada 11 (2026-08-12), pedido do Luiz: "os tickets hoje eles irão sair do
+# status agendar instalação no hubs, então quando rodarmos a atualização
+# geral precisamos também atualizar isso, o que mudou de status não voltar
+# mais". Até aqui, upsert() só inseria/atualizava -- nunca removia --
+# então um ticket que saísse de "Agendar instalação" no HubSpot continuava
+# aparecendo pra sempre no dashboard, com os dados congelados da última
+# sincronização em que ainda estava no status.
+#
+# Sobre não perder comentário/observação (mesmo pedido, na sequência): a
+# tabela ticket_checks (onde ficam status_tratativa/observacao, gravados
+# pelo popup de Tratativa) NÃO tem foreign key/cascade com tickets_sync --
+# apagar uma linha de tickets_sync aqui NUNCA apaga o histórico de
+# ticket_checks associado; a linha de ticket_checks só fica órfã (preservada,
+# sem vínculo). E um ticket que ainda está em "Agendar instalação" (ou seja,
+# que ainda aparece no payload desta sincronização) nunca é tocado por esta
+# função -- só quem SAIU do status é removido. Ou seja: comentário de ticket
+# ainda ativo nunca é apagado; comentário de ticket que saiu do status
+# continua no banco (órfão), só não aparece mais atrelado a uma linha de
+# tickets_sync visível no dashboard.
+MIN_EXPECTED_TICKETS = 50  # ver guarda de segurança abaixo
+
+
+def remove_stale_tickets(current_ticket_ids: list):
+    """Remove de tickets_sync os tickets que não vieram no payload desta
+    sincronização -- ou seja, que saíram de "Agendar instalação" no HubSpot
+    desde a última rodada.
+
+    Guarda de segurança: se o payload atual vier vazio ou suspeitosamente
+    pequeno (< MIN_EXPECTED_TICKETS), a sincronização provavelmente falhou ou
+    veio parcial (ex.: um chunk isolado, não a atualização geral) -- nesse
+    caso NÃO remove nada, pra nunca arriscar apagar a base inteira por um
+    payload incompleto."""
+    if len(current_ticket_ids) < MIN_EXPECTED_TICKETS:
+        print(
+            f"tickets_sync: payload desta sincronização tem só {len(current_ticket_ids)} "
+            f"ticket(s) (< {MIN_EXPECTED_TICKETS}) -- pulando a remoção de tickets que "
+            "saíram do status, por segurança (pode ser sync parcial; evita apagar a base "
+            "inteira por engano). Só roda numa atualização geral de verdade.",
+            file=sys.stderr,
+        )
+        return
+
+    existing_ids = fetch_all_ids("tickets_sync", "ticket_id")
+    stale_ids = sorted(existing_ids - set(current_ticket_ids))
+
+    if not stale_ids:
+        print("tickets_sync: nenhum ticket saiu de 'Agendar instalação' desde a última sincronização")
+        return
+
+    for i in range(0, len(stale_ids), 200):
+        batch = stale_ids[i : i + 200]
+        ids_csv = ",".join(f'"{t}"' for t in batch)
+        del_url = f"{SUPABASE_URL}/rest/v1/tickets_sync?ticket_id=in.({ids_csv})"
+        r = requests.delete(del_url, headers={**HEADERS, "Prefer": "return=minimal"}, timeout=60)
+        if not r.ok:
+            print(f"ERRO ao remover tickets_sync órfãos: {r.status_code} {r.text}", file=sys.stderr)
+            r.raise_for_status()
+    print(f"tickets_sync: {len(stale_ids)} ticket(s) removido(s) (saíram de 'Agendar instalação'; histórico de tratativa/observação em ticket_checks preservado, sem FK/cascade)")
+
+
 def upsert(table: str, rows: list, on_conflict: str, chunk_size: int = 500):
     if not rows:
         print(f"{table}: nada para gravar (0 linhas)")
@@ -154,6 +238,7 @@ def main():
     payload = load_payload()
 
     upsert("tickets_sync", payload["tickets"], on_conflict="ticket_id")
+    remove_stale_tickets([row["ticket_id"] for row in payload["tickets"]])
     upsert("basic_value_snapshot", payload["basic_value"], on_conflict="company_id")
     upsert("field_status_snapshot", payload["field_status"], on_conflict="ordem_servico_raw")
     upsert("completude_instalacao_snapshot", payload["completude_instalacao"], on_conflict="company_id")
