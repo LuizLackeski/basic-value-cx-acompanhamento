@@ -1,6 +1,6 @@
 # Backlog — Basic Value / ICP Dashboard
 
-*Atualizado em 2026-08-12 (Rodada 10). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
+*Atualizado em 2026-08-12 (Rodada 11). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
 
 ## ⚠️ Ações pendentes do Luiz: rodar os patches novos da Rodada 9
 A Rodada 9 (ver seção própria abaixo) já está publicada no `index.html`, mas depende de duas migrações de banco novas que **ainda não foram rodadas**:
@@ -24,6 +24,50 @@ A Rodada 8 (ver seção própria abaixo) já está publicada no `index.html` e n
 A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de uma migração de banco que **ainda não foi rodada**. Sem isso, convidar/editar um gestor_geral vai dar erro (squad ainda é obrigatória no banco) e as regras novas de permissão (insert/update/delete de `team_members`) ainda não estarão em vigor.
 - Rode `supabase/patch-rodada6.sql` inteiro no SQL Editor do Supabase (idempotente, pode rodar mais de uma vez sem problema).
 - Esse mesmo patch já inclui o vínculo pontual do `hubspot_owner_id` da Danielle Couto (199072037) -- ver item 8 abaixo.
+
+## ✅ Rodada 11 (2026-08-12) — coluna Agendado, tratativa em popup, login novo, ajustes de coluna e sincronização
+*Lista de 8 pontos passada pelo Luiz depois de testar a Rodada 10 (2 prints da tabela de Tickets + texto). Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main`: `a04b8f9` (`index.html`), `0e48ecd` (`scripts/upsert_to_supabase.py`).*
+
+### 1. ✅ Coluna "Agendado" órfã removida da tabela
+- O `<th>Agendado</th>` do cabeçalho não tinha `<td>` correspondente no corpo da tabela (o checkbox real já mora na primeira coluna sem título) -- por isso aparecia uma coluna "AGENDADO" vazia nos prints do Luiz. `<th>` órfão removido; o checkbox cinza continua exatamente como estava.
+
+### 2. ✅ Sincronização geral agora remove tickets que saíram de "Agendar instalação"
+- `scripts/upsert_to_supabase.py`: nova função `remove_stale_tickets()`, chamada logo depois do upsert de `tickets_sync` em `main()`. Compara os `ticket_id` que vieram nesta sincronização contra os que já existem em `tickets_sync` no Supabase (busca paginada) e apaga os que não vieram mais -- ou seja, que saíram do status no HubSpot.
+- **Guarda de segurança**: se o payload desta sincronização tiver menos de 50 tickets (`MIN_EXPECTED_TICKETS`), a remoção é pulada e um aviso é impresso no log -- protege contra apagar a base inteira por causa de um sync parcial/com erro (ex.: um chunk isolado, não a atualização geral).
+- **Comentário/observação preservado**: `ticket_checks` (onde ficam `status_tratativa`/`observacao`, gravados pelo popup de Tratativa) não tem foreign key/cascade com `tickets_sync` -- confirmado no schema. Então apagar uma linha de `tickets_sync` nunca apaga o histórico de `ticket_checks`; ele só fica órfão, preservado no banco. E um ticket que ainda está em "Agendar instalação" (ainda presente no payload) nunca é tocado por esta função -- então comentário de ticket ainda ativo nunca corre risco.
+- **Ainda não testado contra uma sincronização real** (a próxima "atualização geral" combinada com o Luiz no ponto 8 da lista vai ser o primeiro teste de ponta a ponta). Ver `remove_stale_tickets()` no código pra detalhe do guard/lógica.
+
+### 3. ✅ Tratativa em popup (antes era select+textarea inline na tabela)
+- Nova coluna "Tratativa" na tabela agora só mostra um indicador clicável (badge do status, "com observação" ou "Clique p/ observação do agendamento") -- clicar em qualquer parte da célula (`.tratativa-trigger`, `openTratativaModal(ticketId)`) abre um popup (`#tratativa-modal-overlay`) com o select de status + textarea de observação, e um botão Salvar (`saveTratativaModal()`) que grava os dois campos juntos em `ticket_checks` (via `saveTratativa()`, reaproveitada). Fecha clicando fora do card ou no botão Cancelar.
+- Libera espaço horizontal na tabela, como pedido.
+
+### 4. ✅ Login redesenhado — Google + e-mail/senha + "esqueceu a senha"
+- Tela de login trocada: botão "Entrar com Google" (`loginWithGoogle()`, `signInWithOAuth`) em destaque, depois campos de e-mail + senha (`loginWithPassword()`, `signInWithPassword`) pra quem é de fora da Cobli (ou qualquer um que já tenha senha), e um link "Esqueceu a senha? / Primeiro acesso com senha" (`sendPasswordReset()`, `resetPasswordForEmail`) -- valida o cadastro (`email_is_registered`) antes de mandar o link, igual ao fluxo antigo do magic link.
+- `sendMagicLink()` (o fluxo antigo) ficou no código, só não é mais chamado pela UI -- reversível se precisar.
+- **"Entrar com Google" só funciona de fato depois que o Luiz configurar o provider Google no painel do Supabase** (Authentication → Providers) -- até lá dá erro "provider not enabled" (inofensivo, só quem clicar vê).
+- **Resposta à dúvida do Luiz** ("os usuários já cadastrados precisarão ser excluídos e cadastrados de novo, para que tenha a senha?"): **não.** `resetPasswordForEmail` funciona igual pra quem nunca teve senha (só usava magic link) e pra quem já tem senha e esqueceu -- é ao mesmo tempo o fluxo de "esqueci a senha" e de "primeiro acesso com senha". Ninguém precisa ser excluído/recriado.
+
+### 5. Aba "Evolução B.V." buscar do banco em vez dos tickets abertos atuais — registrado, não implementado
+- Pedido do Luiz: a aba hoje deriva a distribuição por grau a partir de `state.allRows` (tickets abertos agora, via `distinctCompanies`/`instalation_completeness_grade`) -- ele quer trocar pra vir do banco/tabelas, já pensando em capturar saída E entrada de empresas ao longo do tempo (hoje `bv_grade_snapshots` já registra snapshots diários/semanais, mas a leitura ao vivo da aba ainda usa os tickets abertos, não uma tabela histórica própria por empresa).
+- Luiz pediu explicitamente pra **não fazer agora** ("mas não agora acho, preciso usar") -- só registrado aqui como próximo passo.
+
+### 6. ✅ Colunas reorganizadas: nome truncado + completude com dias restantes
+- **Cliente**: nome truncado com "..." (`.client-name`, `max-width: 220px` + `text-overflow: ellipsis`) -- nome completo continua disponível no tooltip (`title`). Ex.: "Cattani Transporte..." em vez do nome inteiro espremendo a linha.
+- **Compl. instalação**: `completudeInstalacaoHtml()` reescrita pra trazer a quantidade de dias que falta pro prazo de 60/90 dias (reaproveita `diasRestantes()`, já usada nos filtros de Prioridade). Formato: 1ª linha "10% | faltam 2 p/ 80%"; 2ª linha "dentro do prazo · faltam N dia(s)" quando ainda dá tempo, ou só "prazo encerrado" (sem contagem de dias, que já seria negativa) quando já venceu.
+- Como as colunas "Agendado" e "Tratativa" (inline) saíram/mudaram (pontos 1 e 3), sobrou mais espaço horizontal pras colunas que ficaram.
+
+### 7. ✅ Busca da barra lateral: botão de limpar + sem scroll horizontal
+- Campo de busca (Ticket/Cliente/etc.) ganhou um "×" (`.search-clear-btn`, `clearSearch()`) que só aparece quando há texto digitado, pra limpar a busca com um clique.
+- **Causa raiz do scroll horizontal indevido na sidebar**: `.sidebar-content` tinha `overflow-y: auto` sem `overflow-x` definido -- pela spec de CSS, deixar um eixo non-visible sem setar o outro faz o navegador computar `overflow-x` como `auto` também, então aparecia uma barrinha de rolagem lateral mesmo sem conteúdo mais largo que a sidebar. Corrigido com `overflow-x: hidden` explícito (removido também um `min-width: 216px` que apertava a margem do scrollbar vertical). Tamanho da sidebar não mudou.
+
+### 8. Alinhar sobre a atualização/sincronização, pra testar tudo junto — combinado, ainda não feito
+- Luiz pediu pra alinhar depois de tudo isso publicado, antes de rodar a sincronização geral de teste (que vai ser o primeiro teste real da remoção de tickets do ponto 2). Ver próximos passos.
+
+### Verificação feita antes de publicar
+- `node --check` no bloco `<script>` extraído do `index.html` -- sintaxe OK.
+- Checagem de balanceamento de tags (`<th>`/`</th>`, `<main>`/`</main>`) -- duas discrepâncias aparentes investigadas e confirmadas como falso positivo de um contador ingênuo (contava `<th>`/`<main>` mencionados dentro de comentários de código/CSS, não markup real); tags reais conferidas uma a uma, balanceadas.
+- `python3 -m py_compile` em `scripts/upsert_to_supabase.py` -- sintaxe OK.
+- `git diff` revisado linha a linha nos dois arquivos antes de publicar; cada um publicado e conferido byte-a-byte (`get_file_contents` + diff/md5sum) imediatamente depois.
 
 ## ✅ Rodada 9 (2026-08-12) — implementada e publicada no `index.html`
 *Combinado com o Luiz na noite de 2026-08-11, rodado às 07h BRT de 2026-08-12 (scheduled task agendada, ver `claude/pendencias-2026-08-11-para-7h.md` no Projects). Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main` -- ver lista ao final desta seção.*
@@ -116,6 +160,11 @@ Luiz corrigiu o item "paleta de cor única por grau de B.V." da Rodada 6: eu tro
 - **Card de distribuição (`.grade-pill`)**: ✅ revertido pra cor de status (risco/aviso/ok) -- ver Rodada 9, item 3.
 - **Gráfico de Evolução B.V.**: ✅ trocada a rampa ordinal verde pela paleta de status -- ver Rodada 9, item 3.
 
+## ✅ Login: Google + e-mail/senha + "esqueceu a senha" — implementado na Rodada 11 (2026-08-12)
+Front-end publicado -- ver Rodada 11, item 4, no topo deste arquivo. Falta só o Luiz configurar o provider Google no painel do Supabase (Authentication → Providers) pra "Entrar com Google" funcionar de fato; até lá o botão fica inofensivo (dá erro "provider not enabled" só pra quem clicar). E-mail/senha e "esqueceu a senha" já funcionam sem depender de nenhum setup adicional.
+
+<details><summary>Histórico da decisão (2026-08-10)</summary>
+
 ## Login: trocar magic link por "Entrar com Google" (2026-08-10) — aguardando setup do Luiz
 Luiz apontou uma limitação real do link mágico: se ele (ou alguém já cadastrado) precisar acessar o dashboard num dispositivo/navegador sem sessão salva e sem acesso ao e-mail naquele momento, fica sem conseguir entrar — o link mágico sempre exige esse passo extra de e-mail pra qualquer sessão nova, mesmo pra quem já está cadastrado há tempos.
 
@@ -136,6 +185,8 @@ Luiz apontou uma limitação real do link mágico: se ele (ou alguém já cadast
   - **Como ficaria**: usar o método nativo de senha do Supabase Auth (`signInWithPassword`). Fluxo sugerido: no primeiro acesso (convite), a pessoa define uma senha (link do primeiro acesso viraria "defina sua senha" em vez de só um login automático); dali em diante, ela entra com e-mail + senha em qualquer lugar; existe um "esqueci minha senha" que manda um link de redefinição por e-mail (aí sim usando o e-mail como último recurso, só quando necessário).
   - **Recomendação**: dá pra ter os três métodos disponíveis ao mesmo tempo, sem conflito -- "Entrar com Google" (mais rápido, quando já tem sessão Google no navegador), "E-mail e senha" (funciona em qualquer computador), e o magic link continua existindo por baixo dos panos só pro fluxo de "esqueci minha senha" / primeiro cadastro. Não precisa escolher um único caminho.
   - **Status**: proposto, aguardando o Luiz confirmar se quer seguir com e-mail e senha (em vez do Google, ou junto com ele) antes de eu implementar.
+
+</details>
 
 ## ✅ Rodada 6 (2026-08-11) — implementada e publicada no `index.html`
 *Commits: `59b28e4` (index.html) e `a572b1d` (supabase/patch-rodada6.sql), branch `main`. Depende do patch SQL ser rodado -- ver aviso no topo deste arquivo.*
