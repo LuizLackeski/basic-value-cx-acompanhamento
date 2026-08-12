@@ -14,8 +14,9 @@ Dois formatos são aceitos (e combinados se os dois existirem):
      "field_status": [ {...linhas de field_status_snapshot...} ],
      "ticket_products": [ {...linhas de ticket_products, sem "id"...} ],
      "team_members_updates": [ {...linhas de team_members (só email + hubspot_owner_id)...} ],
-     "completude_instalacao": [ {...linhas de completude_instalacao_snapshot...} ],
-     "esn_validacao": [ {...linhas de esn_validacao_snapshot...} ]
+     "completude_instalacao": [ {...linhas de completude_instalacao_snapshot, por deal_id...} ],
+     "esn_validacao": [ {...linhas de esn_validacao_snapshot...} ],
+     "ticket_deal_ids": [ {...{"ticket_id":..., "deal_id":...}, backfill de tickets_sync.deal_id...} ]
    }
 
 2. `data/chunks/<tabela>-NN.json` — a mesma coisa, mas partida em vários
@@ -24,7 +25,7 @@ Dois formatos são aceitos (e combinados se os dois existirem):
    arquivo de uma vez (ex.: a primeira sincronização completa, com todos os
    tickets abertos). `<tabela>` é um destes: tickets, basic_value,
    ticket_products, field_status, team_members_updates, completude_instalacao,
-   esn_validacao.
+   esn_validacao, ticket_deal_ids.
 """
 import glob
 import json
@@ -39,7 +40,11 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 SINGLE_FILE = os.path.join(DATA_DIR, "latest-sync.json")
 CHUNKS_DIR = os.path.join(DATA_DIR, "chunks")
 
-TABLE_KEYS = ["tickets", "basic_value", "ticket_products", "field_status", "team_members_updates", "completude_instalacao", "esn_validacao"]
+# Rodada 12 (2026-08-12): "ticket_deal_ids" adicionado -- payload separado de
+# {"ticket_id":..., "deal_id":...} usado só para popular tickets_sync.deal_id
+# (ver update_ticket_deal_ids() abaixo). Continua na mesma lista TABLE_KEYS só
+# para reaproveitar load_payload(); main() trata cada chave individualmente.
+TABLE_KEYS = ["tickets", "basic_value", "ticket_products", "field_status", "team_members_updates", "completude_instalacao", "esn_validacao", "ticket_deal_ids"]
 
 HEADERS = {
     "apikey": SERVICE_ROLE_KEY,
@@ -234,14 +239,64 @@ def update_owner_ids(rows: list):
     print(f"team_members: {updated}/{len(rows)} pessoa(s) já cadastrada(s) tiveram hubspot_owner_id atualizado")
 
 
+def update_ticket_deal_ids(rows: list):
+    """Preenche tickets_sync.deal_id (Rodada 12, 2026-08-12) -- resolvido pela
+    scheduled task via associação nativa HubSpot TICKET->DEAL
+    (query_crm_data: 'SELECT hs_object_id, DEAL.hs_object_id FROM TICKET
+    WHERE ...', ver sync-runbook.md Passo 2). Usado desde a Rodada 12 para
+    juntar completude_instalacao_snapshot por deal_id em vez de company_id --
+    corrige o caso de uma venda nova da mesma empresa "carregar" o status de
+    uma venda antiga já vencida (ver
+    supabase/patch-completude-instalacao-por-deal.sql).
+
+    Importante: isto SÓ faz PATCH (update), igual a update_owner_ids() --
+    NUNCA upsert/insert. Isto é deliberado e diferente de upsert(): este
+    payload cobre só uma FATIA de tickets_sync (os tickets com deal_id
+    resolvido -- tickets "Unassigned" no HubSpot, ou que saíram de "Agendar
+    Instalação" entre a resolução do deal_id e esta sincronização, não
+    aparecem aqui). Se isto passasse por upsert()+remove_stale_tickets()
+    (que tratam o payload como a lista COMPLETA de tickets ativos), qualquer
+    ticket ausente deste payload seria apagado de tickets_sync por engano --
+    exatamente o bug que essa separação evita. Um ticket_id que já não esteja
+    mais em tickets_sync simplesmente não é afetado pelo PATCH (0 linhas,
+    sem erro) -- nunca cria uma linha nova incompleta."""
+    if not rows:
+        print("tickets_sync.deal_id: nada para atualizar (0 linhas)")
+        return
+    updated = 0
+    for row in rows:
+        ticket_id = row.get("ticket_id")
+        deal_id = row.get("deal_id")
+        if not ticket_id or not deal_id:
+            continue
+        url = f"{SUPABASE_URL}/rest/v1/tickets_sync?ticket_id=eq.{ticket_id}"
+        r = requests.patch(
+            url,
+            headers={**HEADERS, "Prefer": "return=representation"},
+            data=json.dumps({"deal_id": deal_id}),
+            timeout=60,
+        )
+        if not r.ok:
+            print(f"ERRO ao atualizar tickets_sync.deal_id (ticket {ticket_id}): {r.status_code} {r.text}", file=sys.stderr)
+            r.raise_for_status()
+        if r.json():
+            updated += 1
+    print(f"tickets_sync.deal_id: {updated}/{len(rows)} ticket(s) atualizado(s)")
+
+
 def main():
     payload = load_payload()
 
     upsert("tickets_sync", payload["tickets"], on_conflict="ticket_id")
     remove_stale_tickets([row["ticket_id"] for row in payload["tickets"]])
+    update_ticket_deal_ids(payload["ticket_deal_ids"])
     upsert("basic_value_snapshot", payload["basic_value"], on_conflict="company_id")
     upsert("field_status_snapshot", payload["field_status"], on_conflict="ordem_servico_raw")
-    upsert("completude_instalacao_snapshot", payload["completude_instalacao"], on_conflict="company_id")
+    # Rodada 12 (2026-08-12): chave de conflito muda de company_id para
+    # deal_id -- ver supabase/patch-completude-instalacao-por-deal.sql (roda
+    # ANTES desta sincronização gravar dados, senão a tabela ainda está com
+    # deal_id inexistente e este upsert falha).
+    upsert("completude_instalacao_snapshot", payload["completude_instalacao"], on_conflict="deal_id")
     upsert("esn_validacao_snapshot", payload["esn_validacao"], on_conflict="ticket_id,esn")
     replace_ticket_products(payload["ticket_products"])
     update_owner_ids(payload["team_members_updates"])
