@@ -1,58 +1,85 @@
 -- ============================================================================
--- Query: Completude de Instalação — versão de SINCRONIZAÇÃO (1 linha por empresa)
+-- Query: Completude de Instalação — versão de SINCRONIZAÇÃO (1 linha por DEAL)
 -- Gerado em 2026-08-11. Atualizado em 2026-08-11 (Rodada 8) com a nota de
 -- Basic Value de Instalação (nota_instalacao) e o gap pra nota 3
 -- (qtd_falta_nota_3). Testado direto no Databricks (dados reais).
 --
+-- REESCRITA NA RODADA 12 (2026-08-12) -- pedido do Luiz depois de investigar
+-- o ticket 36311791626 (deal 49779167653, assinado 24/11/2025, ~258 dias
+-- atrás -- já vencido -- mas aparecendo "dentro do prazo" no dashboard):
+-- **antes**, esta query agregava por EMPRESA (associated_company_id) -- 1 só
+-- valor de dentro_do_prazo/pct/qtd por empresa, compartilhado por TODOS os
+-- tickets/deals dela (via SUM/MAX OVER PARTITION BY associated_company_id).
+-- Uma empresa com uma venda nova ainda dentro do prazo "carregava" esse
+-- status pra tickets de vendas antigas já vencidas da MESMA empresa -- exatamente
+-- o caso do ticket acima (a mesma empresa, 9608025244, tem outra venda Upsell
+-- mais recente, deal 62115236907, assinada 06/07/2026, 37 dias -- ainda
+-- dentro do prazo -- que "carregava" o status pro ticket errado).
+-- **Agora**: o resultado final é 1 linha POR DEAL (`deal_id`), não por
+-- empresa -- cada deal mostra o status/percentual/nota da SUA PRÓPRIA venda,
+-- sem interferência de outras vendas da mesma empresa. O front-end
+-- (`v_dashboard`) passa a juntar por `deal_id` (o deal do PRÓPRIO ticket, via
+-- associação HubSpot TICKET->DEAL, nova coluna `tickets_sync.deal_id`) em vez
+-- de por `company_id` -- ver `supabase/patch-completude-instalacao-por-deal.sql`
+-- e o Passo 2 atualizado do `sync-runbook.md`.
+--
+-- Também nesta rodada: o corte de data `DATA_INICIO_ASSINATURA >= '2026-01-01'`
+-- (CTE `contratos`) foi trocado pra `>= '2024-01-01'`, a pedido do Luiz
+-- ("pode considerar de 2024 o deal para trazer tudo") -- traz muito mais
+-- histórico de deals elegíveis pra completude (validado no Databricks: 5809
+-- deals / 1989 empresas com o corte de 2024, vs. 448 empresas com o corte de
+-- 2026-01-01 usado até aqui).
+--
 -- Esta é a versão usada pelo pipeline (Passo 4B do sync-runbook.md): roda no
 -- Databricks, o resultado vira a chave "completude_instalacao" do
 -- data/latest-sync.json, e o upsert_to_supabase.py grava em
--- completude_instalacao_snapshot (ver supabase/patch-completude-instalacao.sql
--- e supabase/patch-completude-instalacao-nota.sql).
+-- completude_instalacao_snapshot (ver
+-- supabase/patch-completude-instalacao-por-deal.sql, que substitui a chave
+-- primária de company_id para deal_id).
 --
 -- Difere de queries/query-completude-instalacao-onboarding.sql (que era a
 -- versão "debug", 1 linha por deal, filtrada só em Onboarding, no formato de
--- BI tool com measure()) -- esta aqui junta os 3 segmentos (Onboarding, ICP,
--- SMB) numa linha só por empresa, pronta pra virar JSON.
+-- BI tool com measure()) -- essa outra era só de debug; esta aqui é a que
+-- roda de verdade no pipeline, juntando os 3 segmentos (Onboarding, ICP, SMB).
 --
--- Regra de elegibilidade por TIPO (o que entra na soma de cada empresa, sem
--- corte de dias), por segmento:
+-- Regra de elegibilidade por TIPO (o que entra no resultado, sem corte de
+-- dias), por segmento -- inalterada nesta rodada:
 --   Onboarding: só deals cujo classe_deal contém 'Primeira venda'.
 --   ICP e SMB: o INVERSO -- só deals cujo classe_deal NÃO contém 'Primeira
 --     venda' (Upsell/Troca/Upgrade/Downgrade).
 --   Meta de instalação nos três casos: 80%.
--- Ajuste de 2026-08-11 (pedido do Luiz): o corte de 60 dias (ICP/SMB) / 90
--- dias (Onboarding) NÃO exclui mais o deal da soma -- os dados continuam
--- aparecendo mesmo depois do prazo vencer. O corte agora só alimenta o campo
--- "dentro_do_prazo" (por empresa: TRUE se ao menos 1 deal elegível por tipo
--- ainda está dentro do prazo: "ainda dá pra completar"; FALSE se todos já
--- passaram: "já passou do prazo"). Ver ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO x
--- DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO no deal_metrics abaixo.
+-- O corte de 60 dias (ICP/SMB) / 90 dias (Onboarding) NÃO exclui o deal do
+-- resultado -- os dados continuam aparecendo mesmo depois do prazo vencer.
+-- O corte só alimenta o campo "dentro_do_prazo" de CADA deal (TRUE = esse
+-- deal, isoladamente, ainda está dentro do prazo; FALSE = já passou). Ver
+-- ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO x DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO
+-- no deal_metrics abaixo.
 --
--- NOVO (2026-08-11, Rodada 8) -- Nota de Basic Value de Instalação: pedido do
--- Luiz pra substituir o "Instalação" que vinha do Databricks
+-- Nota de Basic Value de Instalação (2026-08-11, Rodada 8): substitui o
+-- "Instalação" que vinha do Databricks
 -- (gold.customer_success_reports.basic_value.instalation_completeness_grade,
 -- que não cobre 100% das empresas com ticket aberto) por uma nota calculada
--- por nós, direto do mesmo % instalado/total já usado na Completude, com
--- faixas por segmento:
+-- por nós, direto do % instalado/total do PRÓPRIO deal (antes era da
+-- empresa), com faixas por segmento:
 --   SMB (e Onboarding com potencial <= 50): 0%=0; até 75%=1; 76-89%=2;
 --     90-95%=3; acima de 95%=4.
 --   ICP (e Onboarding com potencial > 50): 0%=0; até 75%=1; 76-79%=2;
 --     80-85%=3; acima de 85%=4.
 -- O "potencial" usado pra decidir a escala do Onboarding é o mesmo campo já
 -- usado internamente pra decidir se uma empresa pós-90-dias vira ICP ou SMB
--- (GRUPO_POTENCIAL / potencial_total_da_empresa, coalescidos) -- cobertura
--- 100% nas 3 populações (validado: 757 SMB, 366 ICP, 120 Onboarding, nenhuma
--- sem potencial). qtd_falta_nota_3 = quantas instalações faltam pra cruzar o
--- piso da faixa que dá nota 3 (90% na escala SMB, 80% na escala ICP) -- 0 se
--- a nota já é 3 ou 4 ("meta batida").
+-- (GRUPO_POTENCIAL / potencial_total_da_empresa, coalescidos). qtd_falta_nota_3
+-- = quantas instalações faltam pra cruzar o piso da faixa que dá nota 3 (90%
+-- na escala SMB, 80% na escala ICP) -- 0 se a nota já é 3 ou 4.
 --
 -- Pontos em aberto (ver também query-completude-instalacao-onboarding.sql):
---   1. "vinculando o company id do ticket aberto" interpretado como agregar
---      por associated_company_id (a mesma chave usada em basic_value etc.).
---   2. Um deal com classe_deal misto (ex. "Primeira venda, Upsell") conta
+--   1. Um deal com classe_deal misto (ex. "Primeira venda, Upsell") conta
 --      inteiro como "Primeira venda" -- aproximação, a query não separa por
 --      linha de produto dentro do deal.
+--   2. Um ticket sem associação de deal no HubSpot (ou associado a mais de
+--      um deal) não tem como ser vinculado por deal_id -- precisa de
+--      verificação na sincronização de tickets (Passo 2) se isso acontece na
+--      prática; amostra de 10 tickets conferida manualmente (Rodada 12)
+--      mostrou sempre exatamente 1 deal por ticket.
 -- ============================================================================
 
 WITH q AS (
@@ -109,7 +136,7 @@ WITH q AS (
       AND p.FIN__CONFIG_TIPO IN (
         'Primeira venda', 'Primeira venda [Upsell]', 'Upsell', 'Troca', 'Upgrade', 'Downgrade'
       )
-      AND p.DATA_INICIO_ASSINATURA >= '2026-01-01'
+      AND p.DATA_INICIO_ASSINATURA >= '2024-01-01'
       AND c.status_da_empresa IN ('Onboarding', 'Ongoing')
       AND p.TICKET_ASSOCIATED_DEAL_ID NOT IN (
         SELECT
@@ -429,80 +456,48 @@ WITH q AS (
         ELSE FALSE
       END AS DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO
     FROM base_deal_filtered b
-  ),
-  completude_empresa AS (
-    SELECT
-      *,
-      SUM(CASE WHEN ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO THEN QTD_COMPLETUDE ELSE 0 END)
-        OVER (PARTITION BY associated_company_id) AS QTD_COMPLETUDE_INSTALACAO_EMPRESA,
-      SUM(CASE WHEN ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO THEN QTD_INSTALADA ELSE 0 END)
-        OVER (PARTITION BY associated_company_id) AS QTD_INSTALADA_INSTALACAO_EMPRESA,
-      -- Empresa ainda "dentro do prazo" pra completar = existe ao menos 1 deal
-      -- elegível por tipo cujo prazo (60/90 dias) ainda não venceu. Quando
-      -- TODOS os deals elegíveis já passaram do prazo, vira FALSE ("já passou").
-      MAX(
-        CASE
-          WHEN ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO AND DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO THEN 1
-          ELSE 0
-        END
-      ) OVER (PARTITION BY associated_company_id) AS DENTRO_DO_PRAZO_EMPRESA
-    FROM deal_metrics
   )
-  SELECT
-    *,
-    LEAST(
-      ROUND(QTD_INSTALADA_INSTALACAO_EMPRESA / NULLIF(QTD_COMPLETUDE_INSTALACAO_EMPRESA, 0), 4),
-      1
-    ) AS PCT_COMPLETUDE_INSTALACAO,
-    GREATEST(
-      CAST(CEIL(0.8 * QTD_COMPLETUDE_INSTALACAO_EMPRESA) AS BIGINT) - QTD_INSTALADA_INSTALACAO_EMPRESA,
-      0
-    ) AS QTD_FALTA_PARA_META_80_INSTALACAO
-  FROM completude_empresa
+  -- ---- Rodada 12: fim da CTE `q` já em nível de DEAL (não mais agregado por
+  -- empresa) -- cada linha de deal_metrics já tem QTD_COMPLETUDE, QTD_INSTALADA,
+  -- PCT_COMPLETUDE e DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO calculados só a
+  -- partir do PRÓPRIO deal, sem window function por empresa. ----
+  SELECT * FROM deal_metrics
 ),
--- ---- Agregação final por empresa (1 linha) ----
-empresa_resumo AS (
-  SELECT
-    associated_company_id AS company_id,
-    MAX(TIME)                              AS time_segmento,
-    MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) AS qtd_completude,
-    MAX(QTD_INSTALADA_INSTALACAO_EMPRESA)  AS qtd_instalada,
-    MAX(PCT_COMPLETUDE_INSTALACAO)         AS pct_completude,
-    MAX(QTD_FALTA_PARA_META_80_INSTALACAO) AS qtd_falta_meta_80,
-    MAX(DENTRO_DO_PRAZO_EMPRESA) = 1       AS dentro_do_prazo,
-    MAX(COALESCE(GRUPO_POTENCIAL, potencial_total_da_empresa)) AS potencial_empresa
-  FROM q
-  GROUP BY associated_company_id
-  HAVING MAX(QTD_COMPLETUDE_INSTALACAO_EMPRESA) > 0
-),
--- ---- NOVO (Rodada 8): escala de nota por segmento (SMB/ICP direto pelo
--- TIME; Onboarding decide pela mesma variável de potencial já usada pra
--- classificar ICP x SMB pós-90-dias -- cobertura 100% validada) ----
-empresa_escala AS (
+-- ---- NOVO (Rodada 12, por deal -- antes era "empresa_escala" por empresa):
+-- escala de nota por segmento (SMB/ICP direto pelo TIME do deal; Onboarding
+-- decide pela mesma variável de potencial já usada pra classificar ICP x SMB
+-- pós-90-dias). Só entram deals elegíveis por tipo (ELEGIVEL_TIPO_...) e com
+-- QTD_COMPLETUDE > 0 -- equivalente ao antigo `HAVING MAX(...) > 0` da
+-- agregação por empresa, mas aplicado deal a deal. ----
+deal_escala AS (
   SELECT
     *,
     CASE
-      WHEN time_segmento = 'ICP' THEN 'ICP_SCALE'
-      WHEN time_segmento = 'SMB' THEN 'SMB_SCALE'
-      WHEN time_segmento = 'Onboarding' AND COALESCE(potencial_empresa, 0) > 50 THEN 'ICP_SCALE'
+      WHEN TIME = 'ICP' THEN 'ICP_SCALE'
+      WHEN TIME = 'SMB' THEN 'SMB_SCALE'
+      WHEN TIME = 'Onboarding' AND COALESCE(GRUPO_POTENCIAL, potencial_total_da_empresa, 0) > 50 THEN 'ICP_SCALE'
       ELSE 'SMB_SCALE'
     END AS escala_nota,
-    ROUND(pct_completude * 100) AS pct_inteiro
-  FROM empresa_resumo
+    ROUND(PCT_COMPLETUDE * 100) AS pct_inteiro
+  FROM q
+  WHERE ELEGIVEL_TIPO_COMPLETUDE_INSTALACAO
+    AND QTD_COMPLETUDE > 0
 )
--- ---- Resultado final: 1 linha por empresa, pronto pra virar a chave
--- "completude_instalacao" do data/latest-sync.json ----
+-- ---- Resultado final: 1 linha por DEAL, pronto pra virar a chave
+-- "completude_instalacao" do data/latest-sync.json. `deal_id` é a chave nova
+-- usada pelo join em v_dashboard (via tickets_sync.deal_id); `company_id`
+-- continua disponível pra referência/debug, mas não é mais a chave de join. ----
 SELECT
-  company_id,
-  time_segmento,
-  qtd_completude,
-  qtd_instalada,
-  pct_completude,
-  qtd_falta_meta_80,
-  dentro_do_prazo,
-  -- Nota de Basic Value de Instalação (0-4), calculada por faixas de % por
-  -- segmento (ver cabeçalho). Substitui o instalation_completeness_grade do
-  -- Databricks pra garantir cobertura total nas empresas com ticket aberto.
+  deal_id,
+  associated_company_id AS company_id,
+  TIME AS time_segmento,
+  QTD_COMPLETUDE AS qtd_completude,
+  QTD_INSTALADA AS qtd_instalada,
+  PCT_COMPLETUDE AS pct_completude,
+  GREATEST(CAST(CEIL(0.8 * QTD_COMPLETUDE) AS BIGINT) - QTD_INSTALADA, 0) AS qtd_falta_meta_80,
+  DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO AS dentro_do_prazo,
+  -- Nota de Basic Value de Instalação (0-4), calculada por faixas de % DO
+  -- PRÓPRIO DEAL (antes era da empresa) -- ver cabeçalho.
   CASE
     WHEN escala_nota = 'SMB_SCALE' THEN
       CASE
@@ -524,7 +519,7 @@ SELECT
   -- Quantas instalações faltam pra cruzar o piso da faixa que dá nota 3
   -- (90% na escala SMB, 80% na escala ICP) -- 0 se a nota já é 3 ou 4.
   GREATEST(
-    CAST(CEIL((CASE WHEN escala_nota = 'SMB_SCALE' THEN 0.90 ELSE 0.80 END) * qtd_completude) AS BIGINT) - qtd_instalada,
+    CAST(CEIL((CASE WHEN escala_nota = 'SMB_SCALE' THEN 0.90 ELSE 0.80 END) * QTD_COMPLETUDE) AS BIGINT) - QTD_INSTALADA,
     0
   ) AS qtd_falta_nota_3
-FROM empresa_escala
+FROM deal_escala
