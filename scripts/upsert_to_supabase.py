@@ -14,7 +14,8 @@ Dois formatos são aceitos (e combinados se os dois existirem):
      "field_status": [ {...linhas de field_status_snapshot...} ],
      "ticket_products": [ {...linhas de ticket_products, sem "id"...} ],
      "team_members_updates": [ {...linhas de team_members (só email + hubspot_owner_id)...} ],
-     "completude_instalacao": [ {...linhas de completude_instalacao_snapshot...} ]
+     "completude_instalacao": [ {...linhas de completude_instalacao_snapshot...} ],
+     "esn_validacao": [ {...linhas de esn_validacao_snapshot...} ]
    }
 
 2. `data/chunks/<tabela>-NN.json` — a mesma coisa, mas partida em vários
@@ -22,7 +23,8 @@ Dois formatos são aceitos (e combinados se os dois existirem):
    `<tabela>`), usado quando o payload é grande demais para publicar num único
    arquivo de uma vez (ex.: a primeira sincronização completa, com todos os
    tickets abertos). `<tabela>` é um destes: tickets, basic_value,
-   ticket_products, field_status, team_members_updates, completude_instalacao.
+   ticket_products, field_status, team_members_updates, completude_instalacao,
+   esn_validacao.
 """
 import glob
 import json
@@ -37,7 +39,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 SINGLE_FILE = os.path.join(DATA_DIR, "latest-sync.json")
 CHUNKS_DIR = os.path.join(DATA_DIR, "chunks")
 
-TABLE_KEYS = ["tickets", "basic_value", "ticket_products", "field_status", "team_members_updates", "completude_instalacao"]
+TABLE_KEYS = ["tickets", "basic_value", "ticket_products", "field_status", "team_members_updates", "completude_instalacao", "esn_validacao"]
 
 HEADERS = {
     "apikey": SERVICE_ROLE_KEY,
@@ -155,6 +157,7 @@ def main():
     upsert("basic_value_snapshot", payload["basic_value"], on_conflict="company_id")
     upsert("field_status_snapshot", payload["field_status"], on_conflict="ordem_servico_raw")
     upsert("completude_instalacao_snapshot", payload["completude_instalacao"], on_conflict="company_id")
+    upsert("esn_validacao_snapshot", payload["esn_validacao"], on_conflict="ticket_id,esn")
     replace_ticket_products(payload["ticket_products"])
     update_owner_ids(payload["team_members_updates"])
 
