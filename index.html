@@ -163,7 +163,13 @@
   tbody tr:hover td { background: var(--royal-soft); }
   tbody tr:last-child td { border-bottom: none; }
 
-  .client-name { font-weight: 600; color: var(--ink); font-size: 13.5px; }
+  /* Rodada 11 (2026-08-12): truncar nome longo com "..." -- pedido do Luiz
+     pra ganhar espaço horizontal ("Cattani Transporte..." em vez do nome
+     inteiro). Tooltip (title) mantém o nome completo ao passar o mouse. */
+  .client-name {
+    font-weight: 600; color: var(--ink); font-size: 13.5px;
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .meta-line { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
   .meta-line a { color: var(--royal); text-decoration: none; font-weight: 600; }
   .meta-line a:hover { text-decoration: underline; }
@@ -349,7 +355,14 @@
     color: var(--ink-soft); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
   }
   .sidebar-toggle-btn:hover { background: var(--paper); }
-  .sidebar-content { display: flex; flex-direction: column; gap: 18px; min-width: 216px; overflow-y: auto; }
+  /* Rodada 11 (2026-08-12): corrige scroll horizontal indevido na sidebar --
+     causa: "overflow-y: auto" sem "overflow-x" explícito faz o navegador
+     computar overflow-x como "auto" também (regra do spec de CSS quando um
+     eixo é non-visible e o outro não é setado) -- por isso aparecia uma
+     barra de rolagem lateral mesmo sem conteúdo realmente mais largo que a
+     sidebar. `min-width: 216px` também tirado -- deixava a margem pro
+     scrollbar vertical apertada demais. */
+  .sidebar-content { display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow-y: auto; overflow-x: hidden; }
   .sidebar-section-title {
     font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.03em; margin: 0 0 6px;
@@ -403,15 +416,48 @@
      supabase/patch-esn-validacao.sql). Tooltip (title) traz o detalhe cru
      (ESN + ModeloItem + status), sem mapear nome amigável do modelo ainda. */
   .chip.chip-esn-warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(183,121,31,0.3); font-weight: 700; }
+
+  /* Busca com botão de limpar (Rodada 11, 2026-08-12) -- pedido do Luiz */
+  .search-wrap { position: relative; width: 100%; }
+  .search-wrap input[type=text] { width: 100%; padding-right: 28px; box-sizing: border-box; }
+  .search-clear-btn {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    border: none; background: transparent; color: var(--ink-mute); font-size: 15px;
+    cursor: pointer; line-height: 1; padding: 4px 6px; border-radius: 6px;
+  }
+  .search-clear-btn:hover { background: var(--paper-2); color: var(--ink-soft); }
+
+  /* Tratativa em popup (Rodada 11, 2026-08-12) -- antes era select+textarea
+     inline na célula da tabela; virou popup pra liberar espaço horizontal na
+     lista (pedido do Luiz: "a tratativa abrir em popup mesmo, para ganhar
+     espaço na lista"). Célula na tabela agora só mostra um indicador
+     clicável (ver .tratativa-trigger). */
+  .tratativa-trigger { cursor: pointer; }
+  .tratativa-trigger:hover { text-decoration: underline; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(7,7,78,0.35); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-card {
+    background: #fff; border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    padding: 24px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto;
+  }
+  .modal-card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
 </style>
 </head>
 <body>
 
 <div id="login-screen">
   <h2>Basic Value — Acompanhamento</h2>
-  <p class="muted" style="font-size:13px; margin: 0 0 16px;">Entre com seu e-mail @cobli.co. Você recebe um link mágico por e-mail (sem senha).</p>
-  <input id="login-email" type="email" placeholder="seuemail@cobli.co" />
-  <button class="btn" onclick="sendMagicLink()">Entrar</button>
+  <p class="muted" style="font-size:13px; margin: 0 0 16px;">Time Cobli: entre com sua conta Google. Fora da Cobli: entre com e-mail e senha.</p>
+  <button class="btn" style="width:100%; margin-bottom:14px" onclick="loginWithGoogle()">Entrar com Google</button>
+  <p class="muted" style="font-size:11px; text-align:center; margin:0 0 14px; text-transform:uppercase; letter-spacing:0.03em;">ou</p>
+  <input id="login-email" type="email" placeholder="seu e-mail" />
+  <input id="login-password" type="password" placeholder="Senha" onkeydown="if(event.key==='Enter') loginWithPassword()" />
+  <button class="btn ghost" style="width:100%" onclick="loginWithPassword()">Entrar com e-mail e senha</button>
+  <p class="muted" style="font-size:12px; margin-top:10px; text-align:center;">
+    <a href="#" onclick="sendPasswordReset(); return false;">Esqueceu a senha? / Primeiro acesso com senha</a>
+  </p>
   <div id="login-msg"></div>
 </div>
 
@@ -458,7 +504,10 @@
           <div>
             <p class="sidebar-section-title">Filtros</p>
             <div class="sidebar-filters">
-              <input type="text" id="search-cliente" placeholder="Buscar cliente, empresa, ticket..." oninput="onSearchChange()" />
+              <div class="search-wrap">
+                <input type="text" id="search-cliente" placeholder="Buscar cliente, empresa, ticket..." oninput="onSearchChange()" />
+                <button type="button" class="search-clear-btn" id="search-clear-btn" onclick="clearSearch()" style="display:none" title="Limpar busca">×</button>
+              </div>
               <select id="gestor-filter" style="display:none" onchange="onGestorFilterChange()">
                 <option value="todos">Todos os gestores</option>
               </select>
@@ -632,6 +681,26 @@
   </main>
 </div>
 
+<!-- Popup de Tratativa (Rodada 11, 2026-08-12) -- antes era select+textarea
+     inline na célula da tabela; virou popup pra liberar espaço horizontal
+     na lista (pedido do Luiz). Clique fora do card fecha o popup. -->
+<div class="modal-overlay" id="tratativa-modal-overlay" style="display:none" onclick="if(event.target===this) closeTratativaModal()">
+  <div class="modal-card">
+    <h3>Observação do agendamento</h3>
+    <p class="form-desc" id="tratativa-modal-subtitle"></p>
+    <label class="priority-sub-label">Status
+      <select id="tratativa-modal-select"></select>
+    </label>
+    <label class="priority-sub-label" style="margin-top:10px">Observação
+      <textarea id="tratativa-modal-textarea" placeholder="observação..." style="min-height:100px"></textarea>
+    </label>
+    <div class="form-actions" style="margin-top:14px">
+      <button class="btn ghost" type="button" onclick="closeTratativaModal()">Cancelar</button>
+      <button class="btn" type="button" onclick="saveTratativaModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================================
 // CONFIGURAÇÃO — a anon key é feita para ser pública (a segurança de verdade
@@ -734,6 +803,56 @@ async function sendMagicLink() {
   }
   const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: DASHBOARD_URL } });
   msg.textContent = error ? ("Erro: " + error.message) : "Link enviado! Confira seu e-mail.";
+}
+
+// Rodada 11 (2026-08-12): pedido do Luiz -- "vamos ajustar o login já para
+// o formato que sugeriu, google [login], link para esqueceu a senha, e
+// login e senha normal para fora da cobli". sendMagicLink() acima ficou no
+// código (não é mais chamada pela UI) só por segurança/reversibilidade --
+// pode reativar trocando o botão de volta, se precisar.
+//
+// "Entrar com Google": só funciona de verdade depois que o Luiz configurar
+// o provider Google no painel do Supabase (Authentication > Providers) --
+// até lá, dá erro "provider not enabled", inofensivo (só quem clicar vê o
+// erro na tela).
+async function loginWithGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: DASHBOARD_URL } });
+  if (error) document.getElementById("login-msg").textContent = "Erro: " + error.message;
+}
+
+// E-mail + senha: pra gente de fora da Cobli (ou qualquer um, na prática) --
+// sem checagem de domínio @cobli.co, porque a única forma de alguém TER uma
+// senha é via sendPasswordReset() abaixo, que já valida email_is_registered()
+// antes de mandar o link -- então o cadastro continua sendo o gate real, não
+// o domínio do e-mail.
+async function loginWithPassword() {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const msg = document.getElementById("login-msg");
+  if (!email || !password) { msg.textContent = "Preencha e-mail e senha."; return; }
+  msg.textContent = "Entrando...";
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  msg.textContent = error ? ("Erro: " + error.message) : "";
+}
+
+// "Esqueceu a senha?" também é o fluxo de PRIMEIRO ACESSO com senha -- não
+// existe uma tela separada de "criar senha": o link do Supabase
+// (resetPasswordForEmail) funciona igual pra quem nunca teve senha (só usava
+// magic link antes) e pra quem já tem senha e esqueceu. Ou seja: ninguém
+// precisa ser excluído/recriado no cadastro pra "ganhar" uma senha.
+async function sendPasswordReset() {
+  const email = document.getElementById("login-email").value.trim();
+  const msg = document.getElementById("login-msg");
+  if (!email) { msg.textContent = "Digite seu e-mail no campo acima primeiro."; return; }
+  msg.textContent = "Verificando cadastro...";
+  const { data: isRegistered, error: checkError } = await sb.rpc("email_is_registered", { check_email: email });
+  if (checkError) { msg.textContent = "Erro ao verificar cadastro: " + checkError.message; return; }
+  if (!isRegistered) {
+    msg.textContent = "Esse e-mail ainda não tem acesso. Peça para seu gestor te convidar no painel de Administração.";
+    return;
+  }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: DASHBOARD_URL });
+  msg.textContent = error ? ("Erro: " + error.message) : "Link enviado! Confira seu e-mail pra definir/trocar sua senha.";
 }
 
 async function logout() {
@@ -1214,6 +1333,15 @@ function onPriorityBVMrrChange(v) { state.priorityBVFaixaMrr = v; renderAll(); }
 
 function onSearchChange() {
   state.searchQuery = document.getElementById("search-cliente").value;
+  document.getElementById("search-clear-btn").style.display = state.searchQuery ? "inline-flex" : "none";
+  renderAll();
+}
+
+// Rodada 11 (2026-08-12): botão "X" pra limpar a busca -- pedido do Luiz.
+function clearSearch() {
+  state.searchQuery = "";
+  document.getElementById("search-cliente").value = "";
+  document.getElementById("search-clear-btn").style.display = "none";
   renderAll();
 }
 
@@ -1689,7 +1817,6 @@ function renderTable(data) {
     `<th class="sortable ${sortArrowClass("mrr")}" onclick="onSortClick('mrr')">MRR${sortArrowHtml("mrr")}</th>` +
     (SHOW_FIELD_STATUS ? "<th>Status Field</th>" : "") +
     "<th>Tratativa</th>" +
-    "<th>Agendado</th>" +
     "</tr></thead><tbody>";
 
   for (const row of data) {
@@ -1728,7 +1855,7 @@ function renderTable(data) {
           title="Marcar como agendado -- some da lista permanentemente a partir do próximo carregamento" />
       </td>
       <td>
-        <div class="client-name">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
+        <div class="client-name" title="${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
         <div class="meta-line">
           <a href="${hubspotTicketUrl(row.ticket_id)}" target="_blank" rel="noopener" title="Abrir no HubSpot">Ticket ${row.ticket_id}</a>
           · ${escapeHtml(row.owner_name || "-")}
@@ -1744,13 +1871,10 @@ function renderTable(data) {
       ${SHOW_FIELD_STATUS ? `<td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
           ${row.data_agendada ? `<div class="meta-line">${row.data_agendada}</div>` : ""}
       </td>` : ""}
-      <td class="tratativa-cell">
-        <select onchange="saveTratativa('${row.ticket_id}', this.value, null)">
-          <option value="">-- selecionar --</option>
-          ${["Aguardando cliente","Sem previsão de instalação","Veículos indisponíveis","Solicitado cancelamento","Churn"]
-            .map(opt => `<option value="${opt}" ${row.status_tratativa === opt ? "selected" : ""}>${opt}</option>`).join("")}
-        </select>
-        <textarea placeholder="observação..." onblur="saveTratativa('${row.ticket_id}', null, this.value)">${escapeHtml(row.observacao || "")}</textarea>
+      <td class="tratativa-trigger" onclick="openTratativaModal('${row.ticket_id}')" title="Clique para ver/editar a observação do agendamento">
+        ${row.status_tratativa
+          ? `<span class="badge stage">${escapeHtml(row.status_tratativa)}</span>`
+          : (row.observacao ? '<span class="muted">com observação</span>' : '<span class="muted">Clique p/ observação do agendamento</span>')}
       </td>
     </tr>`;
   }
@@ -1817,6 +1941,45 @@ async function saveTratativa(ticketId, status, observacao) {
   };
 
   await sb.from("ticket_checks").insert(payload);
+}
+
+// Popup de Tratativa (Rodada 11, 2026-08-12) -- pedido do Luiz pra liberar
+// espaço horizontal na tabela. O popup edita status_tratativa + observacao
+// juntos (diferente do select/textarea antigos, que salvavam cada campo
+// separado ao trocar/perder foco) -- por isso aqui SEMPRE manda os dois
+// valores pro saveTratativa() (nunca `null` pra "não tocar"), incluindo
+// string vazia quando o usuário quer limpar o status.
+const TRATATIVA_OPTIONS = ["Aguardando cliente", "Sem previsão de instalação", "Veículos indisponíveis", "Solicitado cancelamento", "Churn"];
+let tratativaModalTicketId = null;
+
+function openTratativaModal(ticketId) {
+  const row = state.allRows.find(r => r.ticket_id === ticketId);
+  if (!row) return;
+  tratativaModalTicketId = ticketId;
+  document.getElementById("tratativa-modal-subtitle").textContent = row.display_name || row.subject_raw || ticketId;
+  const sel = document.getElementById("tratativa-modal-select");
+  sel.innerHTML = '<option value="">-- selecionar --</option>' +
+    TRATATIVA_OPTIONS.map(opt => `<option value="${opt}" ${row.status_tratativa === opt ? "selected" : ""}>${opt}</option>`).join("");
+  document.getElementById("tratativa-modal-textarea").value = row.observacao || "";
+  document.getElementById("tratativa-modal-overlay").style.display = "flex";
+}
+
+function closeTratativaModal() {
+  document.getElementById("tratativa-modal-overlay").style.display = "none";
+  tratativaModalTicketId = null;
+}
+
+async function saveTratativaModal() {
+  if (!tratativaModalTicketId) return;
+  const ticketId = tratativaModalTicketId;
+  const status = document.getElementById("tratativa-modal-select").value;
+  const observacao = document.getElementById("tratativa-modal-textarea").value;
+  await saveTratativa(ticketId, status, observacao);
+  // Atualiza em memória pra refletir na tabela sem precisar de loadDashboard().
+  const row = state.allRows.find(r => r.ticket_id === ticketId);
+  if (row) { row.status_tratativa = status || null; row.observacao = observacao; }
+  closeTratativaModal();
+  renderAll();
 }
 
 async function loadMultiplos() {
@@ -2034,6 +2197,12 @@ function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleStr
 // supabase/patch-completude-instalacao.sql,
 // supabase/patch-completude-instalacao-prazo.sql e
 // queries/query-completude-instalacao-sync.sql.
+// Rodada 11 (2026-08-12): pedido do Luiz -- trazer a quantidade de dias que
+// falta pra completar o prazo de 60/90 dias (reaproveita diasRestantes(),
+// já usada no filtro de Prioridades). "10% | faltam 2 p/ 80%" na 1a linha;
+// 2a linha "dentro do prazo · faltam N dia(s)" quando ainda dá tempo, ou só
+// "prazo encerrado" (sem contagem de dias, que já seria negativa/inútil)
+// quando já venceu.
 function completudeInstalacaoHtml(row) {
   if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) {
     return '<span class="muted">-</span>';
@@ -2042,15 +2211,18 @@ function completudeInstalacaoHtml(row) {
   const faltam = row.completude_qtd_falta || 0;
   const cor = pct >= 80 ? "var(--ok-text)" : (pct >= 50 ? "var(--warn)" : "var(--risk)");
   const faltamTxt = faltam > 0
-    ? ` <span class="muted">(faltam ${faltam} p/ 80%)</span>`
-    : ` <span class="muted">(meta batida)</span>`;
-  const prazoBadge = row.completude_dentro_do_prazo === false
-    ? '<span class="badge risk">prazo encerrado</span>'
-    : (row.completude_dentro_do_prazo === true
-        ? '<span class="badge ok">dentro do prazo</span>'
-        : "");
+    ? ` <span class="muted">| faltam ${faltam} p/ 80%</span>`
+    : ` <span class="muted">| meta batida</span>`;
+  let prazoLine = "";
+  if (row.completude_dentro_do_prazo === false) {
+    prazoLine = '<span class="badge risk">prazo encerrado</span>';
+  } else if (row.completude_dentro_do_prazo === true) {
+    const dias = diasRestantes(row);
+    const diasTxt = dias != null ? ` <span class="muted">· faltam ${Math.max(Math.round(dias), 0)} dia(s)</span>` : "";
+    prazoLine = `<span class="badge ok">dentro do prazo</span>${diasTxt}`;
+  }
   return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
-    (prazoBadge ? `<div class="bv-row muted">${prazoBadge}</div>` : "");
+    (prazoLine ? `<div class="bv-row muted" style="margin-top:2px">${prazoLine}</div>` : "");
 }
 </script>
 </body>
