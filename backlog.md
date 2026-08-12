@@ -1,6 +1,12 @@
 # Backlog — Basic Value / ICP Dashboard
 
-*Atualizado em 2026-08-11 (Rodada 8). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
+*Atualizado em 2026-08-12 (Rodada 9). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
+
+## ⚠️ Ações pendentes do Luiz: rodar os patches novos da Rodada 9
+A Rodada 9 (ver seção própria abaixo) já está publicada no `index.html`, mas depende de duas migrações de banco novas que **ainda não foram rodadas**:
+- `supabase/patch-esn-validacao.sql` — cria `esn_validacao_snapshot` + `v_esn_validacao_ticket` e recria `v_dashboard` com os campos `esn_divergente_count`/`esn_sem_match_count`/`esn_modelos_raw`/`esn_detalhe`. Sem isso, o chip "⚠ N ESN(s) a validar" e o tooltip com o modelo cru do Rastreador não aparecem (campos ficam `null`). Precisa já ter rodado `patch-completude-instalacao-nota.sql` antes (recria a mesma view).
+- `supabase/patch-ticket-priority-ack.sql` — cria a tabela `ticket_priority_ack` usada pelo checkbox "Agendado". Sem isso, marcar o checkbox dá erro (RPC/tabela inexistente).
+- **Publicação de dados parcial (ver dúvida/pendência abaixo)**: a query rodou pra toda a base nesta sessão (6233 pares ticket/esn, conferido contra agregado direto no Databricks: 5795 ok / 410 divergentes / 28 sem_match) e foi dividida em 32 arquivos de ~200 linhas (`data/chunks/esn_validacao-00.json` a `-31.json`) pra publicação segura (um de cada vez, com verificação byte-a-byte). **Só o chunk `-00.json` (200 dos 6233 pares) foi de fato publicado e conferido nesta sessão** -- os demais 31 chunks não foram publicados por causa do volume de transcrição manual necessário (ESNs são números de 15 dígitos, campo de alto risco de erro de transcrição se apressado). Depois de rodar os dois patches SQL acima, rodar a sincronização (Passo 4C do `sync-runbook.md`) de novo do zero -- ou publicar os chunks `-01` a `-31` que já foram gerados e validados localmente -- pra completar a cobertura de 6233 pares. Até lá, o dashboard mostra o aviso de ESN divergente só pros ~200 tickets do chunk `-00`, não pra base toda.
 
 ## ⚠️ Ação pendente do Luiz: rodar `supabase/patch-completude-instalacao-nota.sql`
 A Rodada 8 (ver seção própria abaixo) já está publicada no `index.html` e nos dados (`data/chunks/completude_instalacao-*.json`), mas depende de uma migração de banco que **ainda não foi rodada**. Sem isso, `completude_nota_instalacao` / `completude_qtd_falta_nota_3` aparecem como `null` no dashboard (célula de Instalação some) e `mrr_status` continua calculado do jeito antigo (`basic_value_score`).
@@ -10,6 +16,48 @@ A Rodada 8 (ver seção própria abaixo) já está publicada no `index.html` e n
 A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de uma migração de banco que **ainda não foi rodada**. Sem isso, convidar/editar um gestor_geral vai dar erro (squad ainda é obrigatória no banco) e as regras novas de permissão (insert/update/delete de `team_members`) ainda não estarão em vigor.
 - Rode `supabase/patch-rodada6.sql` inteiro no SQL Editor do Supabase (idempotente, pode rodar mais de uma vez sem problema).
 - Esse mesmo patch já inclui o vínculo pontual do `hubspot_owner_id` da Danielle Couto (199072037) -- ver item 8 abaixo.
+
+## ✅ Rodada 9 (2026-08-12) — implementada e publicada no `index.html`
+*Combinado com o Luiz na noite de 2026-08-11, rodado às 07h BRT de 2026-08-12 (scheduled task agendada, ver `claude/pendencias-2026-08-11-para-7h.md` no Projects). Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main` -- ver lista ao final desta seção.*
+
+### 1. ✅ Validação de ESN da propriedade
+- Cruza o ESN esperado por empresa (`gold.cubo_supply.supply_cube.instalacao__esns_processados`, via `company_id`/`ticket_id`) contra `supply_team.supply_db.pedido_de_entrega` (`Esn`, `TicketIDCRM`, `ModeloItem`, `ItemName`, `CreatedAt`), usando a heurística validada na sessão anterior (linha mais recente por ESN via `ROW_NUMBER() OVER (PARTITION BY Esn ORDER BY CreatedAt DESC) = 1` = "dono atual").
+- Rodado pra toda a base em escopo do dashboard (pipeline "Serviços" / status "Agendar instalação"): **6233 pares (ticket_id, esn) em 1742 tickets -- 5795 ok / 410 divergentes / 28 sem_match**.
+- `ModeloItem` trazido CRU (ex.: FMC130, JC400), sem mapear pra nome amigável -- decisão do Luiz ("por enquanto tra só o modelo, depois ajusto os nomes com mais tempo").
+- Novo `supabase/patch-esn-validacao.sql` (tabela `esn_validacao_snapshot`, view `v_esn_validacao_ticket`, `v_dashboard` recriada com os campos novos), nova query `queries/query-esn-validacao-sync.sql`. Dados divididos em 32 chunks (`data/chunks/esn_validacao-00.json` a `-31.json`, ~200 pares cada) -- **só o chunk `-00` foi publicado nesta sessão** (ver pendência no topo deste arquivo); completar a publicação dos chunks `-01` a `-31` (ou rodar a sincronização de novo) fica como próximo passo.
+- **UI**: chip de aviso "⚠ N ESN(s) a validar" ao lado do chip "Rastreador" quando há ESN divergente/sem_match, com tooltip listando ESN + ModeloItem + status; o próprio chip "Rastreador" ganhou tooltip com os modelos crus.
+- **Pendência do Luiz**: rodar `supabase/patch-esn-validacao.sql` no Supabase (ver aviso no topo deste arquivo).
+
+### 2. ✅ Redesign de layout — Opção A (sidebar)
+- Abas (Tickets / Evolução B.V. / Administração) e filtros (busca, squad, gestor, responsável, Prioridades) movidos para uma barra lateral esquerda recolhível (`#sidebar`, `toggleSidebar()`).
+- **Os 4 cards de indicadores reais (`#kpi-row`) e a linha de distribuição por Basic Value (`#grade-row`, `renderGradeDistribution`) continuam EXATAMENTE como estavam** -- mesma renderização JS, só realocados pro topo do conteúdo central (não pra dentro da sidebar) -- correção combinada com o Luiz sobre o mockup anterior, que tinha inventado cards simplificados e esquecido a linha de distribuição.
+- `switchTab`, `onSearchChange`, `onGestorFilterChange`, `onSquadFilterChange`, filtro de Responsável e `toggleKpiBlock` preservados sem mudança de lógica -- só o HTML ao redor mudou.
+- Paleta/fonte reais da Cobli mantidas (nenhuma mudança de tokens de cor/fonte nesta rodada, fora a correção do item 3 abaixo).
+
+### 3. ✅ Cores do backlog — paleta de status revertida
+- `.grade-pill.g0`-`.g4`: revertido pra cor de status (risco/aviso/ok), CSS exato do commit `01c179608ade3b12ca7c414ea4a86751ca82a09d` (antes da Rodada 6).
+- `EVO_RAMP` (gráfico de Evolução B.V.): passou a usar essa MESMA paleta de status (g4=`#0E7D5F`, g3=`#3F7D69`, g2=`#B7791F`, g1=`#A3652E`, g0=`#C7362C`, sem_dado=`#8288A3`) -- não é revert (o gráfico nunca teve essa paleta), é aplicação nova, como pedido pelo Luiz. Resolve a seção "Reverter a paleta única de B.V." registrada abaixo (agora ✅).
+
+### 4. ✅ Removida a aba "Atendimentos múltiplos" e o status da Field
+- Aba removida da navegação/sidebar (`switchTab` não aceita mais `"multiplos"`). `loadMultiplos()`/`v_atendimentos_multiplos` mantidos no código, só inacessíveis -- reversível, sem apagar nada.
+- Exibição do "status da Field" (`field_status`/`prestador`/`consultor`/`data_agendada`) escondida na UI via flag `SHOW_FIELD_STATUS = false` (reversível trocando pra `true`) -- schema/dados/query no Supabase **não foram tocados**.
+- **Dúvida em aberto, não resolvida por conta própria**: o KPI "Já agendados na Field" usa `field_status` internamente pra calcular a contagem. Não ficou claro se esse pedido do Luiz também deveria mudar esse card (esconder, trocar de fonte, ou manter como está) -- ele disse que ia explicar o motivo depois, então o card foi mantido como estava, com um comentário no código sinalizando a dúvida. Perguntar ao Luiz antes de mexer nele.
+
+### 5. ✅ Filtros "Prioridades" hierárquicos + checkbox "Agendado"
+- Dois pills mutuamente exclusivos na sidebar: "Completude de Instalação" e "Basic Value". Nenhum selecionado = comportamento normal.
+- **Completude de Instalação**: filtro obrigatório sempre aplicado (`completude_dentro_do_prazo = true` -- tickets vencidos NUNCA aparecem aqui, regra confirmada pelo Luiz na correção final do pedido). Sub-opções "Quantidade que falta" (1 a 4 padrão / 5 a 10 / 11 a 15 / 16+) e "Dias pra vencer o prazo" (sem opção "Vencido", removida a pedido dele; padrão ordena por dias restantes crescente; faixas de 1 dia a 31+ dias).
+- **Basic Value**: sem corte de prazo (confirmado: "o basic vale não tem expiração pode trazer todos"). Sub-opções "Quantidade que falta pra nota 3" (1 a 5 padrão / 6 a 10 / 11 a 15 / 16+) e "MRR" (percentis P50/P75/P90 calculados no cliente a partir dos dados reais carregados -- Todos / Acima da mediana / Top 25% / Top 10% -- nunca uma faixa fixa em R$ chutada).
+- Faixas de quantidade/dias documentadas no código como ponto de partida ajustável.
+- **Checkbox "Agendado"**: coluna nova em TODA linha da tabela de Tickets, sempre visível, independente de qualquer filtro de Prioridade (correção explícita do Luiz: "o check box é para todos os tickets ok, não somente os prioridades"). Ao marcar, grava em `ticket_priority_ack` (novo, `supabase/patch-ticket-priority-ack.sql`) e a linha fica visualmente apagada nesta sessão; da próxima carga em diante, o ticket marcado não aparece mais (marcação permanente, não snooze de 1 dia).
+- **Suposição registrada pro Luiz poder pedir ajuste**: não existe hoje nenhum jeito de ver ou desmarcar os tickets já agendados -- se ele quiser esse controle, é uma rodada futura.
+- **Pendência do Luiz**: rodar `supabase/patch-ticket-priority-ack.sql` no Supabase (ver aviso no topo deste arquivo).
+
+### Verificação feita antes de publicar
+- `node --check` no bloco `<script>` extraído do `index.html` publicado -- sintaxe OK.
+- Checagem programática de balanceamento de tags do HTML (abertura/fechamento) -- OK.
+- Logo/SVG da marca conferido byte-a-byte contra a versão publicada antes desta rodada -- idêntico (nenhuma edição tocou essa área, aprendizado da Rodada 8 sobre corrupção de transcrição).
+- Cada arquivo (`index.html`, o chunk `-00` de `esn_validacao`, os dois patches SQL novos, `queries/query-esn-validacao-sync.sql`, `scripts/upsert_to_supabase.py`, este `backlog.md` e o `sync-runbook.md`) publicado **um de cada vez**, com `get_file_contents` + diff/md5sum byte-a-byte imediatamente depois, antes de seguir pro próximo.
+- Query de validação de ESN conferida cruzando o agregado do Databricks (`GROUP BY esn_status`) contra o CSV local antes de gerar os chunks -- bateu exato (5795/410/28).
 
 ## ✅ Completude de Instalação: patch SQL rodado + primeira sincronização feita (2026-08-11)
 O Luiz já rodou `supabase/patch-completude-instalacao.sql` no Supabase. Em seguida, a sincronização (Passo 4B do `sync-runbook.md`) foi executada manualmente nesta sessão: a query `queries/query-completude-instalacao-sync.sql` rodou no Databricks (448 empresas elegíveis), os resultados foram publicados em `data/chunks/completude_instalacao-00.json` a `-04.json` (commit `61edca7`), o que deve disparar o `sync-to-supabase.yml` e popular `completude_instalacao_snapshot` de verdade.
@@ -48,13 +96,10 @@ Pedido do Luiz: no card de Basic Value da tabela de Tickets, tirar a linha "Gera
 - **Validado nesta sessão**: os 1027 registros de `completude_instalacao_full` (query rodada no Databricks) foram conferidos contra uma agregação independente antes de virar os 11 chunks JSON (contagem por segmento: 618 SMB / 290 ICP / 119 Onboarding; distribuição de nota {0:242, 1:203, 2:30, 3:25, 4:527}; soma do gap = 3570) — bateu exato. Cada um dos 11 chunks e o patch SQL foram publicados e conferidos byte-a-byte (`get_file_contents` + diff/md5sum) contra o arquivo local antes de considerar "feito".
 - **Incidente durante a publicação (corrigido)**: a primeira tentativa de publicar o `index.html` (commit `703175e`) corrompeu por transcrição um trecho do path SVG da logo da marca (não relacionado à lógica da Rodada 8). Foi pego pela própria verificação byte-a-byte, corrigido no commit seguinte (`4401247`) e reconferido — sem impacto, já que nunca chegou a ficar em produção sem essa checagem.
 
-## Novo pedido (2026-08-11, pós-Rodada 6) — só anotado, nada implementado ainda
-
-### Reverter a paleta única de B.V. — na verdade era pro lado contrário
+## ✅ Reverter a paleta única de B.V. — implementado na Rodada 9 (2026-08-12)
 Luiz corrigiu o item "paleta de cor única por grau de B.V." da Rodada 6: eu troquei o card "Empresas por Basic Value de instalação" (`.grade-pill`) pra usar a rampa verde do gráfico de Evolução B.V. -- mas o pedido era o **inverso**.
-- **Card de distribuição (`.grade-pill`)**: reverter pra cor de status como estava antes da Rodada 6 (risco/aviso/ok) -- não usar a rampa verde aqui.
-- **Gráfico de Evolução B.V.**: trocar a rampa ordinal verde atual pelo mesmo padrão de cor de status (risco/aviso/ok) que o card de distribuição usava antes -- ou seja, o padrão de cor "vai" do card pro gráfico, não o contrário do que eu fiz.
-- **Só backlog por enquanto** -- Luiz pediu explicitamente pra só anotar, não implementar agora.
+- **Card de distribuição (`.grade-pill`)**: ✅ revertido pra cor de status (risco/aviso/ok) -- ver Rodada 9, item 3.
+- **Gráfico de Evolução B.V.**: ✅ trocada a rampa ordinal verde pela paleta de status -- ver Rodada 9, item 3.
 
 ## Login: trocar magic link por "Entrar com Google" (2026-08-10) — aguardando setup do Luiz
 Luiz apontou uma limitação real do link mágico: se ele (ou alguém já cadastrado) precisar acessar o dashboard num dispositivo/navegador sem sessão salva e sem acesso ao e-mail naquele momento, fica sem conseguir entrar — o link mágico sempre exige esse passo extra de e-mail pra qualquer sessão nova, mesmo pra quem já está cadastrado há tempos.
@@ -153,8 +198,8 @@ Lista fornecida pelo Luiz (nome de exibição no HubSpot → rótulo que deve ap
 - Essas são os nomes de EXIBIÇÃO no HubSpot, não as chaves internas de propriedade — na próxima sincronização real preciso resolver a chave interna de cada uma (via schema discovery, casando pelo rótulo). Esta lista é mais completa que o conjunto de 5 propriedades hoje confirmadas como funcionando via API (buzzer / câmera fadiga / câmera fadiga premium / removível buzzer / removível identificador).
 - Não muda nada no front-end agora — é insumo pra próxima rodada de sincronização real (ajustar `sync-runbook.md` e o script de montagem do JSON).
 
-### 4. Redesign da área de abas + filtros (toolbar)
-- Luiz achou o layout atual "bem ruim", sem detalhar o que trocar. Fica pra pensar numa proposta concreta antes da próxima rodada.
+### 4. ✅ Redesign da área de abas + filtros (toolbar) — implementado na Rodada 9 (2026-08-12)
+- Opção A (sidebar recolhível) confirmada pelo Luiz e implementada -- ver Rodada 9, item 2.
 
 ### Squads extras permanentes (gestor_geral atribuir mais de uma squad a alguém, de forma permanente)
 - Decisão do Luiz (2026-08-11): **fora por agora**. Ficou só o `access_grants` existente (cobertura temporária pessoa-a-pessoa) + o badge visual "cobrindo" (item 7 da Rodada 6, já implementado). Um recurso maior de squads extras permanentes (schema novo, tipo `extra_squads`, gerenciado pelo gestor_geral) fica pra uma rodada futura, se necessário.
