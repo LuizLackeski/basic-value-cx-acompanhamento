@@ -110,6 +110,40 @@ instalações que faltam, não percentual):
   segmentos) em vez de `basic_value_score < 3` — ver
   `supabase/patch-completude-instalacao-nota.sql`.
 
+## Passo 4C — Validação de ESN da propriedade (Databricks, novo em 2026-08-12)
+Query completa (testada contra dados reais, 6233 pares ticket/esn) em
+`queries/query-esn-validacao-sync.sql`. Roda direto no Databricks, cruzando
+`gold.cubo_supply.supply_cube.instalacao__esns_processados` (ESN "esperado"
+por ticket/company_id, já é a propriedade do HubSpot ingerida) contra
+`supply_team.supply_db.pedido_de_entrega` (histórico de entregas por ESN).
+Devolve **1 linha por par (ticket_id, esn)**:
+
+```sql
+SELECT
+  ticket_id, company_id_esperado, esn, modelo_item, item_name,
+  dono_ticket_id, dono_company_id, esn_status
+FROM ...  -- CTE completa em queries/query-esn-validacao-sync.sql
+```
+
+Causa raiz da divergência de backlog ("ESN a mais" na propriedade): um mesmo
+dispositivo físico pode ter sido desinstalado de uma empresa e reinstalado em
+outra ao longo do tempo -- `pedido_de_entrega` guarda TODO o histórico por
+ESN, não só a alocação atual. Heurística validada (POC com 5 ESNs, todos
+corretos): a linha de `pedido_de_entrega` com `CreatedAt` mais recente por
+`Esn` (`ROW_NUMBER() OVER (PARTITION BY Esn ORDER BY CreatedAt DESC) = 1`) é o
+"dono atual" -- seu `company_id` (via `TicketIDCRM` -> `ticket_id` ->
+`company_id`) é comparado contra o `company_id` esperado da propriedade:
+`esn_status` = `ok` (bate), `divergente` (não bate) ou `sem_match` (ESN não
+encontrado em `pedido_de_entrega`).
+
+`modelo_item`/`item_name` vêm **crus** de `ModeloItem`/`ItemName` (sem mapear
+pra nome amigável ainda -- decisão do Luiz: "por enquanto tra só o modelo,
+depois ajusto os nomes com mais tempo").
+
+Rodado para toda a base em 2026-08-12 (escopo: mesmo filtro de pipeline/status
+do resto do dashboard): 5795 ok / 410 divergentes / 28 sem_match, em 1742
+tickets distintos.
+
 ## Passo 6 — Montar o JSON e publicar
 Montar um objeto:
 ```json
@@ -119,13 +153,22 @@ Montar um objeto:
   "ticket_products": [ { "ticket_id": "...", "product_label": "Trava de Ignição", "quantity": 2 } ],
   "basic_value": [ { "company_id": "...", "company_name": "...", "id_grupo_economico": "...", "event_week": "...", "basic_value_score": 1.5, "instalation_completeness_grade": 2, "mrr": 1234.56, "csm": "..." } ],
   "field_status": [ { "ordem_servico_raw": "123456789-1", "ticket_id": "123456789", "suffix_num": 1, "status": "...", "prestador": "...", "consultor": "...", "data_agendada": "2026-08-10", "cliente": "..." } ],
-  "completude_instalacao": [ { "company_id": "...", "time_segmento": "ICP", "qtd_completude": 73, "qtd_instalada": 4, "pct_completude": 0.0548, "qtd_falta_meta_80": 55, "dentro_do_prazo": true, "nota_instalacao": 1, "qtd_falta_nota_3": 55 } ]
+  "completude_instalacao": [ { "company_id": "...", "time_segmento": "ICP", "qtd_completude": 73, "qtd_instalada": 4, "pct_completude": 0.0548, "qtd_falta_meta_80": 55, "dentro_do_prazo": true, "nota_instalacao": 1, "qtd_falta_nota_3": 55 } ],
+  "esn_validacao": [ { "ticket_id": "...", "company_id_esperado": "...", "esn": "869616066590087", "modelo_item": "FMM130", "item_name": "Rastreador instalado veiculos leves ou pesados", "dono_ticket_id": "...", "dono_company_id": "...", "esn_status": "ok" } ]
 }
 ```
 
 Importante: `completude_instalacao` usa `company_id` (`associated_company_id`
 no Databricks) como chave, igual a `basic_value` — não depende de ticket
-aberto no HubSpot, então roda independente dos Passos 1-3.
+aberto no HubSpot, então roda independente dos Passos 1-3. `esn_validacao`
+usa a chave composta (`ticket_id`, `esn`) -- ver
+`supabase/patch-esn-validacao.sql` (`on_conflict=ticket_id,esn` no upsert).
+
+**Nota (2026-08-12)**: a tabela `ticket_priority_ack` (checkbox "Agendado" na
+tabela de Tickets) NÃO faz parte deste payload de sincronização -- ela é
+escrita diretamente pelo front-end (`index.html`, `onAckTicket()`), não pela
+scheduled task. Só precisa rodar `supabase/patch-ticket-priority-ack.sql` uma
+vez no Supabase pra criar a tabela.
 
 Para `display_name`: tentar limpar o `subject` usando o `company_name` do Basic Value quando disponível (o padrão real observado é `[SUPPLY | <motivo>] Instalação <EMPRESA> Deal ID: <id>` — extrair o nome ou substituir pelo `company_name`); se não der, manter o `subject` original.
 
