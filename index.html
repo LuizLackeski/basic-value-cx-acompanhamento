@@ -223,7 +223,18 @@
     padding: 9px 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
 
-  .bv-cell .bv-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin-bottom: 3px; }
+  /* Rodada 12 (2026-08-12): `white-space: nowrap` adicionado -- pedido do
+     Luiz ("ajustar a coluna para não quebrar em 3 linhas o completude").
+     Causa raiz: a linha "67% | +3 para 80%" é texto normal dentro de um flex
+     item -- sem isso, o texto quebra dentro do próprio .bv-row quando a
+     coluna fica estreita (tabela sem table-layout:fixed, largura decidida
+     pelo navegador conforme o conteúdo de todas as colunas), virando 2
+     linhas visuais só nessa div + a linha do badge = 3 linhas no total.
+     Com nowrap, cada .bv-row nunca quebra -- na pior das hipóteses (viewport
+     bem estreito) a TABELA ganha scroll horizontal (`#panel-principal` já
+     tem overflow-x:auto), o que é preferível a texto cortado/quebrado dentro
+     da célula. */
+  .bv-cell .bv-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin-bottom: 3px; white-space: nowrap; }
   .bv-cell .bv-row b { color: var(--ink); }
   .bv-cell .mrr-line { font-size: 11.5px; color: var(--ink-mute); }
 
@@ -1477,20 +1488,25 @@ function renderKpis(rows) {
 // (basic_value_score) sai da célula -- fica só Instalação + o comparativo de
 // quanto falta pra bater a nota mínima 3. Onboarding mantém os dois valores
 // (Instalação + Geral, com o badge de risco) mais o comparativo.
+// Rodada 12 (2026-08-12): wording padronizado pra ficar igual ao padrão da
+// coluna "Compl. instalação" (pedido do Luiz -- "o basic vale também seguir
+// o mesmo padrão do completude o texto, pra ficarem iguais"): valor em
+// negrito + "| +N para <meta>" (ou "| meta batida") na mesma linha, sem
+// rótulo extra antes do número (o cabeçalho da coluna já diz "Basic Value").
 function basicValueCellHtml(row, riskBadge) {
-  const notaHtml = `<div class="bv-row" style="font-size:13.5px">Instalação: <b>${fmtNum(row.completude_nota_instalacao)}</b></div>`;
+  const nota = row.completude_nota_instalacao;
   const gap = row.completude_qtd_falta_nota_3;
-  const gapHtml = gap == null
+  const gapTxt = gap == null
     ? ""
     : (gap > 0
-        ? `<div class="bv-row muted">(faltam ${gap} p/ nota 3)</div>`
-        : `<div class="bv-row muted">(nota 3 batida)</div>`);
+        ? ` <span class="muted">| +${gap} para nota 3</span>`
+        : ` <span class="muted">| meta batida</span>`);
+  const notaHtml = `<div class="bv-row" style="font-size:13.5px"><b>${fmtNum(nota)}</b>${gapTxt}</div>`;
   if (row.completude_time_segmento === "Onboarding") {
     return notaHtml +
-      `<div class="bv-row muted">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>` +
-      gapHtml;
+      `<div class="bv-row muted" style="margin-top:2px">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>`;
   }
-  return notaHtml + gapHtml;
+  return notaHtml;
 }
 
 // Distribuição de empresas (dedup por company_id) pelo grau de completude da
