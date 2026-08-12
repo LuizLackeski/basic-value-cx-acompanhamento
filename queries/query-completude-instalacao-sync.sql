@@ -496,6 +496,20 @@ SELECT
   PCT_COMPLETUDE AS pct_completude,
   GREATEST(CAST(CEIL(0.8 * QTD_COMPLETUDE) AS BIGINT) - QTD_INSTALADA, 0) AS qtd_falta_meta_80,
   DENTRO_DO_PRAZO_COMPLETUDE_INSTALACAO AS dentro_do_prazo,
+  -- NOVO (Rodada 12, pedido do Luiz: "o dentro do prazo tem que trazer os
+  -- dias que ainda temos, tipo dentro do prazo 10d"): dias restantes do
+  -- prazo do PRÓPRIO deal (90 ou 60 menos DIAS_DESDE_ASSINATURA, conforme o
+  -- segmento) -- positivo = ainda dentro do prazo, negativo = já venceu há N
+  -- dias. Consistente por construção com `dentro_do_prazo` (mesmo cálculo
+  -- de base) -- diferente do diasRestantes() do front-end, que hoje usa
+  -- dias_aberto (idade do TICKET) como aproximação. `v_dashboard` expõe como
+  -- completude_dias_restantes_prazo; o front-end já está pronto pra usar
+  -- este campo assim que ele existir (ver diasRestantesPrazoCompletude() no
+  -- index.html).
+  CASE
+    WHEN TIME = 'Onboarding' THEN 90 - DIAS_DESDE_ASSINATURA
+    ELSE 60 - DIAS_DESDE_ASSINATURA
+  END AS dias_restantes_prazo,
   -- Nota de Basic Value de Instalação (0-4), calculada por faixas de % DO
   -- PRÓPRIO DEAL (antes era da empresa) -- ver cabeçalho.
   CASE
