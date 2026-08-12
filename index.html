@@ -81,14 +81,14 @@
   /* Indicadores + toolbar: altura natural, não rolam -- só o painel abaixo rola. */
   .sticky-zone { flex-shrink: 0; }
 
-  /* Os painéis (Tickets / Atendimentos múltiplos / Evolução B.V. /
-     Administração) ocupam o espaço restante e rolam por dentro -- a
-     página/tela em si não rola. */
-  #panel-principal, #panel-multiplos, #panel-evolucao, #panel-admin {
+  /* Os painéis (Tickets / Evolução B.V. / Administração -- "Atendimentos
+     múltiplos" removido em 2026-08-12, ver switchTab()) ocupam o espaço
+     restante e rolam por dentro -- a página/tela em si não rola. */
+  #panel-principal, #panel-evolucao, #panel-admin {
     flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; overflow-x: auto;
   }
-  #panel-principal, #panel-multiplos, #panel-evolucao {
-    border: 1px solid var(--line); border-radius: 0 12px 12px 12px; background: #fff;
+  #panel-principal, #panel-evolucao {
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
   }
 
   #login-screen {
@@ -199,18 +199,18 @@
   }
   .grade-pill b { font-size: 13.5px; font-weight: 700; }
   .grade-pill .pct { font-size: 11px; font-weight: 600; opacity: 0.72; }
-  /* Rodada 6 (2026-08-11): pills passaram a usar a MESMA paleta do gráfico de
-     Evolução B.V. (rampa ordinal --bv-ramp-0..4), em vez de cores de status
-     (risco/aviso/ok) -- pedido do Luiz pra consistência visual entre os dois
-     lugares. Isso reverte a decisão da Rodada 2/3 (documentado no backlog).
-     g0/g1 usam um texto mais escuro que o hex "puro" da rampa (ramp-0/1 são
-     claros demais pra funcionar como texto em fundo branco com contraste
-     adequado) -- mesma família de verde, só ajustado pra legibilidade. */
-  .grade-pill.g4 { background: rgba(21,71,53,0.16); color: var(--bv-ramp-4); }
-  .grade-pill.g3 { background: rgba(30,103,76,0.16); color: var(--bv-ramp-3); }
-  .grade-pill.g2 { background: rgba(39,134,99,0.16); color: var(--bv-ramp-2); }
-  .grade-pill.g1 { background: rgba(48,166,123,0.18); color: #1c6b4f; }
-  .grade-pill.g0 { background: rgba(57,198,146,0.20); color: #1f7a5a; }
+  /* Correção (2026-08-12): revertido pra cor de STATUS (risco/aviso/ok),
+     como estava antes da Rodada 6 -- CSS exato recuperado do commit
+     01c179608ade3b12ca7c414ea4a86751ca82a09d (imediatamente antes da Rodada
+     6). O Luiz esclareceu que o pedido da Rodada 4/6 era o INVERSO do que
+     tinha sido implementado: este card (.grade-pill) deveria continuar com
+     cor de status, e é a paleta de status que deveria ir pro gráfico de
+     Evolução B.V. (ver EVO_RAMP), não o contrário. */
+  .grade-pill.g4 { background: var(--ok-soft); color: var(--ok-text); }
+  .grade-pill.g3 { background: rgba(76,156,134,0.16); color: #3F7D69; }
+  .grade-pill.g2 { background: var(--warn-soft); color: var(--warn); }
+  .grade-pill.g1 { background: rgba(199,122,58,0.16); color: #A3652E; }
+  .grade-pill.g0 { background: var(--risk-soft); color: var(--risk); }
   .grade-pill.gx { background: var(--paper-2); color: var(--ink-mute); }
   .grade-card {
     background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-card);
@@ -324,6 +324,85 @@
   .row-actions button:hover { background: var(--paper-2); }
   .row-actions button.danger { color: var(--risk); border-color: rgba(199,54,44,0.3); }
   .row-actions button.danger:hover { background: var(--risk-soft); }
+
+  /* ==========================================================================
+     Redesign de layout -- Opção A (sidebar), 2026-08-12.
+     Abas + filtros (busca, squad, gestor, responsável, prioridades) saem da
+     toolbar horizontal e vão para uma barra lateral esquerda recolhível.
+     Os indicadores reais (#kpi-row / #grade-row, MESMA renderização JS de
+     sempre) e os painéis de dados continuam no centro/topo do conteúdo
+     principal -- só foram realocados, não recriados (o mockup anterior tinha
+     esquecido o #grade-row e usado cards de KPI inventados; aqui os
+     elementos reais foram só movidos de lugar). */
+  .body-shell { display: flex; flex: 1; min-height: 0; gap: 16px; }
+  .sidebar {
+    width: 248px; flex-shrink: 0; background: #fff; border: 1px solid var(--line);
+    border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    display: flex; flex-direction: column; gap: 16px; padding: 14px 12px;
+    transition: width .16s ease, padding .16s ease; overflow: hidden;
+  }
+  .sidebar.collapsed { width: 44px; padding: 14px 6px; gap: 10px; }
+  .sidebar.collapsed .sidebar-content { display: none; }
+  .sidebar-toggle-row { display: flex; justify-content: flex-end; flex-shrink: 0; }
+  .sidebar-toggle-btn {
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper-2);
+    color: var(--ink-soft); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
+  }
+  .sidebar-toggle-btn:hover { background: var(--paper); }
+  .sidebar-content { display: flex; flex-direction: column; gap: 18px; min-width: 216px; overflow-y: auto; }
+  .sidebar-section-title {
+    font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.03em; margin: 0 0 6px;
+  }
+  .sidebar-tabs { display: flex; flex-direction: column; gap: 2px; }
+  /* Reaproveita a classe .tab/.tab.active (usada por switchTab() via
+     querySelectorAll(".tab")) -- só o visual muda de "aba horizontal estilo
+     pasta" pra "item de menu vertical", sem tocar em JS. */
+  .sidebar-tabs .tab {
+    border-radius: 8px; padding: 9px 12px; border: 1px solid transparent;
+  }
+  .sidebar-tabs .tab.active {
+    background: var(--royal-soft-2); color: var(--royal); border-color: transparent;
+  }
+  .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
+  .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
+  .sidebar .sync-badge { width: 100%; box-sizing: border-box; justify-content: center; }
+  .sidebar .btn.ghost { width: 100%; }
+
+  /* Filtros de Prioridade (hierárquico) -- Rodada 9 (2026-08-12). Dois
+     "pills" mutuamente exclusivos; selecionar um revela 2 grupos de
+     sub-opções logo abaixo, na mesma área de filtros (sem navegar pra outra
+     tela). */
+  .priority-pills { display: flex; flex-direction: column; gap: 6px; }
+  .priority-pill {
+    width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink-soft); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .priority-pill:hover { background: var(--paper-2); }
+  .priority-pill.active { background: var(--royal-soft-2); color: var(--royal); border-color: rgba(0,27,184,0.25); }
+  .priority-suboptions { display: none; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .priority-sub-label {
+    display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: 0.02em;
+  }
+  .priority-sub-label select { width: 100%; text-transform: none; letter-spacing: normal; font-weight: 400; }
+  .priority-note { font-size: 11.5px; color: var(--ink-mute); line-height: 1.4; }
+
+  /* Checkbox "Agendado" (Rodada 9, 2026-08-12) -- vale pra TODO ticket da
+     tabela de Tickets, independente de filtro de prioridade. Ao marcar, a
+     linha fica visualmente apagada (permanece assim só durante a sessão
+     atual -- da próxima vez que a página carregar, o ticket marcado nem
+     aparece mais, ver onAckTicket()/loadDashboard()). */
+  .ack-checkbox { width: 17px; height: 17px; cursor: pointer; }
+  tr.row-acked td { opacity: 0.42; }
+  tr.row-acked .client-name, tr.row-acked td { color: var(--ink-mute) !important; }
+
+  /* Validação de ESN da propriedade (Rodada 9, 2026-08-12) -- chip de aviso
+     quando algum ESN esperado da empresa não bate com o "dono atual"
+     calculado a partir de pedido_de_entrega (ver
+     supabase/patch-esn-validacao.sql). Tooltip (title) traz o detalhe cru
+     (ESN + ModeloItem + status), sem mapear nome amigável do modelo ainda. */
+  .chip.chip-esn-warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(183,121,31,0.3); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -353,59 +432,97 @@
   </header>
 
   <main>
-    <div class="kpi-block" id="kpi-block">
-      <div class="kpi-block-header" onclick="toggleKpiBlock()">
-        <span class="kpi-block-toggle" id="kpi-block-toggle-icon">▾</span>
-        <span>Indicadores</span>
-      </div>
-      <div id="kpi-block-body">
-        <div class="kpi-row" id="kpi-row"></div>
-        <div class="grade-card" id="grade-row"></div>
-      </div>
-    </div>
+    <div class="body-shell">
+      <!-- Redesign de layout -- Opção A (sidebar), 2026-08-12: abas e filtros
+           (busca/squad/gestor/responsável/prioridades) movidos pra cá, barra
+           lateral recolhível (toggleSidebar()). Dados (tabela) ficam no
+           conteúdo central (.main-content) -- ver correções combinadas com o
+           Luiz no topo desta seção: KPIs (#kpi-row) e distribuição por Basic
+           Value (#grade-row) continuam EXATAMENTE como estavam, só
+           realocados pro topo do conteúdo central, não pra dentro da
+           sidebar. -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-toggle-row">
+          <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Recolher/expandir menu"><span id="sidebar-toggle-icon">‹</span></button>
+        </div>
+        <div class="sidebar-content" id="sidebar-content">
+          <div>
+            <p class="sidebar-section-title">Navegação</p>
+            <div class="sidebar-tabs">
+              <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
+              <div class="tab" data-tab="evolucao" onclick="switchTab('evolucao')">Evolução B.V.</div>
+              <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
+            </div>
+          </div>
 
-    <div class="toolbar">
-      <div class="tabs">
-        <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
-        <div class="tab" data-tab="multiplos" onclick="switchTab('multiplos')">Atendimentos múltiplos</div>
-        <div class="tab" data-tab="evolucao" onclick="switchTab('evolucao')">Evolução B.V.</div>
-        <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
-      </div>
-      <div class="spacer"></div>
-      <input type="text" id="search-cliente" placeholder="Buscar cliente, empresa, ticket..." oninput="onSearchChange()" />
-      <select id="gestor-filter" style="display:none" onchange="onGestorFilterChange()">
-        <option value="todos">Todos os gestores</option>
-      </select>
-      <select id="squad-filter" style="display:none" onchange="onSquadFilterChange()">
-        <option value="todas">Todas as squads</option>
-        <option value="onboarding">Onboarding</option>
-        <option value="smb">SMB</option>
-        <option value="icp">ICP</option>
-        <option value="sem_squad">Sem squad definido</option>
-      </select>
-      <select id="responsavel-filter" style="display:none" onchange="onResponsavelFilterChange()">
-        <option value="todos">Todos os responsáveis</option>
-      </select>
-      <span class="sync-badge" id="last-sync">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
-        <span id="last-sync-text">carregando...</span>
-      </span>
-      <button class="btn ghost" onclick="loadDashboard()">↻ Atualizar</button>
-    </div>
+          <div>
+            <p class="sidebar-section-title">Filtros</p>
+            <div class="sidebar-filters">
+              <input type="text" id="search-cliente" placeholder="Buscar cliente, empresa, ticket..." oninput="onSearchChange()" />
+              <select id="gestor-filter" style="display:none" onchange="onGestorFilterChange()">
+                <option value="todos">Todos os gestores</option>
+              </select>
+              <select id="squad-filter" style="display:none" onchange="onSquadFilterChange()">
+                <option value="todas">Todas as squads</option>
+                <option value="onboarding">Onboarding</option>
+                <option value="smb">SMB</option>
+                <option value="icp">ICP</option>
+                <option value="sem_squad">Sem squad definido</option>
+              </select>
+              <select id="responsavel-filter" style="display:none" onchange="onResponsavelFilterChange()">
+                <option value="todos">Todos os responsáveis</option>
+              </select>
+            </div>
+          </div>
 
-    <div id="panel-principal">
-      <div id="table-principal-wrap"></div>
-    </div>
+          <!-- Filtros de Prioridade hierárquicos (Rodada 9, 2026-08-12) --
+               dois pills mutuamente exclusivos; selecionar um filtra a tabela
+               de Tickets (só empresas com dado não-nulo naquela categoria),
+               ordena do caso mais urgente pro menos urgente por padrão, e
+               revela 2 grupos de sub-opções abaixo (ver
+               renderPrioritySubOptions()). Faixas de quantidade/dias abaixo
+               são um PONTO DE PARTIDA ajustável -- o Luiz pode pedir
+               recalibração depois de ver os dados reais. -->
+          <div>
+            <p class="sidebar-section-title">Prioridades</p>
+            <div class="priority-pills">
+              <button type="button" class="priority-pill" id="pp-completude" onclick="togglePriorityCategory('completude')">Completude de Instalação</button>
+              <button type="button" class="priority-pill" id="pp-basic_value" onclick="togglePriorityCategory('basic_value')">Basic Value</button>
+            </div>
+            <div class="priority-suboptions" id="priority-suboptions"></div>
+          </div>
 
-    <div id="panel-multiplos" style="display:none">
-      <div id="table-multiplos-wrap"></div>
-    </div>
+          <div>
+            <span class="sync-badge" id="last-sync">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+              <span id="last-sync-text">carregando...</span>
+            </span>
+            <button class="btn ghost" style="margin-top:8px" onclick="loadDashboard()">↻ Atualizar</button>
+          </div>
+        </div>
+      </aside>
 
-    <div id="panel-evolucao" style="display:none">
-      <div id="evolucao-wrap"></div>
-    </div>
+      <div class="main-content" style="flex:1; min-width:0; display:flex; flex-direction:column; min-height:0;">
+        <div class="kpi-block" id="kpi-block">
+          <div class="kpi-block-header" onclick="toggleKpiBlock()">
+            <span class="kpi-block-toggle" id="kpi-block-toggle-icon">▾</span>
+            <span>Indicadores</span>
+          </div>
+          <div id="kpi-block-body">
+            <div class="kpi-row" id="kpi-row"></div>
+            <div class="grade-card" id="grade-row"></div>
+          </div>
+        </div>
 
-    <div id="panel-admin" style="display:none">
+        <div id="panel-principal">
+          <div id="table-principal-wrap"></div>
+        </div>
+
+        <div id="panel-evolucao" style="display:none">
+          <div id="evolucao-wrap"></div>
+        </div>
+
+        <div id="panel-admin" style="display:none">
       <div class="admin-panel-card compact-admin">
         <h3>Convidar pessoa</h3>
         <p class="form-desc">A pessoa passa a enxergar os tickets do seu escopo assim que fizer o primeiro login.</p>
@@ -510,6 +627,8 @@
         </form>
       </div>
     </div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -538,6 +657,17 @@ const HUBSPOT_PORTAL_ID = "5282301";
 // configuração do painel do Supabase.
 const DASHBOARD_URL = "https://luizlackeski.github.io/basic-value-cx-acompanhamento/";
 
+// Rodada 9 (2026-08-12): "vamos tirar a aba múltiplo da field e o status da
+// field também depois explico" -- pedido do Luiz, sem detalhar o motivo
+// ainda. Removido de forma REVERSÍVEL: os campos (field_status/prestador/
+// consultor/data_agendada) continuam vindo normalmente do Supabase/v_dashboard
+// (nada mudou no schema nem na query) -- só a exibição na UI é escondida via
+// esta flag. Pra reverter, basta trocar para `true`. NÃO mexe no KPI "Já
+// agendados na Field" (renderKpis já usa row.field_status pra calculá-lo) --
+// deixamos esse card como está, porque não ficou claro se ele deve continuar
+// usando esse dado, mudar de fonte, ou sumir; ver relatório final.
+const SHOW_FIELD_STATUS = false;
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
@@ -553,8 +683,23 @@ const state = {
   riskFilterActive: false,
   productsByTicket: {},
   searchQuery: "",             // Rodada 3: busca unificada de cliente/empresa (aba Tickets)
-  sortKey: null,               // Rodada 3: "dias_aberto" | "basic_value" | null (ordem original de createdate)
+  sortKey: null,               // Rodada 3: "dias_aberto" | "basic_value" | "mrr" | null (ordem original de createdate)
   sortDir: 1,                  // 1 = crescente, -1 = decrescente
+
+  // Rodada 9 (2026-08-12): filtros de Prioridade hierárquicos. Faixas de
+  // quantidade/dias abaixo são um PONTO DE PARTIDA ajustável -- combinar com
+  // o Luiz depois de ver os dados reais.
+  priorityCategory: null,             // null | "completude" | "basic_value" -- mutuamente exclusivos
+  priorityCompletudeFaixaQtd: "1-4",   // padrão pré-selecionado (ver inFaixaQtdFalta)
+  priorityCompletudeFaixaDias: null,   // sem filtro por padrão -- só ordena por dias restantes crescente
+  priorityBVFaixaQtd: "1-5",           // padrão pré-selecionado (ver inFaixaQtdNota3)
+  priorityBVFaixaMrr: "todos",         // sem filtro por padrão -- só ordena por mrr decrescente
+
+  // Rodada 9: checkbox "Agendado" -- tickets marcados nesta sessão (ver
+  // onAckTicket()). Diferente dos que já estavam marcados ANTES desta carga
+  // (esses nem entram em allRows, ver loadDashboard()) -- os desta sessão
+  // continuam visíveis, só ficam "apagados" visualmente, até o próximo reload.
+  justAcked: new Set(),
 };
 
 // ---------------------------------------------------------------------------
@@ -684,19 +829,32 @@ function toggleKpiBlock() {
   document.getElementById("kpi-block-toggle-icon").classList.toggle("collapsed", kpiBlockCollapsed);
 }
 
+// Rodada 9 (2026-08-12): sidebar recolhível (Opção A do redesign de layout).
+// Não persiste entre sessões -- mesma lógica do bloco de KPIs acima.
+let sidebarCollapsed = false;
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed;
+  document.getElementById("sidebar").classList.toggle("collapsed", sidebarCollapsed);
+  document.getElementById("sidebar-toggle-icon").textContent = sidebarCollapsed ? "›" : "‹";
+}
+
 // ---------------------------------------------------------------------------
 // TABS
 // ---------------------------------------------------------------------------
+// Rodada 9 (2026-08-12): aba "Atendimentos múltiplos" removida da navegação a
+// pedido do Luiz ("vamos tirar a aba múltiplo da field... depois explico") --
+// não entra mais na sidebar nova (ver HTML), e switchTab() não aceita mais
+// "multiplos". loadMultiplos() e a view v_atendimentos_multiplos em si foram
+// mantidos como estavam (não apagados) -- só a aba deixou de existir/ser
+// acessível, de propósito, pra ficar reversível.
 function switchTab(tab) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   // "flex" (não "block"): estes painéis são os que rolam por dentro (ver
-  // CSS de #panel-principal/#panel-multiplos/#panel-admin) -- setar
-  // "block" aqui sobrescreveria isso pelo estilo inline.
+  // CSS de #panel-principal/#panel-admin) -- setar "block" aqui
+  // sobrescreveria isso pelo estilo inline.
   document.getElementById("panel-principal").style.display = tab === "principal" ? "flex" : "none";
-  document.getElementById("panel-multiplos").style.display = tab === "multiplos" ? "flex" : "none";
   document.getElementById("panel-evolucao").style.display = tab === "evolucao" ? "flex" : "none";
   document.getElementById("panel-admin").style.display = tab === "admin" ? "flex" : "none";
-  if (tab === "multiplos") loadMultiplos();
   if (tab === "evolucao") loadEvolucao();
   if (tab === "admin") loadTeamTable();
 }
@@ -744,6 +902,25 @@ async function loadDashboard() {
   } catch (error) {
     wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
     return;
+  }
+
+  // Rodada 9 (2026-08-12): checkbox "Agendado" -- ticket com
+  // ticket_priority_ack já existente ANTES desta carga não aparece mais na
+  // tabela dali em diante (marcação permanente, não snooze de 1 dia -- ver
+  // supabase/patch-ticket-priority-ack.sql). Os marcados NESTA sessão
+  // (state.justAcked) continuam em allRows -- só ficam visualmente
+  // "apagados" até o próximo reload (ver renderTable/onAckTicket).
+  state.justAcked = new Set();
+  try {
+    const ackedRows = await fetchAllPages((from, to) =>
+      sb.from("ticket_priority_ack").select("ticket_id").range(from, to)
+    );
+    const ackedAtLoad = new Set(ackedRows.map(r => r.ticket_id));
+    state.allRows = state.allRows.filter(r => !ackedAtLoad.has(r.ticket_id));
+  } catch (error) {
+    // Tabela pode ainda não existir se supabase/patch-ticket-priority-ack.sql
+    // não tiver rodado ainda -- não trava o resto do dashboard por isso.
+    console.error("Erro ao carregar ticket_priority_ack (o patch SQL já foi rodado?):", error.message);
   }
 
   state.productsByTicket = await loadProductsFor(state.allRows.map(d => d.ticket_id));
@@ -812,6 +989,48 @@ function applyFilters() {
       return haystack.includes(q);
     });
   }
+
+  // ---------------------------------------------------------------------
+  // Rodada 9 (2026-08-12): filtros de Prioridade hierárquicos. Só afetam a
+  // tabela de Tickets (displayRows) -- NUNCA os KPIs/distribuição
+  // (squadFiltered, já capturado acima). Ver design combinado com o Luiz
+  // (histórico completo no doc do projeto, seção 5) -- "Design final a
+  // implementar".
+  // ---------------------------------------------------------------------
+  if (state.priorityCategory === "completude") {
+    // Filtro OBRIGATÓRIO, sempre aplicado nesta categoria (não é opcional):
+    // só entram tickets com completude_dentro_do_prazo = true. Tickets com
+    // prazo já vencido são EXCLUÍDOS inteiramente -- regra de negócio
+    // confirmada pelo Luiz ("se já passou de 60 dias mesmo que eu faça não
+    // contabiliza, então não precisa mostrar nas prioridades"). NÃO existe
+    // opção "Vencido" nas sub-opções (removida a pedido dele).
+    rows = rows.filter(r => r.completude_qtd_falta != null && r.completude_dentro_do_prazo === true);
+    if (state.priorityCompletudeFaixaQtd) {
+      rows = rows.filter(r => inFaixaQtdFalta(r.completude_qtd_falta, state.priorityCompletudeFaixaQtd));
+    }
+    if (state.priorityCompletudeFaixaDias) {
+      rows = rows.filter(r => inFaixaDiasRestantes(diasRestantes(r), state.priorityCompletudeFaixaDias));
+    }
+  } else if (state.priorityCategory === "basic_value") {
+    // Basic Value NÃO tem corte de prazo/expiração -- "o basic vale não tem
+    // expiração pode trazer todos" (confirmado pelo Luiz). Traz todas as
+    // empresas elegíveis (dado não-nulo nesta categoria).
+    rows = rows.filter(r => r.completude_qtd_falta_nota_3 != null);
+    // Percentis de MRR calculados sobre o conjunto elegível da categoria
+    // (antes do sub-filtro de quantidade, pra não mover o "chão" da
+    // comparação conforme a faixa de quantidade escolhida) -- ver
+    // computeMrrPercentiles(). Simplificação assumida: calculado sobre
+    // linhas de TICKET (não deduplicado por empresa) -- uma empresa com
+    // vários tickets abertos entra várias vezes na amostra.
+    const mrrPercentiles = computeMrrPercentiles(rows);
+    if (state.priorityBVFaixaQtd) {
+      rows = rows.filter(r => inFaixaQtdNota3(r.completude_qtd_falta_nota_3, state.priorityBVFaixaQtd));
+    }
+    if (state.priorityBVFaixaMrr && state.priorityBVFaixaMrr !== "todos") {
+      rows = rows.filter(r => passesMrrFilter(r.mrr, state.priorityBVFaixaMrr, mrrPercentiles));
+    }
+  }
+
   // Rodada 3: ordenação clicável. "basic_value" ordena pela nota de
   // instalação -- é o que importa mais pra squad, não pelo Basic Value geral
   // (a pedido do Luiz) -- com o score geral como critério de desempate.
@@ -821,6 +1040,11 @@ function applyFilters() {
   // qtd_instalada/qtd_completude), substituindo instalation_completeness_grade
   // (Databricks) -- ver basicValueCellHtml e
   // queries/query-completude-instalacao-sync.sql.
+  // Rodada 9 (2026-08-12): quando um filtro de Prioridade está ativo E o
+  // usuário ainda não clicou manualmente numa coluna pra ordenar
+  // (state.sortKey === null), aplica a ordenação padrão de cada categoria
+  // (mais urgente primeiro) -- clicar numa coluna sempre tem prioridade sobre
+  // esse padrão.
   if (state.sortKey) {
     const dir = state.sortDir;
     rows = rows.slice().sort((a, b) => {
@@ -839,9 +1063,154 @@ function applyFilters() {
       if (state.sortKey === "basic_value") return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0));
       return 0;
     });
+  } else if (state.priorityCategory === "completude") {
+    // "Dias pra vencer o prazo": padrão ordena por dias restantes crescente
+    // (mais perto de vencer primeiro).
+    rows = rows.slice().sort((a, b) => {
+      const da = diasRestantes(a), db = diasRestantes(b);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da - db;
+    });
+  } else if (state.priorityCategory === "basic_value") {
+    // "MRR": padrão ordena por MRR decrescente.
+    rows = rows.slice().sort((a, b) => (Number(b.mrr) || 0) - (Number(a.mrr) || 0));
   }
   return { squadFiltered, displayRows: rows };
 }
+
+// ---------------------------------------------------------------------------
+// PRIORIDADES (Rodada 9, 2026-08-12) -- helpers de faixa/percentil.
+// Faixas de quantidade/dias são um PONTO DE PARTIDA ajustável -- o Luiz pode
+// pedir recalibração depois de ver os dados reais.
+// ---------------------------------------------------------------------------
+function prazoTotalDias(segmento) {
+  return segmento === "Onboarding" ? 90 : 60; // ICP/SMB = 60, Onboarding = 90 -- mesmos prazos já usados no resto do dashboard
+}
+function diasRestantes(row) {
+  if (row.completude_time_segmento == null || row.dias_aberto == null) return null;
+  return prazoTotalDias(row.completude_time_segmento) - row.dias_aberto;
+}
+function inFaixaQtdFalta(qtd, faixa) {
+  if (qtd == null) return false;
+  if (faixa === "1-4") return qtd >= 1 && qtd <= 4;
+  if (faixa === "5-10") return qtd >= 5 && qtd <= 10;
+  if (faixa === "11-15") return qtd >= 11 && qtd <= 15;
+  if (faixa === "16+") return qtd >= 16;
+  return true;
+}
+function inFaixaDiasRestantes(dias, faixa) {
+  if (dias == null) return false;
+  if (faixa === "1") return dias === 1;
+  if (faixa === "2") return dias === 2;
+  if (faixa === "3") return dias === 3;
+  if (faixa === "4") return dias === 4;
+  if (faixa === "5") return dias === 5;
+  if (faixa === "6-10") return dias >= 6 && dias <= 10;
+  if (faixa === "11-20") return dias >= 11 && dias <= 20;
+  if (faixa === "21-30") return dias >= 21 && dias <= 30;
+  if (faixa === "31+") return dias >= 31;
+  return true;
+}
+function inFaixaQtdNota3(qtd, faixa) {
+  if (qtd == null) return false;
+  if (faixa === "1-5") return qtd >= 1 && qtd <= 5;
+  if (faixa === "6-10") return qtd >= 6 && qtd <= 10;
+  if (faixa === "11-15") return qtd >= 11 && qtd <= 15;
+  if (faixa === "16+") return qtd >= 16;
+  return true;
+}
+// Percentis calculados no cliente, a partir dos dados reais já carregados --
+// nunca uma faixa fixa em R$ chutada (pedido explícito do Luiz).
+function computeMrrPercentiles(rows) {
+  const vals = rows.map(r => Number(r.mrr)).filter(v => !isNaN(v)).sort((a, b) => a - b);
+  if (!vals.length) return { p50: null, p75: null, p90: null };
+  const at = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
+  return { p50: at(0.50), p75: at(0.75), p90: at(0.90) };
+}
+function passesMrrFilter(mrr, faixa, p) {
+  const v = Number(mrr);
+  if (isNaN(v)) return false;
+  if (faixa === "acima_mediana") return p.p50 != null && v > p.p50;
+  if (faixa === "top25") return p.p75 != null && v >= p.p75;
+  if (faixa === "top10") return p.p90 != null && v >= p.p90;
+  return true; // "todos"
+}
+
+function togglePriorityCategory(cat) {
+  state.priorityCategory = state.priorityCategory === cat ? null : cat;
+  renderPriorityPills();
+  renderPrioritySubOptions();
+  renderAll();
+}
+
+function renderPriorityPills() {
+  const elCompletude = document.getElementById("pp-completude");
+  const elBv = document.getElementById("pp-basic_value");
+  if (elCompletude) elCompletude.classList.toggle("active", state.priorityCategory === "completude");
+  if (elBv) elBv.classList.toggle("active", state.priorityCategory === "basic_value");
+}
+
+function renderPrioritySubOptions() {
+  const el = document.getElementById("priority-suboptions");
+  if (!el) return;
+  if (state.priorityCategory === "completude") {
+    el.style.display = "flex";
+    el.innerHTML = `
+      <p class="priority-note">Tickets com prazo já vencido não entram aqui -- depois do prazo, a instalação não conta mais pra completude (regra combinada com o Luiz).</p>
+      <label class="priority-sub-label">Quantidade que falta
+        <select onchange="onPriorityCompletudeQtdChange(this.value)">
+          <option value="1-4" ${state.priorityCompletudeFaixaQtd === "1-4" ? "selected" : ""}>1 a 4</option>
+          <option value="5-10" ${state.priorityCompletudeFaixaQtd === "5-10" ? "selected" : ""}>5 a 10</option>
+          <option value="11-15" ${state.priorityCompletudeFaixaQtd === "11-15" ? "selected" : ""}>11 a 15</option>
+          <option value="16+" ${state.priorityCompletudeFaixaQtd === "16+" ? "selected" : ""}>16 ou mais</option>
+        </select>
+      </label>
+      <label class="priority-sub-label">Dias pra vencer o prazo
+        <select onchange="onPriorityCompletudeDiasChange(this.value)">
+          <option value="" ${!state.priorityCompletudeFaixaDias ? "selected" : ""}>Todos (ordenado por mais perto de vencer)</option>
+          <option value="1" ${state.priorityCompletudeFaixaDias === "1" ? "selected" : ""}>1 dia</option>
+          <option value="2" ${state.priorityCompletudeFaixaDias === "2" ? "selected" : ""}>2 dias</option>
+          <option value="3" ${state.priorityCompletudeFaixaDias === "3" ? "selected" : ""}>3 dias</option>
+          <option value="4" ${state.priorityCompletudeFaixaDias === "4" ? "selected" : ""}>4 dias</option>
+          <option value="5" ${state.priorityCompletudeFaixaDias === "5" ? "selected" : ""}>5 dias</option>
+          <option value="6-10" ${state.priorityCompletudeFaixaDias === "6-10" ? "selected" : ""}>6 a 10 dias</option>
+          <option value="11-20" ${state.priorityCompletudeFaixaDias === "11-20" ? "selected" : ""}>11 a 20 dias</option>
+          <option value="21-30" ${state.priorityCompletudeFaixaDias === "21-30" ? "selected" : ""}>21 a 30 dias</option>
+          <option value="31+" ${state.priorityCompletudeFaixaDias === "31+" ? "selected" : ""}>31 dias ou mais</option>
+        </select>
+      </label>`;
+  } else if (state.priorityCategory === "basic_value") {
+    el.style.display = "flex";
+    el.innerHTML = `
+      <p class="priority-note">Sem corte de prazo -- traz todas as empresas elegíveis (confirmado pelo Luiz: "o basic vale não tem expiração pode trazer todos").</p>
+      <label class="priority-sub-label">Quantidade que falta pra nota 3
+        <select onchange="onPriorityBVQtdChange(this.value)">
+          <option value="1-5" ${state.priorityBVFaixaQtd === "1-5" ? "selected" : ""}>1 a 5</option>
+          <option value="6-10" ${state.priorityBVFaixaQtd === "6-10" ? "selected" : ""}>6 a 10</option>
+          <option value="11-15" ${state.priorityBVFaixaQtd === "11-15" ? "selected" : ""}>11 a 15</option>
+          <option value="16+" ${state.priorityBVFaixaQtd === "16+" ? "selected" : ""}>16 ou mais</option>
+        </select>
+      </label>
+      <label class="priority-sub-label">MRR
+        <select onchange="onPriorityBVMrrChange(this.value)">
+          <option value="todos" ${state.priorityBVFaixaMrr === "todos" ? "selected" : ""}>Todos (ordenado por MRR)</option>
+          <option value="acima_mediana" ${state.priorityBVFaixaMrr === "acima_mediana" ? "selected" : ""}>Acima da mediana</option>
+          <option value="top25" ${state.priorityBVFaixaMrr === "top25" ? "selected" : ""}>Top 25%</option>
+          <option value="top10" ${state.priorityBVFaixaMrr === "top10" ? "selected" : ""}>Top 10%</option>
+        </select>
+      </label>`;
+  } else {
+    el.style.display = "none";
+    el.innerHTML = "";
+  }
+}
+
+function onPriorityCompletudeQtdChange(v) { state.priorityCompletudeFaixaQtd = v; renderAll(); }
+function onPriorityCompletudeDiasChange(v) { state.priorityCompletudeFaixaDias = v || null; renderAll(); }
+function onPriorityBVQtdChange(v) { state.priorityBVFaixaQtd = v; renderAll(); }
+function onPriorityBVMrrChange(v) { state.priorityBVFaixaMrr = v; renderAll(); }
 
 function onSearchChange() {
   state.searchQuery = document.getElementById("search-cliente").value;
@@ -908,6 +1277,13 @@ function distinctCompanies(rows) {
 
 function renderKpis(rows) {
   const total = rows.length; // tickets (nível certo pra essa métrica -- não é por empresa)
+  // NOTA (Rodada 9, 2026-08-12): o Luiz pediu pra remover a EXIBIÇÃO do
+  // status da Field da UI (field_status/prestador/consultor/data_agendada --
+  // ver SHOW_FIELD_STATUS e renderTable), mas este KPI usa field_status por
+  // baixo dos panos pra calcular "Já agendados na Field". Não ficou claro se
+  // esse pedido também deveria mudar/remover este card -- deixado como
+  // estava de propósito (não decidi por conta própria); ver dúvida no
+  // relatório final desta rodada.
   const agendados = rows.filter(r => r.field_status).length;
   const diasValidos = rows.map(r => r.dias_aberto).filter(v => v != null);
   const mediaDias = diasValidos.length ? Math.round(diasValidos.reduce((a, b) => a + b, 0) / diasValidos.length) : 0;
@@ -1043,9 +1419,13 @@ function renderGradeDistribution(rows) {
 // (maybeCaptureSnapshotIfGestorGeral), então o gráfico segue crescendo com
 // pontos novos conforme as sincronizações manuais forem acontecendo.
 //
-// Paleta: rampa ordinal de 1 hue (verde), validada com o script do skill de
-// dataviz (todos os checks passam -- ver comentário no CSS, seção :root).
-const EVO_RAMP = { "4": "#154735", "3": "#1e674c", "2": "#278663", "1": "#30a67b", "0": "#39c692", sem_dado: "#ABB0C4" };
+// Paleta (correção 2026-08-12): trocada a rampa ordinal verde pela MESMA
+// paleta de status (risco/aviso/ok) usada em .grade-pill -- pedido do Luiz
+// (a direção certa era levar a paleta de status pro gráfico, não o
+// contrário -- ver comentário em .grade-pill no CSS). g4=--ok-text,
+// g3=verde-azulado intermediário (#3F7D69), g2=--warn, g1=laranja mais
+// escuro (#A3652E), g0=--risk, sem_dado=--ink-mute.
+const EVO_RAMP = { "4": "#0E7D5F", "3": "#3F7D69", "2": "#B7791F", "1": "#A3652E", "0": "#C7362C", sem_dado: "#8288A3" };
 const EVO_LABELS = { "4": "Grau 4 · completo", "3": "Grau 3", "2": "Grau 2", "1": "Grau 1", "0": "Grau 0 · não iniciado", sem_dado: "Sem dado" };
 const EVO_ORDER = ["4", "3", "2", "1", "0", "sem_dado"];
 // Rodada 6 (2026-08-11): rótulo de dado direto no gráfico (antes só aparecia
@@ -1307,15 +1687,21 @@ function renderTable(data) {
     return;
   }
 
+  // Rodada 9 (2026-08-12): "Status Field" (field_status/prestador/consultor/
+  // data_agendada) escondido de forma REVERSÍVEL via SHOW_FIELD_STATUS (ver
+  // comentário na declaração da flag) -- o <th> só entra se a flag estiver
+  // ligada, current: false.
   let html = "<table><thead><tr>" +
+    '<th style="width:1%"></th>' + // checkbox "Agendado"
     "<th>Cliente / Ticket</th><th>Squad</th>" +
     `<th class="sortable ${sortArrowClass("dias_aberto")}" onclick="onSortClick('dias_aberto')">Aberto há${sortArrowHtml("dias_aberto")}</th>` +
     "<th>Classe</th><th>Produtos</th>" +
     `<th class="sortable ${sortArrowClass("basic_value")}" onclick="onSortClick('basic_value')">Basic Value${sortArrowHtml("basic_value")}</th>` +
     "<th>Compl. instalação</th>" +
     `<th class="sortable ${sortArrowClass("mrr")}" onclick="onSortClick('mrr')">MRR${sortArrowHtml("mrr")}</th>` +
-    "<th>Status Field</th>" +
+    (SHOW_FIELD_STATUS ? "<th>Status Field</th>" : "") +
     "<th>Tratativa</th>" +
+    "<th>Agendado</th>" +
     "</tr></thead><tbody>";
 
   for (const row of data) {
@@ -1323,18 +1709,36 @@ function renderTable(data) {
     const riskBadge = row.mrr_status === "em_risco"
       ? '<span class="badge risk">em risco</span>' : '<span class="badge ok">ok</span>';
     const squadBadge = squadBadgeHtml(row);
+    const isAcked = state.justAcked.has(row.ticket_id);
 
     const accessoryProducts = state.productsByTicket[row.ticket_id] || [];
     const chips = [];
     if (row.esn_count) {
-      chips.push(`<span class="chip chip-core">${row.esn_count}x Rastreador</span>`);
+      // Validação de ESN da propriedade (2026-08-12, ver
+      // supabase/patch-esn-validacao.sql): tooltip traz o ModeloItem CRU por
+      // ESN (sem mapear pra nome amigável ainda, a pedido do Luiz).
+      const modelos = (row.esn_modelos_raw || []).filter(Boolean).join(", ");
+      chips.push(`<span class="chip chip-core"${modelos ? ` title="${escapeHtml(modelos)}"` : ""}>${row.esn_count}x Rastreador</span>`);
+    }
+    const esnProblemas = (row.esn_divergente_count || 0) + (row.esn_sem_match_count || 0);
+    if (esnProblemas > 0) {
+      const detalhe = (row.esn_detalhe || [])
+        .filter(d => d.status !== "ok")
+        .map(d => `ESN ${d.esn} (${d.modelo_item || "modelo desconhecido"}): ${d.status}`)
+        .join("\n");
+      chips.push(`<span class="chip chip-esn-warn" title="${escapeHtml(detalhe)}">⚠ ${esnProblemas} ESN(s) a validar</span>`);
     }
     accessoryProducts.forEach(p => chips.push(`<span class="chip">${p.quantity}x ${escapeHtml(p.product_label)}</span>`));
     const productsHtml = chips.length
       ? '<div class="products-wrap">' + chips.join("") + '</div>'
       : '<div class="products-wrap"><span class="chip empty">não informado</span></div>';
 
-    html += `<tr>
+    html += `<tr class="${isAcked ? "row-acked" : ""}">
+      <td>
+        <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
+          onchange="onAckTicket('${row.ticket_id}', this)"
+          title="Marcar como agendado -- some da lista permanentemente a partir do próximo carregamento" />
+      </td>
       <td>
         <div class="client-name">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
         <div class="meta-line">
@@ -1349,9 +1753,9 @@ function renderTable(data) {
       <td class="bv-cell">${basicValueCellHtml(row, riskBadge)}</td>
       <td class="bv-cell">${completudeInstalacaoHtml(row)}</td>
       <td>${fmtCurrency(row.mrr)}</td>
-      <td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
+      ${SHOW_FIELD_STATUS ? `<td>${row.field_status ? `<span class="badge stage">${escapeHtml(row.field_status)}</span>` : '<span class="muted">não agendado</span>'}
           ${row.data_agendada ? `<div class="meta-line">${row.data_agendada}</div>` : ""}
-      </td>
+      </td>` : ""}
       <td class="tratativa-cell">
         <select onchange="saveTratativa('${row.ticket_id}', this.value, null)">
           <option value="">-- selecionar --</option>
@@ -1364,6 +1768,31 @@ function renderTable(data) {
   }
   html += "</tbody></table>";
   wrap.innerHTML = html;
+}
+
+// Checkbox "Agendado" (Rodada 9, 2026-08-12) -- vale pra TODO ticket da
+// tabela de Tickets, sempre, independente de qualquer filtro de Prioridade
+// estar ativo (correção explícita do Luiz: "o check box é para todos os
+// tickets ok, não somente os prioridades"). Grava em ticket_priority_ack
+// (ver supabase/patch-ticket-priority-ack.sql) -- marcação PERMANENTE, não um
+// snooze de 1 dia: da próxima vez que a página carregar (reload ou dia
+// seguinte), este ticket não aparece mais (ver loadDashboard()). Suposição
+// registrada pro Luiz poder pedir ajuste: não existe hoje um jeito de ver ou
+// desmarcar os já agendados -- se ele quiser isso, precisa de uma tela nova.
+async function onAckTicket(ticketId, checkbox) {
+  checkbox.disabled = true;
+  const { error } = await sb.from("ticket_priority_ack").insert({
+    ticket_id: ticketId,
+    marked_by: currentUser ? currentUser.email : null,
+  });
+  if (error) {
+    alert("Erro ao marcar como agendado (o patch supabase/patch-ticket-priority-ack.sql já foi rodado?): " + error.message);
+    checkbox.disabled = false;
+    checkbox.checked = false;
+    return;
+  }
+  state.justAcked.add(ticketId);
+  renderAll();
 }
 
 async function loadProductsFor(ticketIds) {
