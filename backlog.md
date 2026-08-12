@@ -26,7 +26,7 @@ A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de um
 - Esse mesmo patch já inclui o vínculo pontual do `hubspot_owner_id` da Danielle Couto (199072037) -- ver item 8 abaixo.
 
 ## ✅ Rodada 11 (2026-08-12) — coluna Agendado, tratativa em popup, login novo, ajustes de coluna e sincronização
-*Lista de 8 pontos passada pelo Luiz depois de testar a Rodada 10 (2 prints da tabela de Tickets + texto). Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main`: `a04b8f9` (`index.html`), `0e48ecd` (`scripts/upsert_to_supabase.py`).*
+*Lista de 8 pontos passada pelo Luiz depois de testar a Rodada 10 (2 prints da tabela de Tickets + texto). Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main`: `a04b8f9` (`index.html`), `0e48ecd` (`scripts/upsert_to_supabase.py`). Correção pós-feedback (depois do Luiz testar a Rodada 11 publicada e mandar 4 prints): commit `53db1a6` (`index.html`) -- ver itens 6 e 7 abaixo, e o item novo 9.*
 
 ### 1. ✅ Coluna "Agendado" órfã removida da tabela
 - O `<th>Agendado</th>` do cabeçalho não tinha `<td>` correspondente no corpo da tabela (o checkbox real já mora na primeira coluna sem título) -- por isso aparecia uma coluna "AGENDADO" vazia nos prints do Luiz. `<th>` órfão removido; o checkbox cinza continua exatamente como estava.
@@ -51,23 +51,40 @@ A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de um
 - Pedido do Luiz: a aba hoje deriva a distribuição por grau a partir de `state.allRows` (tickets abertos agora, via `distinctCompanies`/`instalation_completeness_grade`) -- ele quer trocar pra vir do banco/tabelas, já pensando em capturar saída E entrada de empresas ao longo do tempo (hoje `bv_grade_snapshots` já registra snapshots diários/semanais, mas a leitura ao vivo da aba ainda usa os tickets abertos, não uma tabela histórica própria por empresa).
 - Luiz pediu explicitamente pra **não fazer agora** ("mas não agora acho, preciso usar") -- só registrado aqui como próximo passo.
 
-### 6. ✅ Colunas reorganizadas: nome truncado + completude com dias restantes
+### 6. ✅ Colunas reorganizadas: nome truncado + completude (corrigido após feedback)
 - **Cliente**: nome truncado com "..." (`.client-name`, `max-width: 220px` + `text-overflow: ellipsis`) -- nome completo continua disponível no tooltip (`title`). Ex.: "Cattani Transporte..." em vez do nome inteiro espremendo a linha.
-- **Compl. instalação**: `completudeInstalacaoHtml()` reescrita pra trazer a quantidade de dias que falta pro prazo de 60/90 dias (reaproveita `diasRestantes()`, já usada nos filtros de Prioridade). Formato: 1ª linha "10% | faltam 2 p/ 80%"; 2ª linha "dentro do prazo · faltam N dia(s)" quando ainda dá tempo, ou só "prazo encerrado" (sem contagem de dias, que já seria negativa) quando já venceu.
+- **Compl. instalação -- 1ª versão publicada (`a04b8f9`), com bug**: `completudeInstalacaoHtml()` tentava trazer a quantidade de dias que falta pro prazo de 60/90 dias reaproveitando `diasRestantes()` -- só que essa função usa `row.dias_aberto` (há quantos dias o TICKET está aberto no HubSpot), não "dias desde a assinatura do contrato" (o que de fato rege o prazo de 60/90 dias). São relógios diferentes. Resultado: `diasRestantes()` dava quase sempre um número bem negativo, que o `Math.max(...,0)` zerava -- por isso "faltam 0 dia(s)" aparecia em quase toda linha, mesmo em tickets marcados "dentro do prazo" (reportado pelo Luiz em 4 prints).
+- **Corrigido em `53db1a6`**: wording ajustado para o formato pedido -- 1ª linha "10% | +2 para 80%"; 2ª linha só o badge de status ("dentro do prazo" ou "prazo encerrado"), **sem** contagem de dias -- removida até existir, vindo do Databricks, o dado certo (dias desde a assinatura elegível, não desde a abertura do ticket).
+- **Achado maior na mesma investigação** (ticket 36311791626, "W. P. Construtora e Incorporadora", reportado pelo Luiz como devendo estar fora da completude por estar aberto há 279 dias, mas aparecendo "dentro do prazo"): ver item 9 abaixo -- não é bug de código, é uma limitação de modelagem de dados que precisa de decisão do Luiz.
 - Como as colunas "Agendado" e "Tratativa" (inline) saíram/mudaram (pontos 1 e 3), sobrou mais espaço horizontal pras colunas que ficaram.
 
-### 7. ✅ Busca da barra lateral: botão de limpar + sem scroll horizontal
+### 7. ✅ Busca da barra lateral: botão de limpar + sem scroll horizontal (corrigido após feedback)
 - Campo de busca (Ticket/Cliente/etc.) ganhou um "×" (`.search-clear-btn`, `clearSearch()`) que só aparece quando há texto digitado, pra limpar a busca com um clique.
-- **Causa raiz do scroll horizontal indevido na sidebar**: `.sidebar-content` tinha `overflow-y: auto` sem `overflow-x` definido -- pela spec de CSS, deixar um eixo non-visible sem setar o outro faz o navegador computar `overflow-x` como `auto` também, então aparecia uma barrinha de rolagem lateral mesmo sem conteúdo mais largo que a sidebar. Corrigido com `overflow-x: hidden` explícito (removido também um `min-width: 216px` que apertava a margem do scrollbar vertical). Tamanho da sidebar não mudou.
+- **1ª correção publicada (`a04b8f9`), incompleta**: diagnosticada como `.sidebar-content` com `overflow-y: auto` sem `overflow-x` definido (a spec de CSS computa o eixo não-setado como `auto` também) -- corrigido com `overflow-x: hidden` explícito. Isso tirou a barra de rolagem visível, mas o Luiz reportou (3º print) que a busca continuava sendo cortada -- só trocou "aparece com scroll" por "aparece cortada", não resolveu de fato.
+- **Causa raiz de verdade, achada em `53db1a6`**: `#search-cliente { min-width: 240px; }`, resquício da Rodada 3 (quando a busca vivia numa toolbar horizontal com espaço de sobra) -- forçava o input a ficar sempre com 240px, 18px mais largo que a área útil da sidebar (222px desde a Rodada 9), independente do `overflow-x`. Corrigido trocando pra `min-width: 0`, deixando o input respeitar o `width: 100%` já definido em `.search-wrap input[type=text]`. Confirmado com reprodução local via Playwright (medição de `scrollWidth`/`clientWidth`): 240px vs 222px antes do fix, 222px vs 222px (zero overflow) depois.
 
 ### 8. Alinhar sobre a atualização/sincronização, pra testar tudo junto — combinado, ainda não feito
 - Luiz pediu pra alinhar depois de tudo isso publicado, antes de rodar a sincronização geral de teste (que vai ser o primeiro teste real da remoção de tickets do ponto 2). Ver próximos passos.
+
+### 9. ⚠️ Achado (não é bug de código): completude_instalacao_snapshot é por EMPRESA, não por ticket/deal -- decisão do Luiz pendente
+Investigando o ticket 36311791626 (deal_id `49779167653`, assinado 2025-11-27 -- ~258 dias atrás, muito além do prazo de 60 dias de Upsell/ICP-SMB -- e ainda assim mostrando "dentro do prazo"), confirmado direto no Databricks (`gold.cubo_contratos.fct_contract_products`, `gold.dimensions.dim_company_info`):
+- `queries/query-completude-instalacao-sync.sql` calcula `dentro_do_prazo` (e `pct_completude`, `qtd_falta`, etc.) como um agregado **por `associated_company_id`** (`MAX(...) OVER (PARTITION BY associated_company_id)`, CTE `completude_empresa`) -- ou seja, existe UM SÓ valor por empresa, compartilhado por TODOS os tickets/deals dela, não um valor por deal.
+- A empresa deste ticket (`9608025244`, W. P. Construtora e Incorporadora Ltda) tem outra venda Upsell mais recente (deal `62115236907`, assinado 2026-07-06, só 37 dias atrás -- ainda dentro do prazo) -- é essa venda nova que está "carregando" `dentro_do_prazo = true` (e o %) pra TODOS os tickets da empresa, inclusive o ticket 36311791626, cujo próprio deal já venceu há muito.
+- **Achado relacionado, ainda não levado ao Luiz antes desta rodada**: a CTE `contratos` da mesma query tem um corte fixo `DATA_INICIO_ASSINATURA >= '2026-01-01'`, que exclui inteiramente da soma qualquer deal assinado antes dessa data-calendário -- parece contradizer o próprio comentário da Rodada 8 no arquivo, que diz que um deal vencido deveria continuar contando na soma (só marcado como fora do prazo, não excluído). Vale revisar junto com o ponto acima.
+- **Decisão pendente do Luiz**: manter `completude_instalacao` como métrica por empresa (e talvez deixar isso mais claro na UI -- ex. um aviso/tooltip explicando que o status é da empresa, não do ticket específico), ou reformular o pipeline pra vincular cada ticket ao seu próprio `deal_id` (mudança maior, no Databricks) -- e junto com isso, revisar o corte fixo de `2026-01-01`.
 
 ### Verificação feita antes de publicar
 - `node --check` no bloco `<script>` extraído do `index.html` -- sintaxe OK.
 - Checagem de balanceamento de tags (`<th>`/`</th>`, `<main>`/`</main>`) -- duas discrepâncias aparentes investigadas e confirmadas como falso positivo de um contador ingênuo (contava `<th>`/`<main>` mencionados dentro de comentários de código/CSS, não markup real); tags reais conferidas uma a uma, balanceadas.
 - `python3 -m py_compile` em `scripts/upsert_to_supabase.py` -- sintaxe OK.
 - `git diff` revisado linha a linha nos dois arquivos antes de publicar; cada um publicado e conferido byte-a-byte (`get_file_contents` + diff/md5sum) imediatamente depois.
+
+### Verificação feita antes de publicar a correção pós-feedback (commit `53db1a6`)
+- Reprodução local do bug da sidebar via Playwright (Chromium headless): extraído `<style>` + markup do `<aside class="sidebar">` pra um HTML isolado, medido `scrollWidth`/`clientWidth` do input de busca antes e depois do fix -- 240px vs 222px (overflow de 18px) antes, 222px vs 222px (zero overflow) depois; confirmado também por print.
+- Achado do ticket 36311791626 confirmado direto no Databricks (`mcp__Databricks__execute_sql_read_only`) contra `gold.cubo_contratos.fct_contract_products` + `gold.dimensions.dim_company_info`, cruzando os dois deal_id (`49779167653` e `62115236907`) da mesma empresa (`9608025244`) e suas datas de assinatura.
+- `node --check` no bloco `<script>` extraído do `index.html` publicado -- sintaxe OK.
+- `git diff` revisado linha a linha (contra a versão em produção antes desta correção) confirmando que a mudança é exatamente as duas correções + comentários -- nada mais.
+- Publicado e conferido byte-a-byte (`get_file_contents` + diff/md5sum) imediatamente depois do push.
 
 ## ✅ Rodada 9 (2026-08-12) — implementada e publicada no `index.html`
 *Combinado com o Luiz na noite de 2026-08-11, rodado às 07h BRT de 2026-08-12 (scheduled task agendada, ver `claude/pendencias-2026-08-11-para-7h.md` no Projects). Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main` -- ver lista ao final desta seção.*
