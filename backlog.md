@@ -1,12 +1,20 @@
 # Backlog — Basic Value / ICP Dashboard
 
-*Atualizado em 2026-08-12 (Rodada 9). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
+*Atualizado em 2026-08-12 (Rodada 10). Itens marcados ✅ já estão implementados e publicados; os demais estão só registrados, aguardando implementação ou validação.*
 
 ## ⚠️ Ações pendentes do Luiz: rodar os patches novos da Rodada 9
 A Rodada 9 (ver seção própria abaixo) já está publicada no `index.html`, mas depende de duas migrações de banco novas que **ainda não foram rodadas**:
 - `supabase/patch-esn-validacao.sql` — cria `esn_validacao_snapshot` + `v_esn_validacao_ticket` e recria `v_dashboard` com os campos `esn_divergente_count`/`esn_sem_match_count`/`esn_modelos_raw`/`esn_detalhe`. Sem isso, o chip "⚠ N ESN(s) a validar" e o tooltip com o modelo cru do Rastreador não aparecem (campos ficam `null`). Precisa já ter rodado `patch-completude-instalacao-nota.sql` antes (recria a mesma view).
 - `supabase/patch-ticket-priority-ack.sql` — cria a tabela `ticket_priority_ack` usada pelo checkbox "Agendado". Sem isso, marcar o checkbox dá erro (RPC/tabela inexistente).
 - **Publicação de dados parcial (ver dúvida/pendência abaixo)**: a query rodou pra toda a base nesta sessão (6233 pares ticket/esn, conferido contra agregado direto no Databricks: 5795 ok / 410 divergentes / 28 sem_match) e foi dividida em 32 arquivos de ~200 linhas (`data/chunks/esn_validacao-00.json` a `-31.json`) pra publicação segura (um de cada vez, com verificação byte-a-byte). **Só o chunk `-00.json` (200 dos 6233 pares) foi de fato publicado e conferido nesta sessão** -- os demais 31 chunks não foram publicados por causa do volume de transcrição manual necessário (ESNs são números de 15 dígitos, campo de alto risco de erro de transcrição se apressado). Depois de rodar os dois patches SQL acima, rodar a sincronização (Passo 4C do `sync-runbook.md`) de novo do zero -- ou publicar os chunks `-01` a `-31` que já foram gerados e validados localmente -- pra completar a cobertura de 6233 pares. Até lá, o dashboard mostra o aviso de ESN divergente só pros ~200 tickets do chunk `-00`, não pra base toda.
+
+## ⚠️ Ação pendente do Luiz: recarregar o schema cache do PostgREST (erro `PGRST204`)
+Depois de rodar os patches SQL da Rodada 9, o sync do GitHub Actions (2026-08-12) falhou com
+`ERRO ao gravar em completude_instalacao_snapshot: 400 {"code":"PGRST204",...,"message":"Could not find the 'dentro_do_prazo' column of 'completude_instalacao_snapshot' in the schema cache"}`.
+- A coluna `dentro_do_prazo` existe de verdade na tabela (foi criada pelo `patch-completude-instalacao-prazo.sql`, antes da Rodada 9) -- o erro é o PostgREST (a camada que vira SQL em API REST) usando um **cache de schema desatualizado**, que só se atualiza automaticamente de tempos em tempos ou quando alguém força a atualização.
+- Como o script (`scripts/upsert_to_supabase.py`) para no primeiro erro (`r.raise_for_status()`), essa falha travou o restante da sincronização daquele run (o log mostra `tickets_sync`, `basic_value_snapshot` e `field_status_snapshot` OK, e para exatamente em `completude_instalacao_snapshot` -- por isso a Completude de Instalação continua em branco, o card "Empresas com MRR em risco" fica vazio, e os filtros de Prioridades não trazem nada: todos dependem de colunas que vêm dessa mesma tabela).
+- **Correção**: no painel do Supabase, ir em Settings → API e clicar em "Reload schema" (ou, no SQL Editor, rodar `NOTIFY pgrst, 'reload schema';`). Depois, re-rodar a sincronização (aba Actions do repo no GitHub → workflow "Sync to Supabase" → "Run workflow", ou fazer um novo push em `data/latest-sync.json`/`data/chunks/**`).
+- Isso é diferente de "faltou rodar um patch" -- os patches já foram rodados; é só o cache que precisa ser avisado que o schema mudou.
 
 ## ⚠️ Ação pendente do Luiz: rodar `supabase/patch-completude-instalacao-nota.sql`
 A Rodada 8 (ver seção própria abaixo) já está publicada no `index.html` e nos dados (`data/chunks/completude_instalacao-*.json`), mas depende de uma migração de banco que **ainda não foi rodada**. Sem isso, `completude_nota_instalacao` / `completude_qtd_falta_nota_3` aparecem como `null` no dashboard (célula de Instalação some) e `mrr_status` continua calculado do jeito antigo (`basic_value_score`).
@@ -41,7 +49,7 @@ A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de um
 ### 4. ✅ Removida a aba "Atendimentos múltiplos" e o status da Field
 - Aba removida da navegação/sidebar (`switchTab` não aceita mais `"multiplos"`). `loadMultiplos()`/`v_atendimentos_multiplos` mantidos no código, só inacessíveis -- reversível, sem apagar nada.
 - Exibição do "status da Field" (`field_status`/`prestador`/`consultor`/`data_agendada`) escondida na UI via flag `SHOW_FIELD_STATUS = false` (reversível trocando pra `true`) -- schema/dados/query no Supabase **não foram tocados**.
-- **Dúvida em aberto, não resolvida por conta própria**: o KPI "Já agendados na Field" usa `field_status` internamente pra calcular a contagem. Não ficou claro se esse pedido do Luiz também deveria mudar esse card (esconder, trocar de fonte, ou manter como está) -- ele disse que ia explicar o motivo depois, então o card foi mantido como estava, com um comentário no código sinalizando a dúvida. Perguntar ao Luiz antes de mexer nele.
+- **Dúvida em aberto na Rodada 9, resolvida na Rodada 10 (2026-08-12)**: o KPI "Já agendados na Field" usava `field_status` internamente pra calcular a contagem. O Luiz confirmou: "o card já agendado na field pode excluir pq não temos mais ele" -- o card foi **removido** de `renderKpis()` (ver Rodada 10 abaixo). `field_status`/`prestador`/`consultor`/`data_agendada` continuam existindo em `v_dashboard` (nada foi apagado no schema/dados) -- só não alimentam mais nenhum card.
 
 ### 5. ✅ Filtros "Prioridades" hierárquicos + checkbox "Agendado"
 - Dois pills mutuamente exclusivos na sidebar: "Completude de Instalação" e "Basic Value". Nenhum selecionado = comportamento normal.
@@ -58,6 +66,13 @@ A Rodada 6 (lista abaixo) já está publicada no `index.html`, mas depende de um
 - Logo/SVG da marca conferido byte-a-byte contra a versão publicada antes desta rodada -- idêntico (nenhuma edição tocou essa área, aprendizado da Rodada 8 sobre corrupção de transcrição).
 - Cada arquivo (`index.html`, o chunk `-00` de `esn_validacao`, os dois patches SQL novos, `queries/query-esn-validacao-sync.sql`, `scripts/upsert_to_supabase.py`, este `backlog.md` e o `sync-runbook.md`) publicado **um de cada vez**, com `get_file_contents` + diff/md5sum byte-a-byte imediatamente depois, antes de seguir pro próximo.
 - Query de validação de ESN conferida cruzando o agregado do Databricks (`GROUP BY esn_status`) contra o CSV local antes de gerar os chunks -- bateu exato (5795/410/28).
+
+## ✅ Rodada 10 (2026-08-12) — remoção do card "Já agendados na Field" + correção de incidente de publicação
+*Pedido do Luiz, feito depois de testar a Rodada 9 e mandar prints: "o card já agendado na field pode excluir pq não temos mais ele". Commits no repo `LuizLackeski/basic-value-cx-acompanhamento`, branch `main`.*
+
+- **KPI "Já agendados na Field" removido** de `renderKpis()` -- o bloco `.kpi-card` correspondente saiu do HTML gerado, e a variável `agendados` (que contava `field_status`) saiu da função. `#kpi-row` agora mostra só 3 cards: "Tickets em aberto", "Empresas com MRR em risco", "Tempo médio em aberto". Nada mudou no schema/dados (`field_status_snapshot` continua sincronizando normal, só não alimenta mais nenhum card na UI) -- resolve a dúvida em aberto da Rodada 9 (item 4 acima).
+- **Incidente de publicação corrigido nesta sessão**: uma tentativa de publicar essa mudança (commit `04cfda9`) gravou por engano o texto literal `PLACEHOLDER` como conteúdo inteiro do `index.html`, tirando o dashboard do ar por um período. Identificado e corrigido no commit seguinte (`969b48d`), que restaura o conteúdo correto (já incluindo a remoção do card) -- conferido byte-a-byte (`get_file_contents` + md5sum) contra a versão local antes e depois de publicar. Card incluído no reforço do aprendizado já registrado neste arquivo: nunca gravar payload de teste/placeholder num arquivo de produção sem antes validar com um SHA propositalmente inválido (que rejeita a escrita) -- neste caso a etapa seguinte, já com o SHA real, usou o texto errado por engano.
+- **Diagnóstico do erro de sincronização reportado pelo Luiz** (`PGRST204` / "dentro_do_prazo... not found in schema cache"): ver aviso no topo deste arquivo -- é cache de schema do PostgREST desatualizado, não patch faltando.
 
 ## ✅ Completude de Instalação: patch SQL rodado + primeira sincronização feita (2026-08-11)
 O Luiz já rodou `supabase/patch-completude-instalacao.sql` no Supabase. Em seguida, a sincronização (Passo 4B do `sync-runbook.md`) foi executada manualmente nesta sessão: a query `queries/query-completude-instalacao-sync.sql` rodou no Databricks (448 empresas elegíveis), os resultados foram publicados em `data/chunks/completude_instalacao-00.json` a `-04.json` (commit `61edca7`), o que deve disparar o `sync-to-supabase.yml` e popular `completude_instalacao_snapshot` de verdade.
@@ -206,6 +221,12 @@ Lista fornecida pelo Luiz (nome de exibição no HubSpot → rótulo que deve ap
 
 ### Investigar `deal_id` como identificador adicional
 Ainda indisponível em qualquer fonte de dados sincronizada hoje.
+
+### Indicador de "quantidade agendados" (pedido do Luiz, Rodada 9→10, 2026-08-12)
+Depois de testar o checkbox "Agendado", o Luiz pediu um indicador novo pra ver o que foi agendado no dia: "pode deixar um de backlog para qtd agendados, para ver o que agendamos no dia conforme marcar o check, ai detalhe se é prioridade (completudo ou basic value, ou normal sem usar o filtro)."
+- Ideia: um contador (KPI novo, ou seção separada) de quantos tickets foram marcados como "Agendado" **no dia** (não o total histórico de `ticket_priority_ack`), com o detalhe de quantos foram marcados enquanto o filtro de Prioridade "Completude de Instalação" estava ativo, quantos com "Basic Value" ativo, e quantos "normal" (sem filtro de Prioridade selecionado).
+- Pra isso funcionar, precisa capturar o `priorityCategory` ativo no momento do clique (hoje `onAckTicket()` só grava `ticket_id` e `marked_by` em `ticket_priority_ack` -- não guarda em qual contexto/filtro a marcação aconteceu). Provável migração: coluna nova em `ticket_priority_ack` (ex. `priority_category_at_ack text null`) preenchida a partir de `state.priorityCategory` no momento do `insert`.
+- Não implementado ainda -- só registrado aqui como próximo passo, a pedido explícito do Luiz de deixar em backlog por agora.
 
 ---
 
