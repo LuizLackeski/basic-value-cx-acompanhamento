@@ -284,19 +284,57 @@ def update_ticket_deal_ids(rows: list):
     print(f"tickets_sync.deal_id: {updated}/{len(rows)} ticket(s) atualizado(s)")
 
 
+def _run_soft(label: str, fn, *args):
+    """Roda fn(*args) sem deixar uma falha ABORTAR o resto de main().
+
+    Rodada 12 (2026-08-12), correção de segurança: update_ticket_deal_ids()
+    e o upsert de completude_instalacao_snapshot por deal_id só funcionam
+    DEPOIS que supabase/patch-completude-instalacao-por-deal.sql for rodado
+    manualmente por alguém no SQL Editor do Supabase (adiciona
+    tickets_sync.deal_id e troca a chave de completude_instalacao_snapshot
+    de company_id para deal_id) -- isso é uma ação manual pendente, não
+    automática. Entre o momento em que este código é publicado e o momento
+    em que o patch SQL é de fato rodado, QUALQUER sincronização (inclusive a
+    geral agendada) chamaria essas duas funções contra colunas/constraints
+    que ainda não existem no banco -- e sem este cuidado, a exceção haveria
+    de subir e abortar main() no meio, deixando esn_validacao_snapshot,
+    ticket_products e team_members (que vêm DEPOIS na ordem) sem rodar
+    naquela sincronização inteira, mesmo sem relação nenhuma com a migração
+    de completude. _run_soft loga o erro claramente e CONTINUA para a
+    próxima etapa -- assim que o patch SQL for aplicado, as duas funções
+    passam a funcionar normalmente sem precisar de nenhuma mudança aqui."""
+    try:
+        fn(*args)
+    except Exception as e:
+        print(
+            f"AVISO: {label} falhou e foi PULADO nesta sincronização (resto do sync continua). "
+            f"Causa provável: supabase/patch-completude-instalacao-por-deal.sql ainda não foi "
+            f"rodado no SQL Editor do Supabase (deal_id ainda não existe no schema). Erro: {e}",
+            file=sys.stderr,
+        )
+
+
 def main():
     payload = load_payload()
 
     upsert("tickets_sync", payload["tickets"], on_conflict="ticket_id")
     remove_stale_tickets([row["ticket_id"] for row in payload["tickets"]])
-    update_ticket_deal_ids(payload["ticket_deal_ids"])
+    _run_soft("tickets_sync.deal_id (update_ticket_deal_ids)", update_ticket_deal_ids, payload["ticket_deal_ids"])
     upsert("basic_value_snapshot", payload["basic_value"], on_conflict="company_id")
     upsert("field_status_snapshot", payload["field_status"], on_conflict="ordem_servico_raw")
     # Rodada 12 (2026-08-12): chave de conflito muda de company_id para
-    # deal_id -- ver supabase/patch-completude-instalacao-por-deal.sql (roda
-    # ANTES desta sincronização gravar dados, senão a tabela ainda está com
-    # deal_id inexistente e este upsert falha).
-    upsert("completude_instalacao_snapshot", payload["completude_instalacao"], on_conflict="deal_id")
+    # deal_id -- ver supabase/patch-completude-instalacao-por-deal.sql.
+    # Envolvido em _run_soft: até alguém rodar esse patch manualmente no SQL
+    # Editor do Supabase, completude_instalacao_snapshot ainda tem company_id
+    # como chave, então on_conflict=deal_id falharia -- sem _run_soft, isso
+    # abortaria esn_validacao/ticket_products/team_members logo abaixo.
+    _run_soft(
+        "completude_instalacao_snapshot (upsert por deal_id)",
+        upsert,
+        "completude_instalacao_snapshot",
+        payload["completude_instalacao"],
+        "deal_id",
+    )
     upsert("esn_validacao_snapshot", payload["esn_validacao"], on_conflict="ticket_id,esn")
     replace_ticket_products(payload["ticket_products"])
     update_owner_ids(payload["team_members_updates"])
