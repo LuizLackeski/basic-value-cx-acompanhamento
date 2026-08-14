@@ -2031,7 +2031,7 @@ async function saveTratativa(ticketId, status, observacao) {
 // separado ao trocar/perder foco) -- por isso aqui SEMPRE manda os dois
 // valores pro saveTratativa() (nunca `null` pra "não tocar"), incluindo
 // string vazia quando o usuário quer limpar o status.
-const TRATATIVA_OPTIONS = ["Aguardando cliente", "Sem previsão de instalação", "Veículos indisponíveis", "Solicitado cancelamento", "Churn"];
+const TRATATIVA_OPTIONS = ["Aguardando cliente", "Sem previsão de instalação", "Veículos indisponíveis", "Dispositivos instalados", "Solicitado cancelamento/Churn"];
 let tratativaModalTicketId = null;
 
 function openTratativaModal(ticketId) {
