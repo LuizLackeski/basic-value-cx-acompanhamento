@@ -139,10 +139,10 @@
   /* Os painéis (Tickets / Evolução B.V. / Administração -- "Atendimentos
      múltiplos" removido em 2026-08-12, ver switchTab()) ocupam o espaço
      restante e rolam por dentro -- a página/tela em si não rola. */
-  #panel-principal, #panel-evolucao, #panel-admin {
+  #panel-principal, #panel-evolucao, #panel-admin, #panel-prazo {
     flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; overflow-x: auto;
   }
-  #panel-principal, #panel-evolucao {
+  #panel-principal, #panel-evolucao, #panel-prazo {
     border: 1px solid var(--line); border-radius: 12px; background: #fff;
   }
 
@@ -604,8 +604,22 @@
   .sidebar-tabs .tab.active {
     background: rgba(255,255,255,0.14); color: #fff; border-color: transparent;
   }
+  /* Rodada 18 (2026-08-27/28): contador na aba "Prazo" (quantos tickets
+     estão perto de vencer/já venceram, ver updatePrazoTabBadge() no JS). */
+  .tab-count-badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
+    padding: 0 5px; border-radius: 999px; background: var(--risk); color: #fff; font-size: 10.5px; font-weight: 700;
+    margin-left: 4px; vertical-align: middle;
+  }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
+  /* Rodada 18 (2026-08-27/28): "agrupar por empresa" -- checkbox simples,
+     mesmo espaçamento/tom dos outros controles da sidebar. */
+  .group-by-toggle {
+    display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.85);
+    cursor: pointer; padding: 4px 2px;
+  }
+  .group-by-toggle input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
   /* Rodada 17 (2026-08-27): pedido do Luiz -- as caixas brancas sólidas de
      busca/filtro destoavam do resto (ficavam "cruas" sobre o navy). Trocado
      por um tratamento "vidro fosco" -- fundo translúcido claro + texto
@@ -826,6 +840,13 @@
   .evo-bar-stat-head b { font-size: 16px; }
   .evo-bar-track { height: 11px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
   .evo-bar-fill { height: 100%; border-radius: 999px; transition: width .3s ease; }
+  /* Rodada 18 (2026-08-27/28): variação vs. ~7 dias atrás (só gestor_geral,
+     ver renderEvolucao()/initEvoTrend() no JS). */
+  .evo-trend-row { margin-top: 4px; }
+  .evo-trend { font-size: 11px; font-weight: 600; }
+  .evo-trend.good { color: var(--ok-text); }
+  .evo-trend.bad { color: var(--risk); }
+  .evo-trend.flat { color: var(--ink-mute); }
 
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(7,7,78,0.35); z-index: 50;
@@ -866,6 +887,19 @@
     letter-spacing: 0.03em; margin: 0 0 6px;
   }
   tbody tr.clickable-row { cursor: pointer; }
+
+  /* Rodada 18 (2026-08-27/28): linha de "cabeçalho de grupo" da visão
+     agrupada por empresa (ver renderGroupedTable()/toggleCompanyGroup() no
+     JS) -- pedido do Luiz ("um campo de agrupar por empresa"). */
+  tr.company-group-row { cursor: pointer; background: var(--paper-2); }
+  tr.company-group-row:hover { background: var(--royal-soft); }
+  tr.company-group-row td { padding: 10px 14px; }
+  .company-group-head { display: flex; align-items: center; gap: 10px; }
+  .company-group-chevron { display: inline-block; transition: transform .15s; color: var(--ink-mute); font-size: 11px; }
+  .company-group-chevron.open { transform: rotate(90deg); }
+  .company-group-name { font-weight: 700; color: var(--ink); }
+  .company-group-count { font-size: 12px; color: var(--ink-mute); }
+  .company-group-mrr { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--ink); }
 </style>
 </head>
 <body>
@@ -919,6 +953,12 @@
             <p class="sidebar-section-title">Navegação</p>
             <div class="sidebar-tabs">
               <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
+              <!-- Rodada 18 (2026-08-27/28): aba nova pra tickets com prazo de
+                   completude perto de vencer ou já vencido (pedido do Luiz --
+                   "uma aba a parte também, que casaria com o filtro"). Badge
+                   com a contagem, atualizado em renderAll() (ver
+                   updatePrazoTabBadge()). -->
+              <div class="tab" data-tab="prazo" onclick="switchTab('prazo')">Prazo <span id="prazo-tab-badge" class="tab-count-badge" style="display:none"></span></div>
               <div class="tab" data-tab="evolucao" onclick="switchTab('evolucao')">Evolução B.V.</div>
               <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
             </div>
@@ -968,6 +1008,14 @@
                 <button type="button" class="msel-clear-btn" id="classe-filter-clear" onclick="event.stopPropagation(); mselClear('classe')" title="Limpar filtro" style="display:none">×</button>
                 <div class="msel-panel" id="classe-filter-panel"></div>
               </div>
+              <!-- Rodada 18 (2026-08-27/28): "agrupar por empresa" (pedido
+                   do Luiz) -- não é bem um filtro (não esconde nada), só
+                   muda a FORMA de exibir a mesma lista já filtrada -- ver
+                   toggleGroupByCompany()/renderGroupedTable() no JS. -->
+              <label class="group-by-toggle">
+                <input type="checkbox" id="group-by-company-checkbox" onchange="toggleGroupByCompany()" />
+                <span>Agrupar por empresa</span>
+              </label>
             </div>
           </div>
 
@@ -1029,6 +1077,10 @@
 
         <div id="panel-principal">
           <div id="table-principal-wrap"></div>
+        </div>
+
+        <div id="panel-prazo" style="display:none">
+          <div id="prazo-wrap"></div>
         </div>
 
         <div id="panel-evolucao" style="display:none">
@@ -1212,6 +1264,26 @@
   </div>
 </div>
 
+<!-- Rodada 18 (2026-08-27/28): popup de alerta de tickets com prazo de
+     completude perto de vencer/vencido, ao entrar no sistema (pedido do
+     Luiz) -- 1x por dia, ver initPrazoRisco() no JS. Mesmo padrão visual de
+     .modal-overlay/.modal-card/.confirm-modal-* já usado no popup de
+     concluir, só com ícone/cor de aviso (âmbar) em vez de risco (vermelho),
+     já que aqui é só um alerta informativo, não uma ação destrutiva. -->
+<div class="modal-overlay" id="prazo-risco-popup-overlay" style="display:none" onclick="if(event.target===this) closePrazoRiscoPopup()">
+  <div class="modal-card confirm-modal-card">
+    <div class="confirm-modal-icon" style="background:var(--warn-soft); color:var(--warn)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+    </div>
+    <h3 style="text-align:center"><span id="prazo-risco-popup-count">0</span> <span id="prazo-risco-popup-count-label">tickets estão</span> perto de vencer o prazo</h3>
+    <p class="confirm-modal-desc">Completude de instalação, dentro do seu escopo, já vencida ou a poucos dias de vencer.</p>
+    <div class="form-actions" style="justify-content:center; gap:10px; margin-top:18px">
+      <button class="btn ghost" type="button" onclick="closePrazoRiscoPopup()">Ver depois</button>
+      <button class="btn" type="button" onclick="goToPrazoTab()">Ver agora</button>
+    </div>
+  </div>
+</div>
+
 <!-- Rodada 17, correção (2026-08-27): tooltip escuro global -- um elemento
      só, reaproveitado por qualquer coisa com data-tt="texto" (ver
      gttShow()/gttHide() no JS). Fica fora de qualquer contêiner com
@@ -1273,6 +1345,7 @@ const state = {
   gestorFilter: [],       // Rodada 2: filtro de "Gestor" (gestor_geral) -- guarda a(s) squad(s) do(s) gestor(es) selecionado(s)
   responsavelFilter: [],  // Rodada 2: filtro de "Responsável"/"Usuário" (gestor_squad e gestor_geral)
   classeFilter: [],       // Rodada 17 (2026-08-27): filtro por classe_instalacao, pedido do Luiz
+  groupByCompany: false,  // Rodada 18 (2026-08-27/28): "agrupar por empresa" na sidebar, pedido do Luiz
   riskFilterActive: false,
   productsByTicket: {},
   searchQuery: "",             // Rodada 3: busca unificada de cliente/empresa (aba Tickets)
@@ -1523,6 +1596,7 @@ function switchTab(tab) {
   // CSS de #panel-principal/#panel-admin) -- setar "block" aqui
   // sobrescreveria isso pelo estilo inline.
   document.getElementById("panel-principal").style.display = tab === "principal" ? "flex" : "none";
+  document.getElementById("panel-prazo").style.display = tab === "prazo" ? "flex" : "none";
   document.getElementById("panel-evolucao").style.display = tab === "evolucao" ? "flex" : "none";
   document.getElementById("panel-admin").style.display = tab === "admin" ? "flex" : "none";
   if (tab === "admin") loadTeamTable();
@@ -1604,6 +1678,11 @@ async function loadDashboard() {
   populateClasseOptions();
 
   renderAll();
+  // Rodada 18 (2026-08-27/28): captura/busca o histórico de tendência da
+  // Evolução B.V. em paralelo -- não bloqueia o primeiro render (chama
+  // renderAll() de novo sozinho quando a baseline chegar, ver initEvoTrend()).
+  initEvoTrend();
+  initPrazoRisco();
 }
 
 // Rodada 2: opções do filtro de "Responsável"/"Usuário" -- lista de
@@ -2149,7 +2228,20 @@ function renderAll() {
   renderKpis(squadFiltered, companies);
   renderGradeDistribution(companies);
   renderEvolucao(squadFiltered, companies);
-  renderTable(displayRows);
+  renderPrazoTab(squadFiltered);
+  updatePrazoTabBadge(squadFiltered);
+  // Rodada 18 (2026-08-27/28): "agrupar por empresa" (pedido do Luiz) --
+  // toggle na sidebar (ver .msel? não, é um checkbox simples -- ver
+  // #group-by-company-toggle no HTML). Quando ligado, troca renderTable()
+  // (ticket por ticket) por renderGroupedTable() (uma linha por empresa,
+  // expansível -- ver toggleCompanyGroup()). Os dois reaproveitam
+  // ticketRowHtml()/ticketTableHeadHtml(), então nenhuma coluna/lógica de
+  // linha precisou ser duplicada.
+  if (state.groupByCompany) {
+    renderGroupedTable(displayRows);
+  } else {
+    renderTable(displayRows);
+  }
 }
 
 // Rodada 16 (2026-08-27): "a lista de ticket fica meio travando" (pedido do
@@ -2422,6 +2514,100 @@ function renderGradeDistribution(companies) {
 // precisa de nenhuma lógica nova de squad aqui. A tabela bv_grade_snapshots
 // continua existindo no Supabase, só não tem mais nada gravando/lendo dela
 // nesta aba.
+//
+// Rodada 18 (2026-08-27/28): "trazer de volta um pouco de histórico" (pedido
+// do Luiz) -- ver initEvoTrend()/computeEvoCounts() logo abaixo. Guarda 1
+// snapshot "geral" (empresa toda) por dia numa tabela nova
+// (dashboard_daily_snapshots, ver supabase/patch-dashboard-daily-snapshots.sql)
+// e mostra a variação vs a captura de ~7 dias atrás ao lado de cada métrica.
+// Só gestor_geral CAPTURA (mesmo motivo do antigo bv_grade_snapshots -- é o
+// único papel cujo allRows é a empresa toda de verdade, sem recorte de RLS)
+// -- e por isso a comparação só é EXIBIDA pra esse papel também: pra
+// colaborador/gestor_squad o RLS já limita allRows ao próprio recorte desde
+// a origem (a consulta em si já vem menor), então não existe uma baseline
+// "geral" que faça sentido comparar com o que a pessoa vê na tela.
+function computeEvoCounts(rows, companies) {
+  let compDentro = 0, compFora = 0;
+  rows.forEach(r => {
+    if (r.classe_instalacao === "Troca") {
+      if (r.dias_aberto == null) return;
+      if (60 - r.dias_aberto < 0) compFora++; else compDentro++;
+      return;
+    }
+    if (r.completude_dentro_do_prazo === true) compDentro++;
+    else if (r.completude_dentro_do_prazo === false) compFora++;
+  });
+  let bvAlta = 0, bvBaixa = 0;
+  companies.forEach(c => {
+    const g = c.instalation_completeness_grade;
+    if (g == null) return;
+    if (g >= 3) bvAlta++; else bvBaixa++;
+  });
+  return { completude_dentro: compDentro, completude_fora: compFora, bv_alta: bvAlta, bv_baixa: bvBaixa };
+}
+
+function todayDateStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function dateStrDaysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+let evoTrendBaseline = null; // linha de dashboard_daily_snapshots de ~7 dias atrás (ou a mais antiga disponível), ou null
+
+// Chamada 1x por carga (ver loadDashboard()), não a cada render -- só
+// gestor_geral grava (1x por dia, verifica se já existe linha de hoje antes)
+// e busca a baseline de comparação. Re-renderiza a Evolução no final pra
+// mostrar a variação assim que a busca resolver (o 1º render acontece antes
+// disso, sem o dado ainda).
+async function initEvoTrend() {
+  if (!currentMember || currentMember.role !== "gestor_geral") return;
+  const today = todayDateStr();
+  try {
+    const { data: existing } = await sb.from("dashboard_daily_snapshots").select("snapshot_date").eq("snapshot_date", today).limit(1);
+    if (!existing || !existing.length) {
+      const companies = distinctCompanies(state.allRows);
+      const counts = computeEvoCounts(state.allRows, companies);
+      const { error } = await sb.from("dashboard_daily_snapshots").insert({ snapshot_date: today, ...counts });
+      if (error) console.error("Erro ao gravar snapshot diário (rodou o patch-dashboard-daily-snapshots.sql?):", error.message);
+    }
+    const { data: history, error: histError } = await sb.from("dashboard_daily_snapshots").select("*")
+      .lt("snapshot_date", today).order("snapshot_date", { ascending: false }).limit(14);
+    if (histError || !history || !history.length) return;
+    const alvo = dateStrDaysAgo(7);
+    evoTrendBaseline = history.find(h => h.snapshot_date <= alvo) || history[history.length - 1];
+    renderAll();
+  } catch (e) {
+    console.error("Erro ao inicializar tendência da Evolução B.V.:", e);
+  }
+}
+
+function evoTrendDateLabel() {
+  return new Date(evoTrendBaseline.snapshot_date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+// currentCount/currentTotal = a métrica de HOJE (já filtrada); baseCount/
+// baseTotal = os mesmos dois campos na linha da baseline. Compara em PONTOS
+// PERCENTUAIS (mais fácil de ler que "variação de N tickets", que muda de
+// escala conforme o volume total muda de um dia pro outro). `higherIsBetter`
+// separa a SETA (sempre mostra a direção real do número) da COR (verde/
+// vermelho conforme aquele número especificamente subir é bom ou ruim --
+// "prazo encerrado" e "nota baixa" subindo é notícia ruim, mesmo com seta
+// pra cima).
+function evoTrendHtml(currentCount, currentTotal, baseCount, baseTotal, higherIsBetter) {
+  if (!evoTrendBaseline || !baseTotal) return "";
+  const curPct = currentTotal ? Math.round((currentCount / currentTotal) * 100) : 0;
+  const basePct = Math.round((baseCount / baseTotal) * 100);
+  const diff = curPct - basePct;
+  const dateLabel = evoTrendDateLabel();
+  if (diff === 0) return `<span class="evo-trend flat">= vs ${dateLabel}</span>`;
+  const arrow = diff > 0 ? "↑" : "↓";
+  const isGood = higherIsBetter ? diff > 0 : diff < 0;
+  return `<span class="evo-trend ${isGood ? "good" : "bad"}">${arrow} ${Math.abs(diff)}pt${Math.abs(diff) === 1 ? "" : "s"} vs ${dateLabel}</span>`;
+}
+
 function renderEvolucao(rows, companies) {
   const wrap = document.getElementById("evolucao-wrap");
   if (!wrap) return;
@@ -2434,33 +2620,22 @@ function renderEvolucao(rows, companies) {
   // avulso/Visita Técnica (e tickets genuinamente sem dado) ficam de fora da
   // base -- não têm prazo de completude, então não faz sentido contar como
   // "no prazo" nem como "fora do prazo".
-  let compDentro = 0, compFora = 0;
-  rows.forEach(r => {
-    if (r.classe_instalacao === "Troca") {
-      if (r.dias_aberto == null) return;
-      if (60 - r.dias_aberto < 0) compFora++; else compDentro++;
-      return;
-    }
-    if (r.completude_dentro_do_prazo === true) compDentro++;
-    else if (r.completude_dentro_do_prazo === false) compFora++;
-  });
+  const { completude_dentro: compDentro, completude_fora: compFora, bv_alta: bvAlta, bv_baixa: bvBaixa } = computeEvoCounts(rows, companies);
   const compTotal = compDentro + compFora;
   const compDentroPct = compTotal ? Math.round((compDentro / compTotal) * 100) : 0;
   const compForaPct = compTotal ? 100 - compDentroPct : 0;
-
-  // --- Bloco 2: Basic Value (nota alta 3-4 x nota baixa 0-2), por EMPRESA ---
-  // Mesmo nível de agregação do bloco "Empresas por Basic Value de
-  // instalação" já existente (ver renderGradeDistribution/distinctCompanies)
-  // -- uma empresa com vários tickets conta 1 vez só.
-  let bvAlta = 0, bvBaixa = 0, bvSemDado = 0;
-  companies.forEach(c => {
-    const g = c.instalation_completeness_grade;
-    if (g == null) { bvSemDado++; return; }
-    if (g >= 3) bvAlta++; else bvBaixa++;
-  });
+  const bvSemDado = companies.filter(c => c.instalation_completeness_grade == null).length;
   const bvTotal = bvAlta + bvBaixa;
   const bvAltaPct = bvTotal ? Math.round((bvAlta / bvTotal) * 100) : 0;
   const bvBaixaPct = bvTotal ? 100 - bvAltaPct : 0;
+
+  const showTrend = currentMember && currentMember.role === "gestor_geral" && evoTrendBaseline;
+  const baseCompTotal = showTrend ? evoTrendBaseline.completude_dentro + evoTrendBaseline.completude_fora : 0;
+  const baseBvTotal = showTrend ? evoTrendBaseline.bv_alta + evoTrendBaseline.bv_baixa : 0;
+  const compDentroTrend = showTrend ? evoTrendHtml(compDentro, compTotal, evoTrendBaseline.completude_dentro, baseCompTotal, true) : "";
+  const compForaTrend = showTrend ? evoTrendHtml(compFora, compTotal, evoTrendBaseline.completude_fora, baseCompTotal, false) : "";
+  const bvAltaTrend = showTrend ? evoTrendHtml(bvAlta, bvTotal, evoTrendBaseline.bv_alta, baseBvTotal, true) : "";
+  const bvBaixaTrend = showTrend ? evoTrendHtml(bvBaixa, bvTotal, evoTrendBaseline.bv_baixa, baseBvTotal, false) : "";
 
   const compNote = compTotal
     ? `${compTotal} ticket(s) elegível(is) para completude de instalação -- Serviço avulso e Visita Técnica não entram nessa métrica.`
@@ -2468,18 +2643,27 @@ function renderEvolucao(rows, companies) {
   const bvNote = bvTotal
     ? `${bvTotal} empresa(s) com nota de instalação${bvSemDado ? ` (${bvSemDado} ainda sem nota)` : ""}.`
     : "Nenhuma empresa com nota de instalação no filtro atual.";
+  // Rodada 18: nota explicando por que às vezes não tem seta de tendência
+  // (evita parecer que "quebrou" pra quem não é gestor_geral, ou nos
+  // primeiros dias antes do histórico acumular 7 dias).
+  const trendNote = (currentMember && currentMember.role === "gestor_geral" && !evoTrendBaseline)
+    ? `<p class="evo-bar-sub" style="margin-top:-10px">Histórico ainda acumulando -- a comparação com dias anteriores aparece assim que houver pelo menos 2 dias de captura.</p>`
+    : "";
 
   wrap.innerHTML = `
+    ${trendNote}
     <div class="evo-bar-card">
       <p class="evo-bar-title">Completude de Instalação</p>
       <p class="evo-bar-sub">${escapeHtml(compNote)}</p>
       <div class="evo-bar-stat">
         <div class="evo-bar-stat-head"><span>Dentro do prazo</span><b style="color:var(--ok-text)">${compDentro} <span style="font-weight:600;font-size:12px">(${compDentroPct}%)</span></b></div>
         <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${compDentroPct}%;background:var(--ok-text)"></div></div>
+        ${compDentroTrend ? `<div class="evo-trend-row">${compDentroTrend}</div>` : ""}
       </div>
       <div class="evo-bar-stat">
         <div class="evo-bar-stat-head"><span>Prazo encerrado</span><b style="color:var(--risk)">${compFora} <span style="font-weight:600;font-size:12px">(${compForaPct}%)</span></b></div>
         <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${compForaPct}%;background:var(--risk)"></div></div>
+        ${compForaTrend ? `<div class="evo-trend-row">${compForaTrend}</div>` : ""}
       </div>
     </div>
     <div class="evo-bar-card">
@@ -2488,10 +2672,12 @@ function renderEvolucao(rows, companies) {
       <div class="evo-bar-stat">
         <div class="evo-bar-stat-head"><span>Nota alta (3-4) -- saudável</span><b style="color:var(--ok-text)">${bvAlta} <span style="font-weight:600;font-size:12px">(${bvAltaPct}%)</span></b></div>
         <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${bvAltaPct}%;background:var(--ok-text)"></div></div>
+        ${bvAltaTrend ? `<div class="evo-trend-row">${bvAltaTrend}</div>` : ""}
       </div>
       <div class="evo-bar-stat">
         <div class="evo-bar-stat-head"><span>Nota baixa (0-2) -- precisa de atenção</span><b style="color:var(--risk)">${bvBaixa} <span style="font-weight:600;font-size:12px">(${bvBaixaPct}%)</span></b></div>
         <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${bvBaixaPct}%;background:var(--risk)"></div></div>
+        ${bvBaixaTrend ? `<div class="evo-trend-row">${bvBaixaTrend}</div>` : ""}
       </div>
     </div>`;
 }
@@ -2557,51 +2743,50 @@ function renderTable(data) {
   // Rodada 15 (2026-08-27): todas as colunas viraram ordenáveis (antes só
   // Aberto há/Basic Value/MRR) -- pedido do Luiz. Mesmo padrão
   // sortable/onSortClick/sortArrowHtml de sempre, só estendido.
-  let html = "<table><thead><tr>" +
-    '<th style="width:1%">Concluir</th>' +
-    `<th class="sortable ${sortArrowClass("cliente")}" onclick="onSortClick('cliente')">Cliente / Ticket${sortArrowHtml("cliente")}</th>` +
-    `<th class="sortable ${sortArrowClass("squad")}" onclick="onSortClick('squad')">Squad${sortArrowHtml("squad")}</th>` +
-    `<th class="sortable ${sortArrowClass("dias_aberto")}" onclick="onSortClick('dias_aberto')">Aberto há${sortArrowHtml("dias_aberto")}</th>` +
-    `<th class="sortable ${sortArrowClass("classe")}" onclick="onSortClick('classe')">Classe${sortArrowHtml("classe")}</th>` +
-    `<th class="sortable ${sortArrowClass("produtos")}" onclick="onSortClick('produtos')">Produtos${sortArrowHtml("produtos")}</th>` +
-    `<th class="sortable ${sortArrowClass("basic_value")}" onclick="onSortClick('basic_value')">Basic Value${sortArrowHtml("basic_value")}</th>` +
-    `<th class="sortable ${sortArrowClass("completude")}" onclick="onSortClick('completude')">Compl. instalação${sortArrowHtml("completude")}</th>` +
-    `<th class="sortable ${sortArrowClass("mrr")}" onclick="onSortClick('mrr')">MRR${sortArrowHtml("mrr")}</th>` +
-    (SHOW_FIELD_STATUS ? "<th>Status Field</th>" : "") +
-    `<th class="sortable ${sortArrowClass("tratativa")}" onclick="onSortClick('tratativa')">Tratativa${sortArrowHtml("tratativa")}</th>` +
-    "</tr></thead><tbody>";
+  let html = "<table>" + ticketTableHeadHtml(true) + "<tbody>";
 
   for (const row of data) {
-    const dias = row.dias_aberto != null ? Math.floor(row.dias_aberto) : "-";
-    const squadBadge = squadBadgeHtml(row);
-    const isAcked = state.justAcked.has(row.ticket_id);
+    html += ticketRowHtml(row);
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
 
-    const accessoryProducts = state.productsByTicket[row.ticket_id] || [];
-    const chips = [];
-    // Rodada 16 (2026-08-27): removido o chip "Nx Rastreador" derivado de
-    // esn_count -- duplicava com o produto de verdade, que já vem certo em
-    // ticket_products/accessoryProducts (nome padrão, sem "Rastreador",
-    // confirmado pelo Luiz: "já tá certo os nomes novos, validei alguns no
-    // ticket e bateu"). esn_count/esn_modelos_raw continuam disponíveis em
-    // `row` (não removidos do banco), só pararam de virar chip aqui.
-    const esnProblemas = (row.esn_divergente_count || 0) + (row.esn_sem_match_count || 0);
-    if (esnProblemas > 0) {
-      const detalhe = (row.esn_detalhe || [])
-        .filter(d => d.status !== "ok")
-        .map(d => `ESN ${d.esn} (${d.modelo_item || "modelo desconhecido"}): ${d.status}`)
-        .join("\n");
-      chips.push(`<span class="chip chip-esn-warn" title="${escapeHtml(detalhe)}">⚠ ${esnProblemas} ESN(s) a validar</span>`);
-    }
-    accessoryProducts.forEach(p => chips.push(`<span class="chip">${p.quantity}x ${escapeHtml(p.product_label)}</span>`));
-    const productsHtml = chips.length
-      ? '<div class="products-wrap">' + chips.join("") + '</div>'
-      : '<div class="products-wrap"><span class="chip empty">não informado</span></div>';
+// Rodada 18 (2026-08-27/28): linha de ticket extraída de dentro de
+// renderTable() pra virar reaproveitável -- agora também usada pela aba
+// "Prazo" (renderPrazoTab()) e pela visão agrupada por empresa
+// (renderGroupedTable()), sem duplicar o HTML da linha em 3 lugares.
+function ticketRowHtml(row) {
+  const dias = row.dias_aberto != null ? Math.floor(row.dias_aberto) : "-";
+  const squadBadge = squadBadgeHtml(row);
+  const isAcked = state.justAcked.has(row.ticket_id);
 
-    // Rodada 15 (2026-08-27): clicar em qualquer lugar da linha abre o popup
-    // de detalhes/tratativa (antes só a célula "Tratativa" abria) -- pedido
-    // do Luiz. onRowClick ignora cliques em link/checkbox pra não capturar
-    // esses cliques (ver onRowClick()).
-    html += `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')" data-tt="Clique em qualquer lugar da linha para registrar tratativa">
+  const accessoryProducts = state.productsByTicket[row.ticket_id] || [];
+  const chips = [];
+  // Rodada 16 (2026-08-27): removido o chip "Nx Rastreador" derivado de
+  // esn_count -- duplicava com o produto de verdade, que já vem certo em
+  // ticket_products/accessoryProducts (nome padrão, sem "Rastreador",
+  // confirmado pelo Luiz: "já tá certo os nomes novos, validei alguns no
+  // ticket e bateu"). esn_count/esn_modelos_raw continuam disponíveis em
+  // `row` (não removidos do banco), só pararam de virar chip aqui.
+  const esnProblemas = (row.esn_divergente_count || 0) + (row.esn_sem_match_count || 0);
+  if (esnProblemas > 0) {
+    const detalhe = (row.esn_detalhe || [])
+      .filter(d => d.status !== "ok")
+      .map(d => `ESN ${d.esn} (${d.modelo_item || "modelo desconhecido"}): ${d.status}`)
+      .join("\n");
+    chips.push(`<span class="chip chip-esn-warn" title="${escapeHtml(detalhe)}">⚠ ${esnProblemas} ESN(s) a validar</span>`);
+  }
+  accessoryProducts.forEach(p => chips.push(`<span class="chip">${p.quantity}x ${escapeHtml(p.product_label)}</span>`));
+  const productsHtml = chips.length
+    ? '<div class="products-wrap">' + chips.join("") + '</div>'
+    : '<div class="products-wrap"><span class="chip empty">não informado</span></div>';
+
+  // Rodada 15 (2026-08-27): clicar em qualquer lugar da linha abre o popup
+  // de detalhes/tratativa (antes só a célula "Tratativa" abria) -- pedido
+  // do Luiz. onRowClick ignora cliques em link/checkbox pra não capturar
+  // esses cliques (ver onRowClick()).
+  return `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')" data-tt="Clique em qualquer lugar da linha para registrar tratativa">
       <td class="ack-cell">
         <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
           onchange="onAckTicket('${row.ticket_id}', this)"
@@ -2628,7 +2813,165 @@ function renderTable(data) {
         ${tratativaCellHtml(row)}
       </td>
     </tr>`;
+}
+
+// Cabeçalho da tabela (mesmas colunas de sempre) -- extraído pra reaproveitar
+// entre a tabela normal (com sort clicável) e a aba Prazo (sem sort próprio,
+// ordenada por urgência -- ver renderPrazoTab()).
+function ticketTableHeadHtml(sortable) {
+  const th = (key, label) => sortable
+    ? `<th class="sortable ${sortArrowClass(key)}" onclick="onSortClick('${key}')">${label}${sortArrowHtml(key)}</th>`
+    : `<th>${label}</th>`;
+  return "<thead><tr>" +
+    '<th style="width:1%">Concluir</th>' +
+    th("cliente", "Cliente / Ticket") +
+    th("squad", "Squad") +
+    th("dias_aberto", "Aberto há") +
+    th("classe", "Classe") +
+    th("produtos", "Produtos") +
+    th("basic_value", "Basic Value") +
+    th("completude", "Compl. instalação") +
+    th("mrr", "MRR") +
+    (SHOW_FIELD_STATUS ? "<th>Status Field</th>" : "") +
+    th("tratativa", "Tratativa") +
+    "</tr></thead>";
+}
+
+// ---------------------------------------------------------------------------
+// ABA "PRAZO" (Rodada 18, 2026-08-27/28) -- pedido do Luiz: "podemos por um
+// pop ao entrar no sistema, com a quantidade em risco, e ter uma opção de
+// clicar e filtrar só eles, uma aba a parte também, que casaria com o
+// filtro". Escopo confirmado por pergunta direta: só Completude perto do
+// prazo/vencida (Basic Value não tem prazo de verdade, fica de fora).
+// ---------------------------------------------------------------------------
+const PRAZO_RISCO_DIAS = 7; // ponto de partida ajustável, como as faixas de Prioridade
+function isEmRisco(row) {
+  if (row.classe_instalacao === "Troca") {
+    if (row.dias_aberto == null) return false;
+    return (60 - row.dias_aberto) <= PRAZO_RISCO_DIAS; // já vencido (negativo) ou perto de vencer
   }
+  if (row.completude_dentro_do_prazo === false) return true; // já vencido
+  if (row.completude_dentro_do_prazo === true) {
+    const dias = diasRestantesPrazoCompletude(row);
+    return dias != null && dias <= PRAZO_RISCO_DIAS;
+  }
+  return false; // Serviço avulso/Visita Técnica/sem dado -- não entra nessa métrica
+}
+// Valor numérico só pra ORDENAR a aba Prazo (mais urgente primeiro) -- não é
+// exibido, por isso pode usar sentinelas (-9999/9999) sem se preocupar em
+// formatar bonito.
+function diasParaOrdenarPrazo(row) {
+  if (row.classe_instalacao === "Troca") return 60 - (row.dias_aberto == null ? 9999 : row.dias_aberto);
+  if (row.completude_dentro_do_prazo === false) {
+    const d = diasRestantesPrazoCompletude(row);
+    return d != null ? d : -9999;
+  }
+  const d = diasRestantesPrazoCompletude(row);
+  return d != null ? d : 9999;
+}
+function updatePrazoTabBadge(rows) {
+  const badge = document.getElementById("prazo-tab-badge");
+  if (!badge) return;
+  const n = rows.filter(isEmRisco).length;
+  badge.textContent = n;
+  badge.style.display = n > 0 ? "inline-flex" : "none";
+}
+function renderPrazoTab(rows) {
+  const wrap = document.getElementById("prazo-wrap");
+  if (!wrap) return;
+  const emRisco = rows.filter(isEmRisco).sort((a, b) => diasParaOrdenarPrazo(a) - diasParaOrdenarPrazo(b));
+  if (!emRisco.length) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket perto do prazo ou com o prazo de completude vencido no filtro atual. 🎉</div>';
+    return;
+  }
+  let html = "<table>" + ticketTableHeadHtml(false) + "<tbody>";
+  emRisco.forEach(r => { html += ticketRowHtml(r); });
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+// Popup de alerta ao entrar -- 1x por dia por usuário (localStorage), pedido
+// do Luiz. Usa state.allRows (recorte já aplicado pelo RLS -- colaborador só
+// vê os próprios, gestor_squad só a squad, gestor_geral tudo), NÃO
+// squadFiltered, porque é um alerta de entrada, antes da pessoa mexer em
+// qualquer filtro da sidebar.
+function prazoRiscoPopupStorageKey() {
+  return `bv_prazo_risco_popup_${currentUser ? currentUser.email : "anon"}_${todayDateStr()}`;
+}
+function initPrazoRisco() {
+  const n = state.allRows.filter(isEmRisco).length;
+  if (n === 0) return;
+  let jaMostrou = false;
+  try { jaMostrou = localStorage.getItem(prazoRiscoPopupStorageKey()) === "1"; } catch (e) { /* localStorage indisponível -- só não persiste entre reloads */ }
+  if (jaMostrou) return;
+  document.getElementById("prazo-risco-popup-count").textContent = n;
+  document.getElementById("prazo-risco-popup-count-label").textContent = n === 1 ? "ticket está" : "tickets estão";
+  document.getElementById("prazo-risco-popup-overlay").style.display = "flex";
+  try { localStorage.setItem(prazoRiscoPopupStorageKey(), "1"); } catch (e) { /* ignora */ }
+}
+function closePrazoRiscoPopup() {
+  document.getElementById("prazo-risco-popup-overlay").style.display = "none";
+}
+function goToPrazoTab() {
+  closePrazoRiscoPopup();
+  switchTab("prazo");
+}
+
+// ---------------------------------------------------------------------------
+// AGRUPAR POR EMPRESA (Rodada 18, 2026-08-27/28) -- toggle na sidebar, pedido
+// do Luiz. Uma linha por empresa (nome + contagem de tickets + MRR somado +
+// quantos estão em risco de prazo), expansível pra ver os tickets dela no
+// mesmo formato de sempre (ticketRowHtml()). expandedCompanies persiste
+// durante a sessão (não zera a cada renderAll()), mas não entre reloads --
+// comportamento equivalente ao resto dos filtros/estado da tela.
+// ---------------------------------------------------------------------------
+let expandedCompanies = new Set();
+function toggleCompanyGroup(key) {
+  if (expandedCompanies.has(key)) expandedCompanies.delete(key);
+  else expandedCompanies.add(key);
+  renderAll();
+}
+function toggleGroupByCompany() {
+  state.groupByCompany = !state.groupByCompany;
+  renderAll();
+}
+function renderGroupedTable(rows) {
+  const wrap = document.getElementById("table-principal-wrap");
+  if (!rows || !rows.length) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
+    return;
+  }
+  // Mantém a ORDEM de chegada (já vem ordenada por applyFilters()/sort ativo
+  // -- ver applyFilters()) -- cada grupo fica na posição do primeiro ticket
+  // dele que aparece na lista.
+  const groups = new Map();
+  rows.forEach(r => {
+    const key = r.company_id || `_sem_empresa_${r.ticket_id}`;
+    if (!groups.has(key)) groups.set(key, { key, label: r.display_name || r.subject_raw || r.ticket_id, rows: [] });
+    groups.get(key).rows.push(r);
+  });
+
+  const colCount = 10 + (SHOW_FIELD_STATUS ? 1 : 0);
+  let html = "<table>" + ticketTableHeadHtml(true) + "<tbody>";
+  groups.forEach(g => {
+    const isOpen = expandedCompanies.has(g.key);
+    const riscoCount = g.rows.filter(isEmRisco).length;
+    const mrrSum = g.rows.reduce((sum, r) => sum + (Number(r.mrr) || 0), 0);
+    html += `<tr class="company-group-row" onclick="toggleCompanyGroup('${escapeHtml(g.key)}')">
+      <td colspan="${colCount}">
+        <div class="company-group-head">
+          <span class="company-group-chevron ${isOpen ? "open" : ""}">▸</span>
+          <span class="company-group-name">${escapeHtml(g.label)}</span>
+          <span class="company-group-count">${g.rows.length} ticket${g.rows.length === 1 ? "" : "s"}</span>
+          ${riscoCount ? `<span class="badge risk">${riscoCount} em risco</span>` : ""}
+          <span class="company-group-mrr">${fmtCurrency(mrrSum)}</span>
+        </div>
+      </td>
+    </tr>`;
+    if (isOpen) {
+      g.rows.forEach(r => { html += ticketRowHtml(r); });
+    }
+  });
   html += "</tbody></table>";
   wrap.innerHTML = html;
 }
