@@ -111,8 +111,18 @@
   #login-msg { font-size: 13px; color: var(--ink-mute); margin-top: 8px; }
 
   /* KPI cards -- compactos de propósito: precisam sobrar espaço vertical
-     pra tabela, já que ficam sempre visíveis (sticky) enquanto rola. */
-  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+     pra tabela, já que ficam sempre visíveis (sticky) enquanto rola.
+     Rodada 16 (2026-08-27), 3ª tentativa (histórico completo abaixo, perto
+     de .kpi-classe-grid): a contagem por classe voltou a morar dentro do
+     card "Tickets em aberto" -- o Luiz gostou do resultado com mais colunas
+     e pediu pra juntar de novo, com uma divisória fina entre os dois
+     blocos ("pode até deixar dentro do mesmo card de ticket separado por
+     um leve |, dentro ai reduz os outros dois um pouco na largura"). Virou
+     3 colunas (era 4): o card combinado ocupa o espaço que antes era de 2,
+     MRR/Tempo ficam um pouco mais estreitos (0.9fr em vez de 1fr) pra abrir
+     espaço. `align-items: start` continua garantindo que nenhum card
+     estique pra bater a altura do outro. */
+  .kpi-row { display: grid; grid-template-columns: 2.2fr 0.9fr 0.9fr; gap: 10px; margin-bottom: 10px; align-items: start; }
   /* Rodada 15 (2026-08-27): linha colorida nos cards (pedido do Luiz, foto 3
      -- "coloca uma linhazinha na lateral deles"). Duas correções no mesmo
      dia depois do Luiz ver o resultado: (1) a linha tem que ser COLORIDA por
@@ -136,6 +146,10 @@
   .kpi-card.kpi-card--royal { border-top-color: var(--royal); border-left-color: var(--royal); }
   .kpi-card.kpi-card--risk { border-top-color: var(--risk); border-left-color: var(--risk); }
   .kpi-card.kpi-card--warn { border-top-color: var(--warn); border-left-color: var(--warn); }
+  /* Rodada 16, 3ª tentativa: a contagem por classe voltou a viver dentro do
+     card "Tickets em aberto" (não é mais card próprio -- ver comentário em
+     .kpi-row), então o card combinado fica só com a cor royal, sem
+     modificador extra de borda pras classes. */
   .kpi-card.clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
   .kpi-card.clickable:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(7,7,78,0.06), 0 14px 28px rgba(7,7,78,0.10); }
   .kpi-card.active { border-color: var(--risk); box-shadow: 0 0 0 2px rgba(199,54,44,0.15); }
@@ -150,18 +164,49 @@
   .kpi-number.risk { color: var(--risk); }
   .kpi-label { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
   .kpi-hint { font-size: 10.5px; color: var(--ink-mute); }
-  /* Rodada 16 (2026-08-27): contagem por classe (Upsell/Troca/etc.) dentro do
-     card "Tickets em aberto" -- pedido do Luiz ("coloca mais um contando por
-     classe a quantidade de tickets ... pode ser em duas ou 3 colunas no
-     mesmo card"). auto-fill deixa 2 colunas em telas menores e cresce pra 3
-     quando o card tem mais largura; quebra linha sozinho se tiver muitas
-     classes. */
+  /* Rodada 16 (2026-08-27): contagem por classe (Upsell/Troca/etc.) --
+     pedido do Luiz ("coloca mais um contando por classe a quantidade de
+     tickets ... pode ser em duas ou 3 colunas"). Cada item mostra também o %
+     sobre o total (pedido do Luiz: "coloca na contagem das classes que vai
+     separar também a % sobre o total").
+     2ª tentativa (mesmo dia): virou card PRÓPRIO ao lado de "Tickets em
+     aberto" -- mas com dado real (11 classes) e a tela mais estreita do
+     Luiz, só cabiam 2 colunas (CSS Grid com minmax(108px,1fr)), deixando o
+     card bem mais alto que os outros e sobrando um espaço vazio embaixo
+     ("dividi em mais colunas se for preciso, para não ficar esse espaço
+     sobrando"). Troquei Grid (row-major -- a altura de cada LINHA é a do
+     item mais alto dela, então apertar as colunas só truncava texto sem
+     ganhar altura) por multi-coluna CSS (column-width + column-fill:
+     balance): cada coluna flui as próprias linhas de forma independente, o
+     browser decide quantas colunas cabem e balanceia a altura sozinho.
+     Textos longos quebram em 2 linhas em vez de cortar com "..."
+     (nowrap/ellipsis removidos) -- nenhuma informação se perde
+     (break-inside:avoid evita cortar um item no meio entre colunas).
+     3ª tentativa (mesmo dia, depois de ver a versão com mais colunas): o
+     Luiz gostou do resultado e pediu pra voltar a juntar no mesmo card de
+     "Tickets em aberto" -- "pode até deixar dentro do mesmo card de ticket
+     separado por um leve |". Virou .kpi-ticket-classes, um bloco irmão de
+     .kpi-ticket-main dentro do MESMO .kpi-card (ver .kpi-card--ticket-combo
+     abaixo) -- o multi-coluna balanceado continua o mesmo, só mudou onde
+     ele mora. */
   .kpi-classe-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 3px 8px;
-    margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);
+    display: block; column-width: 82px; column-gap: 10px; column-fill: balance;
   }
-  .kpi-classe-item { font-size: 10.5px; color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-classe-item {
+    display: block; font-size: 11px; color: var(--ink-mute);
+    white-space: normal; overflow: visible; text-overflow: clip;
+    break-inside: avoid; margin-bottom: 4px;
+  }
   .kpi-classe-item b { color: var(--ink); font-weight: 700; }
+  .kpi-classe-pct { color: var(--ink-mute); opacity: 0.75; font-size: 10px; }
+  /* Card combinado "Tickets em aberto" + "Tickets por classe" (Rodada 16,
+     3ª tentativa) -- vira um flex row com 2 blocos e uma divisória fina
+     "|" entre eles (pedido do Luiz: "separado por um leve |"). */
+  .kpi-card--ticket-combo { flex-direction: row; align-items: stretch; gap: 14px; }
+  .kpi-ticket-main { display: flex; flex-direction: column; gap: 1px; flex: 0 0 auto; }
+  .kpi-ticket-divider { width: 1px; align-self: stretch; background: var(--line); flex: 0 0 auto; }
+  .kpi-ticket-classes { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .kpi-ticket-classes .kpi-classe-grid { margin-top: 2px; }
 
   /* Toolbar */
   .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -445,6 +490,21 @@
      sidebar. `min-width: 216px` também tirado -- deixava a margem pro
      scrollbar vertical apertada demais. */
   .sidebar-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-y: auto; overflow-x: hidden; }
+  /* Rodada 16 (2026-08-27): "duas barras na pesquisa não rola" (pedido do
+     Luiz) -- quando um painel .msel-panel (com seu próprio scroll interno,
+     max-height:220px) abre perto do fim da sidebar, a barra de rolagem DELE
+     aparecia bem ao lado da barra de rolagem do .sidebar-content (que
+     também rola, por ter mais conteúdo -- nav+filtros+prioridades+sync --
+     do que cabe na tela), duas barras grossas padrão do navegador coladas
+     uma na outra. Não dá pra eliminar nenhum dos dois scrolls (os dois têm
+     conteúdo real que não cabe), mas dá pra deixar as duas BEM mais finas e
+     discretas, então juntas não competem por atenção. */
+  .sidebar-content, .msel-panel { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent; }
+  .sidebar-content::-webkit-scrollbar, .msel-panel::-webkit-scrollbar { width: 6px; }
+  .sidebar-content::-webkit-scrollbar-track, .msel-panel::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 3px; }
+  .msel-panel::-webkit-scrollbar-thumb { background: rgba(7,7,78,0.22); border-radius: 3px; }
+  .msel-panel { scrollbar-color: rgba(7,7,78,0.22) transparent; }
   .sidebar-section-title {
     /* Rodada 16 (2026-08-27): opacidade 0.45 -> 0.68 (pedido do Luiz: "dar
        uma ajustada nos textos, tá muito ruim de ver") -- baixo contraste
@@ -475,14 +535,21 @@
   }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
-  /* Rodada 16 (2026-08-27): badge de sincronização mais claro/legível dentro
-     da sidebar (pedido do Luiz: "o badge de sincronizar deixar mais claro")
-     -- peso maior + borda mais visível, sem mudar as cores de status
-     (verde/laranja já vêm de .sync-badge.fresh/.stale). */
   .sidebar .sync-badge {
     width: 100%; box-sizing: border-box; justify-content: center;
     font-weight: 700; font-size: 12.5px; border-width: 1.5px;
   }
+  /* Rodada 16 (2026-08-27), 2ª tentativa: a 1ª rodada só aumentou peso/borda,
+     mas manteve o MESMO fundo translúcido de .sync-badge.fresh/.stale
+     (pensado pro card branco de "Empresas por Basic Value" -- ver
+     .grade-pill.g4, mesma cor --ok-soft) -- em cima do navy da sidebar essa
+     transparência quase não clareia nada, ficando "ruim de ver" (pedido do
+     Luiz, comparando com o badge "Nota 4 · completo", que é bem visível
+     porque está sobre fundo BRANCO). Fix de verdade: fundo SÓLIDO/opaco só
+     dentro da sidebar (não mexe no badge fora dela, que continua sobre
+     branco e já tem contraste bom). */
+  .sidebar .sync-badge.fresh { background: var(--green); color: var(--indigo); border-color: var(--green); }
+  .sidebar .sync-badge.stale { background: #FFB74D; color: var(--indigo); border-color: #FFB74D; }
   .sidebar .btn.ghost { width: 100%; color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.3); }
   .sidebar .btn.ghost:hover { background: rgba(255,255,255,0.1); }
 
@@ -492,24 +559,29 @@
      <select multiple> nativo, que é feio e de UX ruim. */
   .msel { position: relative; width: 100%; }
   .msel-btn {
-    /* Rodada 16: padding-right 44px (não 26px) -- com só 26px o caret (▾,
-       posicionado pelo flex no fim do miolo do botão) ficava embaixo do "×"
-       de limpar (absolute, right:22px) e sumia atrás dele. Conferido via
-       getBoundingClientRect() dos dois depois do ajuste -- não tem mais
-       overlap. */
+    /* Rodada 16, 3a tentativa: a 2a tentativa só foi de 44px/22px pra
+       38px/18px -- ainda deixava o "×" a 18px do canto, bem mais solto que o
+       .search-clear-btn (right:4px). Pedido do Luiz era ficar "junto no
+       canto igual o de pesquisar", ou seja, colado na borda como a referência
+       -- não só um pouco mais perto do caret. Ajustado pra bater a mesma
+       distância de canto (~6px) e o padding-right do botão reduzido junto,
+       mantendo um respiro visível entre o caret e o "×" (conferido via
+       getBoundingClientRect(), sem overlap). */
     width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 44px 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    padding: 7px 30px 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink);
     font-family: inherit; font-size: 13px; cursor: pointer;
   }
   .msel-btn:hover { background: var(--paper-2); }
   .msel-caret { color: var(--ink-mute); font-size: 10px; margin-left: 6px; }
   /* Rodada 16 (2026-08-27): "×" pra limpar o filtro sem abrir o painel --
      posicionado por cima do .msel-btn (irmão dele, não filho -- ver
-     comentário no HTML) via absolute, ficando à esquerda do caret. */
+     comentário no HTML) via absolute, ficando à esquerda do caret, os dois
+     juntos no canto direito -- mesma distância de canto do .search-clear-btn
+     (right:4px), só um pouco maior (6px) pra sobrar um respiro do caret. */
   .msel-clear-btn {
-    display: none; position: absolute; top: 50%; right: 22px; transform: translateY(-50%);
-    border: none; background: transparent; color: var(--ink-mute); font-size: 14px; line-height: 1;
-    cursor: pointer; padding: 3px 5px; border-radius: 5px; z-index: 2;
+    display: none; position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+    border: none; background: transparent; color: var(--ink-mute); font-size: 13px; line-height: 1;
+    cursor: pointer; padding: 2px 4px; border-radius: 5px; z-index: 2;
   }
   .msel-clear-btn:hover { background: var(--paper-2); color: var(--risk); }
   .msel-panel {
@@ -528,29 +600,34 @@
   .msel-divider { height: 1px; background: var(--line); margin: 4px 2px 6px; }
 
   /* Filtros de Prioridade (hierárquico) -- Rodada 9 (2026-08-12). Dois
-     "pills" -- selecionar um revela o grupo de sub-opções daquela categoria
-     logo abaixo, na mesma área de filtros (sem navegar pra outra tela).
-     Rodada 16 (2026-08-27): deixaram de ser mutuamente exclusivos -- pedido
-     do Luiz ("colocar isso também nas prioridades, poder selecionar mais de
-     um item"). Os dois podem ficar ativos ao mesmo tempo; ver
-     togglePriorityCategory()/renderPrioritySubOptions() e o combine OR em
-     applyFilters() no JS. */
+     "pills" MUTUAMENTE EXCLUSIVOS -- selecionar um revela o grupo de
+     sub-opções daquela categoria logo abaixo, na mesma área de filtros (sem
+     navegar pra outra tela). Rodada 16 (2026-08-27): quase virou
+     multi-seleção nas DUAS categorias ao mesmo tempo, mas o Luiz corrigiu no
+     mesmo dia -- "o prioridade selecionar amais de um eu falo dentro dos
+     bloccos, não selecionar completude e basic value juntos". Categoria
+     continua exclusiva; quem virou multi-seleção foram as 4 SUB-OPÇÕES
+     dentro de cada bloco (Quantidade/Dias/MRR, componente .msel -- ver
+     PRIORITY_SUBOPTIONS_HTML no JS). */
   .priority-pills { display: flex; flex-direction: column; gap: 6px; }
   .priority-pill {
     width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
     background: #fff; color: var(--ink-soft); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .priority-pill:hover { background: var(--paper-2); }
-  .priority-pill.active { background: var(--royal-soft-2); color: var(--royal); border-color: rgba(0,27,184,0.25); }
+  /* Rodada 16 (2026-08-27): a versão anterior (fundo var(--royal-soft-2),
+     translúcido, com texto var(--royal)) ficava ilegível em cima do navy da
+     sidebar -- "quando seleciona um o nome nem dá para ler" (pedido do
+     Luiz). Um tom translúcido pensado pro fundo branco quase desaparece
+     sobre um fundo já escuro. Trocado por fundo SÓLIDO branco (mesma cor dos
+     outros elementos "clicáveis" da sidebar -- msel-btn, search) + borda e
+     texto na cor royal, com negrito extra pra marcar o estado ativo. */
+  .priority-pill.active { background: #fff; color: var(--royal); border-color: var(--royal); font-weight: 700; }
   /* .priority-suboptions/.priority-sub-label/.priority-note vivem direto em
      cima do fundo navy da sidebar (não dentro de um cartão branco, como
      .priority-pill/.msel-btn) -- cores claras/translúcidas, mesma correção
      de contraste do resto da sidebar. */
   .priority-suboptions { display: none; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.18); }
-  .priority-subgroup { display: flex; flex-direction: column; gap: 10px; }
-  /* Rodada 16: separador entre os dois grupos de sub-opções quando as DUAS
-     categorias de prioridade estão ativas ao mesmo tempo. */
-  .priority-subgroup-divider { border-top: 1px dashed rgba(255,255,255,0.18); margin: 2px 0; }
   .priority-sub-label {
     /* Rodada 16: 0.7 -> 0.88 (pedido do Luiz: "dar uma ajustada nos textos,
        tá muito ruim de ver"). */
@@ -994,15 +1071,21 @@ const state = {
   // Rodada 9 (2026-08-12): filtros de Prioridade hierárquicos. Faixas de
   // quantidade/dias abaixo são um PONTO DE PARTIDA ajustável -- combinar com
   // o Luiz depois de ver os dados reais.
-  // Rodada 16 (2026-08-27): virou array -- []/["completude"]/["basic_value"]/
-  // ["completude","basic_value"] -- deixaram de ser mutuamente exclusivos
-  // (pedido do Luiz: "poder selecionar mais de um item"). Ver
-  // togglePriorityCategory()/applyFilters().
-  priorityCategories: [],
-  priorityCompletudeFaixaQtd: "1-4",   // padrão pré-selecionado (ver inFaixaQtdFalta)
-  priorityCompletudeFaixaDias: null,   // sem filtro por padrão -- só ordena por dias restantes crescente
-  priorityBVFaixaQtd: "1-5",           // padrão pré-selecionado (ver inFaixaQtdNota3)
-  priorityBVFaixaMrr: "todos",         // sem filtro por padrão -- só ordena por mrr decrescente
+  // Rodada 16 (2026-08-27), tentativa 1: virou array (as duas categorias
+  // ativas ao mesmo tempo) -- CORRIGIDO na mesma rodada, o Luiz esclareceu
+  // que "selecionar mais de um" era sobre as SUB-OPÇÕES dentro de cada
+  // bloco (Quantidade/Dias/MRR), não sobre poder ativar Completude e Basic
+  // Value juntos ("o prioridade selecionar amais de um eu falo dentro dos
+  // bloccos, não selecionar completude e basic value juntos"). Categoria
+  // voltou a ser mutuamente exclusiva (null | "completude" | "basic_value");
+  // as 4 sub-opções abaixo é que viraram multi-seleção (arrays, mesmo
+  // componente .msel usado em Gestor/Squad/Responsável -- ver
+  // PRIORITY_MSEL_OPTIONS/MSEL_STATE_KEY no JS).
+  priorityCategory: null,
+  priorityCompletudeFaixaQtd: ["1-4"],  // padrão pré-selecionado (ver inFaixaQtdFalta) -- array, multi-seleção
+  priorityCompletudeFaixaDias: [],      // sem filtro por padrão -- só ordena por dias restantes crescente
+  priorityBVFaixaQtd: ["1-5"],          // padrão pré-selecionado (ver inFaixaQtdNota3) -- array, multi-seleção
+  priorityBVFaixaMrr: [],               // sem filtro por padrão -- só ordena por mrr decrescente
 
   // Rodada 9: checkbox "Agendado" -- tickets marcados nesta sessão (ver
   // onAckTicket()). Diferente dos que já estavam marcados ANTES desta carga
@@ -1299,13 +1382,44 @@ async function loadDashboard() {
 // Rodada 15 (2026-08-27): filtros de multi-seleção -- componente próprio
 // (botão + painel de checkboxes), ver .msel* no CSS. `MSEL_STATE_KEY` mapeia
 // o nome curto usado nos ids/onclick pra chave real em `state`.
-const MSEL_STATE_KEY = { gestor: "gestorFilter", squad: "squadFilter", responsavel: "responsavelFilter" };
-const MSEL_ALL_LABEL = { gestor: "Todos os gestores", squad: "Todas as squads", responsavel: "Todos os responsáveis" };
+// Rodada 16 (2026-08-27): as 4 sub-opções de Prioridade (Quantidade/Dias/MRR
+// dentro de Completude e de Basic Value) entraram no mesmo componente .msel
+// -- reaproveita toda a infra de toggleMsel()/renderMselOptions()/
+// toggleMselValue()/mselClear() já existente pros filtros de Gestor/Squad/
+// Responsável, só com nomes/opções diferentes. Pedido do Luiz: multi-seleção
+// DENTRO de cada bloco (não entre Completude x Basic Value -- essa
+// continua mutuamente exclusiva, ver togglePriorityCategory()).
+const MSEL_STATE_KEY = {
+  gestor: "gestorFilter", squad: "squadFilter", responsavel: "responsavelFilter",
+  pcqtd: "priorityCompletudeFaixaQtd", pcdias: "priorityCompletudeFaixaDias",
+  pbvqtd: "priorityBVFaixaQtd", pbvmrr: "priorityBVFaixaMrr",
+};
+const MSEL_ALL_LABEL = {
+  gestor: "Todos os gestores", squad: "Todas as squads", responsavel: "Todos os responsáveis",
+  pcqtd: "Todas", pcdias: "Todos (ordenado por mais perto de vencer)",
+  pbvqtd: "Todas", pbvmrr: "Todos (ordenado por MRR)",
+};
 const SQUAD_FILTER_OPTIONS = [
   { value: "onboarding", label: "Onboarding" },
   { value: "smb", label: "SMB" },
   { value: "icp", label: "ICP" },
   { value: "sem_squad", label: "Sem squad definido" },
+];
+const PRIORITY_COMPLETUDE_QTD_OPTIONS = [
+  { value: "1-4", label: "1 a 4" }, { value: "5-10", label: "5 a 10" },
+  { value: "11-15", label: "11 a 15" }, { value: "16+", label: "16 ou mais" },
+];
+const PRIORITY_COMPLETUDE_DIAS_OPTIONS = [
+  { value: "1", label: "1 dia" }, { value: "2", label: "2 dias" }, { value: "3", label: "3 dias" },
+  { value: "4", label: "4 dias" }, { value: "5", label: "5 dias" }, { value: "6-10", label: "6 a 10 dias" },
+  { value: "11-20", label: "11 a 20 dias" }, { value: "21-30", label: "21 a 30 dias" }, { value: "31+", label: "31 dias ou mais" },
+];
+const PRIORITY_BV_QTD_OPTIONS = [
+  { value: "1-5", label: "1 a 5" }, { value: "6-10", label: "6 a 10" },
+  { value: "11-15", label: "11 a 15" }, { value: "16+", label: "16 ou mais" },
+];
+const PRIORITY_BV_MRR_OPTIONS = [
+  { value: "acima_mediana", label: "Acima da mediana" }, { value: "top25", label: "Top 25%" }, { value: "top10", label: "Top 10%" },
 ];
 
 function toggleMsel(name) {
@@ -1453,59 +1567,37 @@ function applyFilters() {
   // (squadFiltered, já capturado acima). Ver design combinado com o Luiz
   // (histórico completo no doc do projeto, seção 5) -- "Design final a
   // implementar".
-  // Rodada 16 (2026-08-27): as duas categorias deixaram de ser mutuamente
-  // exclusivas (pedido do Luiz: "poder selecionar mais de um item") -- cada
-  // categoria ativa filtra `rows` de forma independente (com sua própria
-  // cadeia de sub-filtros E, exatamente como antes) e o resultado final é a
-  // UNIÃO dos tickets que passaram em QUALQUER categoria ativa (OR entre
-  // categorias), sem duplicar ticket_id repetido.
+  // Rodada 16 (2026-08-27), correção no mesmo dia: a categoria (Completude x
+  // Basic Value) voltou a ser mutuamente exclusiva -- o Luiz esclareceu que
+  // "selecionar mais de um" era sobre as SUB-OPÇÕES dentro de cada bloco
+  // (Quantidade/Dias/MRR, ver inFaixaQtdFalta/inFaixaDiasRestantes/
+  // inFaixaQtdNota3/passesMrrFilter -- agora todas aceitam array), não sobre
+  // ativar as duas categorias ao mesmo tempo.
   // ---------------------------------------------------------------------
-  if (state.priorityCategories.length) {
-    const base = rows;
-    const unionSeen = new Set();
-    const union = [];
-    const addAll = (list) => {
-      for (const r of list) {
-        if (!unionSeen.has(r.ticket_id)) { unionSeen.add(r.ticket_id); union.push(r); }
-      }
-    };
-    if (state.priorityCategories.includes("completude")) {
-      // Filtro OBRIGATÓRIO, sempre aplicado nesta categoria (não é
-      // opcional): só entram tickets com completude_dentro_do_prazo = true.
-      // Tickets com prazo já vencido são EXCLUÍDOS inteiramente -- regra de
-      // negócio confirmada pelo Luiz ("se já passou de 60 dias mesmo que eu
-      // faça não contabiliza, então não precisa mostrar nas prioridades").
-      // NÃO existe opção "Vencido" nas sub-opções (removida a pedido dele).
-      let sub = base.filter(r => r.completude_qtd_falta != null && r.completude_dentro_do_prazo === true);
-      if (state.priorityCompletudeFaixaQtd) {
-        sub = sub.filter(r => inFaixaQtdFalta(r.completude_qtd_falta, state.priorityCompletudeFaixaQtd));
-      }
-      if (state.priorityCompletudeFaixaDias) {
-        sub = sub.filter(r => inFaixaDiasRestantes(diasRestantes(r), state.priorityCompletudeFaixaDias));
-      }
-      addAll(sub);
-    }
-    if (state.priorityCategories.includes("basic_value")) {
-      // Basic Value NÃO tem corte de prazo/expiração -- "o basic vale não tem
-      // expiração pode trazer todos" (confirmado pelo Luiz). Traz todas as
-      // empresas elegíveis (dado não-nulo nesta categoria).
-      let sub = base.filter(r => r.completude_qtd_falta_nota_3 != null);
-      // Percentis de MRR calculados sobre o conjunto elegível da categoria
-      // (antes do sub-filtro de quantidade, pra não mover o "chão" da
-      // comparação conforme a faixa de quantidade escolhida) -- ver
-      // computeMrrPercentiles(). Simplificação assumida: calculado sobre
-      // linhas de TICKET (não deduplicado por empresa) -- uma empresa com
-      // vários tickets abertos entra várias vezes na amostra.
-      const mrrPercentiles = computeMrrPercentiles(sub);
-      if (state.priorityBVFaixaQtd) {
-        sub = sub.filter(r => inFaixaQtdNota3(r.completude_qtd_falta_nota_3, state.priorityBVFaixaQtd));
-      }
-      if (state.priorityBVFaixaMrr && state.priorityBVFaixaMrr !== "todos") {
-        sub = sub.filter(r => passesMrrFilter(r.mrr, state.priorityBVFaixaMrr, mrrPercentiles));
-      }
-      addAll(sub);
-    }
-    rows = union;
+  if (state.priorityCategory === "completude") {
+    // Filtro OBRIGATÓRIO, sempre aplicado nesta categoria (não é opcional):
+    // só entram tickets com completude_dentro_do_prazo = true. Tickets com
+    // prazo já vencido são EXCLUÍDOS inteiramente -- regra de negócio
+    // confirmada pelo Luiz ("se já passou de 60 dias mesmo que eu faça não
+    // contabiliza, então não precisa mostrar nas prioridades"). NÃO existe
+    // opção "Vencido" nas sub-opções (removida a pedido dele).
+    rows = rows.filter(r => r.completude_qtd_falta != null && r.completude_dentro_do_prazo === true);
+    rows = rows.filter(r => inFaixaQtdFalta(r.completude_qtd_falta, state.priorityCompletudeFaixaQtd));
+    rows = rows.filter(r => inFaixaDiasRestantes(diasRestantes(r), state.priorityCompletudeFaixaDias));
+  } else if (state.priorityCategory === "basic_value") {
+    // Basic Value NÃO tem corte de prazo/expiração -- "o basic vale não tem
+    // expiração pode trazer todos" (confirmado pelo Luiz). Traz todas as
+    // empresas elegíveis (dado não-nulo nesta categoria).
+    rows = rows.filter(r => r.completude_qtd_falta_nota_3 != null);
+    // Percentis de MRR calculados sobre o conjunto elegível da categoria
+    // (antes do sub-filtro de quantidade, pra não mover o "chão" da
+    // comparação conforme a faixa de quantidade escolhida) -- ver
+    // computeMrrPercentiles(). Simplificação assumida: calculado sobre
+    // linhas de TICKET (não deduplicado por empresa) -- uma empresa com
+    // vários tickets abertos entra várias vezes na amostra.
+    const mrrPercentiles = computeMrrPercentiles(rows);
+    rows = rows.filter(r => inFaixaQtdNota3(r.completude_qtd_falta_nota_3, state.priorityBVFaixaQtd));
+    rows = rows.filter(r => passesMrrFilter(r.mrr, state.priorityBVFaixaMrr, mrrPercentiles));
   }
 
   // Rodada 3: ordenação clicável. "basic_value" ordena pela nota de
@@ -1557,13 +1649,9 @@ function applyFilters() {
       if (key === "basic_value") return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0));
       return 0;
     });
-  } else if (state.priorityCategories.length === 1 && state.priorityCategories[0] === "completude") {
+  } else if (state.priorityCategory === "completude") {
     // "Dias pra vencer o prazo": padrão ordena por dias restantes crescente
-    // (mais perto de vencer primeiro). Rodada 16: só se aplica com
-    // EXATAMENTE essa categoria ativa -- com as duas ativas ao mesmo tempo
-    // não há um critério "mais urgente" único entre categorias diferentes,
-    // então fica na ordem de união (o usuário sempre pode clicar numa coluna
-    // pra ordenar).
+    // (mais perto de vencer primeiro).
     rows = rows.slice().sort((a, b) => {
       const da = diasRestantes(a), db = diasRestantes(b);
       if (da == null && db == null) return 0;
@@ -1571,8 +1659,8 @@ function applyFilters() {
       if (db == null) return -1;
       return da - db;
     });
-  } else if (state.priorityCategories.length === 1 && state.priorityCategories[0] === "basic_value") {
-    // "MRR": padrão ordena por MRR decrescente. Mesma ressalva acima.
+  } else if (state.priorityCategory === "basic_value") {
+    // "MRR": padrão ordena por MRR decrescente.
     rows = rows.slice().sort((a, b) => (Number(b.mrr) || 0) - (Number(a.mrr) || 0));
   }
   return { squadFiltered, displayRows: rows };
@@ -1611,16 +1699,30 @@ function diasRestantesPrazoCompletude(row) {
   if (row.completude_dias_restantes_prazo != null) return row.completude_dias_restantes_prazo;
   return diasRestantes(row);
 }
-function inFaixaQtdFalta(qtd, faixa) {
-  if (qtd == null) return false;
+// Rodada 16 (2026-08-27): as 4 faixas abaixo viraram multi-seleção (array de
+// faixas em vez de uma faixa só) -- pedido do Luiz ("o prioridade selecionar
+// amais de um eu falo dentro dos bloccos"). Convenção igual à dos outros
+// filtros .msel: array VAZIO = sem restrição (mostra tudo); array com itens =
+// passa se bater com QUALQUER UMA das faixas selecionadas (OR entre as
+// faixas do MESMO grupo -- ex.: "1 a 4" OU "5 a 10").
+function matchFaixaQtdFalta(qtd, faixa) {
   if (faixa === "1-4") return qtd >= 1 && qtd <= 4;
   if (faixa === "5-10") return qtd >= 5 && qtd <= 10;
   if (faixa === "11-15") return qtd >= 11 && qtd <= 15;
   if (faixa === "16+") return qtd >= 16;
-  return true;
+  return false;
 }
-function inFaixaDiasRestantes(dias, faixa) {
-  if (dias == null) return false;
+// IMPORTANTE: o teste de "sem seleção" (faixaArr vazio) vem ANTES do teste de
+// null -- sem isso, "nenhuma faixa marcada" (= sem restrição, mostra tudo)
+// acabava excluindo linhas com o campo null, que é o oposto do que "sem
+// restrição" quer dizer. Bug real pego no teste (sandbox vm) desta rodada,
+// não só teórico -- corrigido antes de mandar pro Luiz.
+function inFaixaQtdFalta(qtd, faixaArr) {
+  if (!faixaArr || !faixaArr.length) return true;
+  if (qtd == null) return false;
+  return faixaArr.some(f => matchFaixaQtdFalta(qtd, f));
+}
+function matchFaixaDiasRestantes(dias, faixa) {
   if (faixa === "1") return dias === 1;
   if (faixa === "2") return dias === 2;
   if (faixa === "3") return dias === 3;
@@ -1630,15 +1732,24 @@ function inFaixaDiasRestantes(dias, faixa) {
   if (faixa === "11-20") return dias >= 11 && dias <= 20;
   if (faixa === "21-30") return dias >= 21 && dias <= 30;
   if (faixa === "31+") return dias >= 31;
-  return true;
+  return false;
 }
-function inFaixaQtdNota3(qtd, faixa) {
-  if (qtd == null) return false;
+function inFaixaDiasRestantes(dias, faixaArr) {
+  if (!faixaArr || !faixaArr.length) return true;
+  if (dias == null) return false;
+  return faixaArr.some(f => matchFaixaDiasRestantes(dias, f));
+}
+function matchFaixaQtdNota3(qtd, faixa) {
   if (faixa === "1-5") return qtd >= 1 && qtd <= 5;
   if (faixa === "6-10") return qtd >= 6 && qtd <= 10;
   if (faixa === "11-15") return qtd >= 11 && qtd <= 15;
   if (faixa === "16+") return qtd >= 16;
-  return true;
+  return false;
+}
+function inFaixaQtdNota3(qtd, faixaArr) {
+  if (!faixaArr || !faixaArr.length) return true;
+  if (qtd == null) return false;
+  return faixaArr.some(f => matchFaixaQtdNota3(qtd, f));
 }
 // Percentis calculados no cliente, a partir dos dados reais já carregados --
 // nunca uma faixa fixa em R$ chutada (pedido explícito do Luiz).
@@ -1648,21 +1759,23 @@ function computeMrrPercentiles(rows) {
   const at = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
   return { p50: at(0.50), p75: at(0.75), p90: at(0.90) };
 }
-function passesMrrFilter(mrr, faixa, p) {
-  const v = Number(mrr);
-  if (isNaN(v)) return false;
+function matchMrrFaixa(v, faixa, p) {
   if (faixa === "acima_mediana") return p.p50 != null && v > p.p50;
   if (faixa === "top25") return p.p75 != null && v >= p.p75;
   if (faixa === "top10") return p.p90 != null && v >= p.p90;
-  return true; // "todos"
+  return false;
+}
+function passesMrrFilter(mrr, faixaArr, p) {
+  if (!faixaArr || !faixaArr.length) return true; // sem seleção = "todos"
+  const v = Number(mrr);
+  if (isNaN(v)) return false;
+  return faixaArr.some(f => matchMrrFaixa(v, f, p));
 }
 
-// Rodada 16 (2026-08-27): toggle simples de membership no array -- as duas
-// categorias podem ficar ativas ao mesmo tempo agora (antes: selecionar uma
-// desligava a outra). Clicar numa categoria já ativa desliga só ela.
+// Rodada 16 (2026-08-27), correção no mesmo dia: voltou a ser exclusivo
+// (null | "completude" | "basic_value") -- ver comentário em state.
 function togglePriorityCategory(cat) {
-  const idx = state.priorityCategories.indexOf(cat);
-  if (idx === -1) state.priorityCategories.push(cat); else state.priorityCategories.splice(idx, 1);
+  state.priorityCategory = state.priorityCategory === cat ? null : cat;
   renderPriorityPills();
   renderPrioritySubOptions();
   renderAll();
@@ -1671,82 +1784,75 @@ function togglePriorityCategory(cat) {
 function renderPriorityPills() {
   const elCompletude = document.getElementById("pp-completude");
   const elBv = document.getElementById("pp-basic_value");
-  if (elCompletude) elCompletude.classList.toggle("active", state.priorityCategories.includes("completude"));
-  if (elBv) elBv.classList.toggle("active", state.priorityCategories.includes("basic_value"));
+  if (elCompletude) elCompletude.classList.toggle("active", state.priorityCategory === "completude");
+  if (elBv) elBv.classList.toggle("active", state.priorityCategory === "basic_value");
 }
 
 // Funções (não strings pré-computadas!) -- cada uma lê state.* NA HORA em
 // que é chamada. Um objeto de strings literais aqui seria avaliado só uma
-// vez, no carregamento do script, e nunca mais refletiria mudança de estado
-// (bug que quase entrou nesta rodada -- ver renderPrioritySubOptions()).
+// vez, no carregamento do script, e nunca mais refletiria mudança de estado.
+// Rodada 16: os 4 <select> viraram .msel (multi-seleção) -- os wraps/painéis
+// entram vazios aqui e são populados logo em seguida por
+// renderPrioritySubOptions() via renderMselOptions() (mesmo padrão de
+// populateSquadOptions() etc.), porque os elementos só existem no DOM depois
+// do innerHTML ser aplicado.
 const PRIORITY_SUBOPTIONS_HTML = {
   completude: () => `
       <p class="priority-note">Tickets com prazo já vencido não entram aqui -- depois do prazo, a instalação não conta mais pra completude (regra combinada com o Luiz).</p>
       <label class="priority-sub-label">Quantidade que falta
-        <select onchange="onPriorityCompletudeQtdChange(this.value)">
-          <option value="1-4" ${state.priorityCompletudeFaixaQtd === "1-4" ? "selected" : ""}>1 a 4</option>
-          <option value="5-10" ${state.priorityCompletudeFaixaQtd === "5-10" ? "selected" : ""}>5 a 10</option>
-          <option value="11-15" ${state.priorityCompletudeFaixaQtd === "11-15" ? "selected" : ""}>11 a 15</option>
-          <option value="16+" ${state.priorityCompletudeFaixaQtd === "16+" ? "selected" : ""}>16 ou mais</option>
-        </select>
+        <div class="msel" id="pcqtd-filter-wrap">
+          <button type="button" class="msel-btn" onclick="toggleMsel('pcqtd')"><span class="msel-btn-text">Todas</span><span class="msel-caret">▾</span></button>
+          <button type="button" class="msel-clear-btn" id="pcqtd-filter-clear" onclick="event.stopPropagation(); mselClear('pcqtd')" title="Limpar filtro" style="display:none">×</button>
+          <div class="msel-panel" id="pcqtd-filter-panel"></div>
+        </div>
       </label>
       <label class="priority-sub-label">Dias pra vencer o prazo
-        <select onchange="onPriorityCompletudeDiasChange(this.value)">
-          <option value="" ${!state.priorityCompletudeFaixaDias ? "selected" : ""}>Todos (ordenado por mais perto de vencer)</option>
-          <option value="1" ${state.priorityCompletudeFaixaDias === "1" ? "selected" : ""}>1 dia</option>
-          <option value="2" ${state.priorityCompletudeFaixaDias === "2" ? "selected" : ""}>2 dias</option>
-          <option value="3" ${state.priorityCompletudeFaixaDias === "3" ? "selected" : ""}>3 dias</option>
-          <option value="4" ${state.priorityCompletudeFaixaDias === "4" ? "selected" : ""}>4 dias</option>
-          <option value="5" ${state.priorityCompletudeFaixaDias === "5" ? "selected" : ""}>5 dias</option>
-          <option value="6-10" ${state.priorityCompletudeFaixaDias === "6-10" ? "selected" : ""}>6 a 10 dias</option>
-          <option value="11-20" ${state.priorityCompletudeFaixaDias === "11-20" ? "selected" : ""}>11 a 20 dias</option>
-          <option value="21-30" ${state.priorityCompletudeFaixaDias === "21-30" ? "selected" : ""}>21 a 30 dias</option>
-          <option value="31+" ${state.priorityCompletudeFaixaDias === "31+" ? "selected" : ""}>31 dias ou mais</option>
-        </select>
+        <div class="msel" id="pcdias-filter-wrap">
+          <button type="button" class="msel-btn" onclick="toggleMsel('pcdias')"><span class="msel-btn-text">Todos</span><span class="msel-caret">▾</span></button>
+          <button type="button" class="msel-clear-btn" id="pcdias-filter-clear" onclick="event.stopPropagation(); mselClear('pcdias')" title="Limpar filtro" style="display:none">×</button>
+          <div class="msel-panel" id="pcdias-filter-panel"></div>
+        </div>
       </label>`,
   basic_value: () => `
       <p class="priority-note">Sem corte de prazo -- traz todas as empresas elegíveis (confirmado pelo Luiz: "o basic vale não tem expiração pode trazer todos").</p>
       <label class="priority-sub-label">Quantidade que falta pra nota 3
-        <select onchange="onPriorityBVQtdChange(this.value)">
-          <option value="1-5" ${state.priorityBVFaixaQtd === "1-5" ? "selected" : ""}>1 a 5</option>
-          <option value="6-10" ${state.priorityBVFaixaQtd === "6-10" ? "selected" : ""}>6 a 10</option>
-          <option value="11-15" ${state.priorityBVFaixaQtd === "11-15" ? "selected" : ""}>11 a 15</option>
-          <option value="16+" ${state.priorityBVFaixaQtd === "16+" ? "selected" : ""}>16 ou mais</option>
-        </select>
+        <div class="msel" id="pbvqtd-filter-wrap">
+          <button type="button" class="msel-btn" onclick="toggleMsel('pbvqtd')"><span class="msel-btn-text">Todas</span><span class="msel-caret">▾</span></button>
+          <button type="button" class="msel-clear-btn" id="pbvqtd-filter-clear" onclick="event.stopPropagation(); mselClear('pbvqtd')" title="Limpar filtro" style="display:none">×</button>
+          <div class="msel-panel" id="pbvqtd-filter-panel"></div>
+        </div>
       </label>
       <label class="priority-sub-label">MRR
-        <select onchange="onPriorityBVMrrChange(this.value)">
-          <option value="todos" ${state.priorityBVFaixaMrr === "todos" ? "selected" : ""}>Todos (ordenado por MRR)</option>
-          <option value="acima_mediana" ${state.priorityBVFaixaMrr === "acima_mediana" ? "selected" : ""}>Acima da mediana</option>
-          <option value="top25" ${state.priorityBVFaixaMrr === "top25" ? "selected" : ""}>Top 25%</option>
-          <option value="top10" ${state.priorityBVFaixaMrr === "top10" ? "selected" : ""}>Top 10%</option>
-        </select>
+        <div class="msel" id="pbvmrr-filter-wrap">
+          <button type="button" class="msel-btn" onclick="toggleMsel('pbvmrr')"><span class="msel-btn-text">Todos</span><span class="msel-caret">▾</span></button>
+          <button type="button" class="msel-clear-btn" id="pbvmrr-filter-clear" onclick="event.stopPropagation(); mselClear('pbvmrr')" title="Limpar filtro" style="display:none">×</button>
+          <div class="msel-panel" id="pbvmrr-filter-panel"></div>
+        </div>
       </label>`,
 };
 
-// Rodada 16 (2026-08-27): mostra o(s) grupo(s) de sub-opções das categorias
-// ATIVAS -- pode ser 0, 1 ou as 2 ao mesmo tempo agora. Cada grupo é
-// independente (fica dentro do próprio .priority-subgroup); com os dois
-// ativos, um separador tracejado marca a fronteira entre eles.
+// Rodada 16 (2026-08-27): mostra as sub-opções da categoria ATIVA (só uma por
+// vez -- ver togglePriorityCategory()). Depois de injetar o HTML, popula os
+// painéis .msel recém-criados com as opções fixas de cada sub-filtro.
 function renderPrioritySubOptions() {
   const el = document.getElementById("priority-suboptions");
   if (!el) return;
-  const active = state.priorityCategories;
-  if (!active.length) {
+  const cat = state.priorityCategory;
+  if (!cat || !PRIORITY_SUBOPTIONS_HTML[cat]) {
     el.style.display = "none";
     el.innerHTML = "";
     return;
   }
   el.style.display = "flex";
-  el.innerHTML = active
-    .map(cat => `<div class="priority-subgroup">${PRIORITY_SUBOPTIONS_HTML[cat] ? PRIORITY_SUBOPTIONS_HTML[cat]() : ""}</div>`)
-    .join('<div class="priority-subgroup-divider"></div>');
+  el.innerHTML = PRIORITY_SUBOPTIONS_HTML[cat]();
+  if (cat === "completude") {
+    renderMselOptions("pcqtd", PRIORITY_COMPLETUDE_QTD_OPTIONS);
+    renderMselOptions("pcdias", PRIORITY_COMPLETUDE_DIAS_OPTIONS);
+  } else if (cat === "basic_value") {
+    renderMselOptions("pbvqtd", PRIORITY_BV_QTD_OPTIONS);
+    renderMselOptions("pbvmrr", PRIORITY_BV_MRR_OPTIONS);
+  }
 }
-
-function onPriorityCompletudeQtdChange(v) { state.priorityCompletudeFaixaQtd = v; renderAll(); }
-function onPriorityCompletudeDiasChange(v) { state.priorityCompletudeFaixaDias = v || null; renderAll(); }
-function onPriorityBVQtdChange(v) { state.priorityBVFaixaQtd = v; renderAll(); }
-function onPriorityBVMrrChange(v) { state.priorityBVFaixaMrr = v; renderAll(); }
 
 function onSearchChange() {
   state.searchQuery = document.getElementById("search-cliente").value;
@@ -1854,16 +1960,20 @@ function distinctCompanies(rows) {
 
 // Rodada 16 (2026-08-27): contagem de tickets por classe (Upsell/Troca/
 // Upgrade/Downgrade/Primeira venda/etc., campo classe_instalacao -- mesmo
-// valor já mostrado na coluna "Classe" da tabela), pedido do Luiz pra
-// aparecer no card "Tickets em aberto" ("coloca mais um contando por classe a
-// quantidade de tickets"). Ordenado do mais frequente pro menos frequente.
+// valor já mostrado na coluna "Classe" da tabela), pedido do Luiz. Ordenado
+// do mais frequente pro menos frequente. Cada item também traz o % sobre o
+// total de tickets (pedido do Luiz: "coloca na contagem das classes que vai
+// separar também a % sobre o total").
 function classeBreakdown(rows) {
   const counts = new Map();
   for (const r of rows) {
     const k = r.classe_instalacao || "Sem classe";
     counts.set(k, (counts.get(k) || 0) + 1);
   }
-  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  const total = rows.length;
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, n]) => ({ label, n, pct: total ? Math.round((n / total) * 100) : 0 }));
 }
 
 function renderKpis(rows, companiesArg) {
@@ -1887,21 +1997,32 @@ function renderKpis(rows, companiesArg) {
   const mrrRiscoTotal = empresasRisco.reduce((sum, c) => sum + (Number(c.mrr) || 0), 0);
   const pctRisco = totalEmpresas ? Math.round((empresasRisco.length / totalEmpresas) * 100) : 0;
   const classes = classeBreakdown(rows);
-  const classeGridHtml = classes.length
-    ? `<div class="kpi-classe-grid">${classes.map(([label, n]) =>
-        `<span class="kpi-classe-item"><b>${n}</b> ${escapeHtml(label)}</span>`).join("")}</div>`
-    : "";
+  // Rodada 16, 3ª tentativa: o detalhamento por classe voltou a morar
+  // dentro do MESMO card de "Tickets em aberto" (pedido do Luiz depois de
+  // ver a versão com card próprio: "pode até deixar dentro do mesmo card de
+  // ticket separado por um leve |") -- vira um 2º bloco desse card, com uma
+  // divisória fina entre os dois (ver .kpi-card--ticket-combo no CSS).
+  const classesBlockHtml = classes.length ? `
+      <div class="kpi-ticket-divider"></div>
+      <div class="kpi-ticket-classes">
+        <div class="kpi-label">Tickets por classe</div>
+        <div class="kpi-classe-grid">${classes.map(c =>
+          `<span class="kpi-classe-item"><b>${c.n}</b> ${escapeHtml(c.label)} <span class="kpi-classe-pct">${c.pct}%</span></span>`).join("")}</div>
+      </div>` : "";
 
   const kpiRow = document.getElementById("kpi-row");
   kpiRow.innerHTML = `
-    <div class="kpi-card kpi-card--royal">
-      <div class="kpi-top">
-        <div class="kpi-label">Tickets em aberto</div>
-        <div class="kpi-icon royal">${ICONS.ticket}</div>
+    <div class="kpi-card kpi-card--royal kpi-card--ticket-combo">
+      <div class="kpi-ticket-main">
+        <div class="kpi-top">
+          <div class="kpi-label">Tickets em aberto</div>
+          <div class="kpi-icon royal">${ICONS.ticket}</div>
+        </div>
+        <div class="kpi-number">${total}</div>
+        <div class="kpi-hint">em "Agendar Instalação" no seu escopo</div>
       </div>
-      <div class="kpi-number">${total}</div>
-      <div class="kpi-hint">em "Agendar Instalação" no seu escopo</div>
-      ${classeGridHtml}
+
+      ${classesBlockHtml}
     </div>
 
     <div class="kpi-card kpi-card--risk clickable ${state.riskFilterActive ? "active" : ""}" onclick="toggleRiskFilter()">
