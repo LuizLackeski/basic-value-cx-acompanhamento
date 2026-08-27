@@ -56,8 +56,12 @@
      em degradê royal->indigo) no lugar do usuário, que desceu pro rodapé da
      sidebar (ver .sidebar-user-block) -- pedido do Luiz ("colcoar o nome de
      usuáruio no final também tirar lá da parte de cima... essa linha de cima
-     pode por algum detalhe da cobli, de cores, arcos"). O badge de
-     sincronização também subiu pra cá (ver .header-sync), saindo da sidebar. */
+     pode por algum detalhe da cobli, de cores, arcos").
+     Correção no mesmo dia: o badge de sincronização tinha subido pra cá
+     também, mas voltou pra sidebar (pedido do Luiz: "volta o sin para a
+     barra lateral. Ficou ruim de ver, deixa pouco acima do nome do
+     usuário") -- ver .sync-badge/.sidebar-sync-slot mais abaixo, logo acima
+     do .sidebar-user-block. */
   header {
     height: 56px;
     padding: 0 28px;
@@ -89,13 +93,6 @@
   .brand-text { z-index: 1; }
   .brand-text h1 { font-size: 16px; margin: 0; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
   .brand-text p { font-size: 12px; margin: 2px 0 0; color: rgba(255,255,255,0.68); }
-  .header-sync {
-    z-index: 1; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
-    background: rgba(15,253,201,0.18); color: var(--green); padding: 6px 13px; border-radius: var(--radius-pill);
-    border: 1px solid rgba(15,253,201,0.35);
-  }
-  .header-sync svg { width: 12px; height: 12px; }
-  .header-sync.stale { background: rgba(255,183,77,0.18); color: #FFB74D; border-color: rgba(255,183,77,0.4); }
   /* Bloco de usuário -- agora mora no rodapé da sidebar (ver
      .sidebar-user-block abaixo), não mais no header. As classes .who-name/
      .role-badge continuam existindo (mesmos ids no JS), só reestilizadas pro
@@ -111,8 +108,16 @@
     width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: var(--indigo);
     font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
+  /* Rodada 17, correção (2026-08-27): badge de sincronização voltou pra
+     sidebar (pedido do Luiz -- "volta o sin para a barra lateral... deixa
+     pouco acima do nome do usuário"), logo acima do bloco de usuário. Os
+     dois moram juntos dentro de .sidebar-bottom-block, que é quem recebe
+     margin-top:auto (empurra o par inteiro pro rodapé da sidebar) -- se o
+     auto ficasse em .sidebar-user-block como antes, o badge (fora desse
+     bloco) não desceria junto. */
+  .sidebar-bottom-block { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
   .sidebar-user-block {
-    margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.14);
+    padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.14);
     display: flex; align-items: center; gap: 9px;
   }
   .sidebar-user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -789,9 +794,24 @@
   .tt-icon svg { width: 10px; height: 10px; }
   .tt-icon:hover { background: var(--royal-soft-2); color: var(--royal); }
 
-  /* Célula do checkbox "Concluir" -- checkbox + ícone de dica (linha
-     clicável) lado a lado, cada um com seu próprio tooltip escuro. */
-  .ack-cell { display: flex; align-items: center; gap: 6px; }
+  /* Célula do checkbox "Concluir". Rodada 17, correção (2026-08-27): a
+     dica de "clique na linha" tinha virado um iconezinho separado do lado
+     do checkbox -- pedido do Luiz pra desfazer isso ("quebrou algo ali no
+     canto... tem que ser na linha como antes"). Agora não tem ícone extra
+     nenhum: o hover funciona na LINHA INTEIRA de novo (como o title nativo
+     de antes), só que mostrando o tooltip escuro (.row-click-tip) em vez do
+     tooltip cinza do navegador. .ack-cell vira o ponto de ancoragem
+     (position:relative) porque <tr>/<td> sem isso não é um bom container
+     pra position:absolute em todo navegador -- o gatilho continua sendo
+     :hover na linha (tr.clickable-row), não nesta célula. */
+  .ack-cell { display: flex; align-items: center; gap: 6px; position: relative; }
+  .row-click-tip {
+    display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
+    background: var(--indigo); color: #fff; font-size: 11.5px; font-weight: 400; line-height: 1.4;
+    padding: 8px 10px; border-radius: 8px; width: max-content; max-width: 200px;
+    box-shadow: 0 6px 18px rgba(7,7,78,0.28); z-index: 15; text-align: left;
+  }
+  tr.clickable-row:hover .row-click-tip { display: block; }
 
   /* Célula de Completude sem dado (classe fora da regra de completude por
      deal, ex. Serviço avulso/Visita Técnica) -- pedido do Luiz: opção B do
@@ -886,13 +906,6 @@
         <p>Cobli · Onboarding · SMB · ICP</p>
       </div>
     </div>
-    <!-- Rodada 17: sincronização subiu pro header (era na sidebar) -- mesmo
-         id (#last-sync) e função renderLastSync(), só reestilizado como
-         pílula mint pro fundo escuro (ver .header-sync). -->
-    <span class="header-sync" id="last-sync">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
-      <span id="last-sync-text">carregando...</span>
-    </span>
   </header>
 
   <!-- Redesign de layout -- Opção A (sidebar), 2026-08-12: abas e filtros
@@ -986,19 +999,28 @@
             <div class="priority-suboptions" id="priority-suboptions"></div>
           </div>
 
-          <!-- Rodada 17 (2026-08-27): badge de sincronização subiu pro
-               header (ver #last-sync lá em cima) -- pedido do Luiz. No lugar
-               dele, o bloco de usuário desceu pro rodapé da sidebar (nome,
-               cargo e "Sair" saíram do header -- ver .sidebar-user-block no
-               CSS). margin-top:auto empurra esse bloco pro fim do
-               .sidebar-content flex, mesmo com pouco conteúdo acima. -->
-          <div class="sidebar-user-block">
-            <span class="sidebar-avatar" id="who-avatar"></span>
-            <div class="sidebar-user-info">
-              <span class="who-name" id="who-name"></span>
-              <span class="role-badge" id="who-role"></span>
+          <!-- Rodada 17 (2026-08-27): o bloco de usuário desceu pro rodapé
+               da sidebar (nome, cargo e "Sair" saíram do header -- ver
+               .sidebar-user-block no CSS). Correção no mesmo dia: o badge de
+               sincronização, que tinha subido pro header, voltou pra cá
+               também (pedido do Luiz -- "volta o sin para a barra lateral.
+               Ficou ruim de ver, deixa pouco acima do nome do usuário"),
+               logo acima do nome. margin-top:auto em .sidebar-bottom-block
+               empurra os dois juntos pro fim do .sidebar-content flex,
+               mesmo com pouco conteúdo acima. -->
+          <div class="sidebar-bottom-block">
+            <span class="sync-badge" id="last-sync">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+              <span id="last-sync-text">carregando...</span>
+            </span>
+            <div class="sidebar-user-block">
+              <span class="sidebar-avatar" id="who-avatar"></span>
+              <div class="sidebar-user-info">
+                <span class="who-name" id="who-name"></span>
+                <span class="role-badge" id="who-role"></span>
+              </div>
+              <button class="btn ghost" onclick="logout()">Sair</button>
             </div>
-            <button class="btn ghost" onclick="logout()">Sair</button>
           </div>
         </div>
       </aside>
@@ -2588,10 +2610,7 @@ function renderTable(data) {
             onchange="onAckTicket('${row.ticket_id}', this)" />
           <span class="tt-box">Marcar como concluído -- some da lista permanentemente a partir do próximo carregamento</span>
         </span>
-        <span class="tt-wrap">
-          <span class="tt-icon">${TT_INFO_ICON_SVG}</span>
-          <span class="tt-box">Clique em qualquer lugar da linha para registrar tratativa</span>
-        </span>
+        <span class="row-click-tip">Clique em qualquer lugar da linha para registrar tratativa</span>
       </td>
       <td>
         <div class="client-name" title="${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
