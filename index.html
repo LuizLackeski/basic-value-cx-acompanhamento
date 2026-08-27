@@ -604,13 +604,23 @@
   .sidebar-tabs .tab.active {
     background: rgba(255,255,255,0.14); color: #fff; border-color: transparent;
   }
-  /* Rodada 18 (2026-08-27/28): contador na aba "Prazo" (quantos tickets
-     estão perto de vencer/já venceram, ver updatePrazoTabBadge() no JS). */
+  /* Rodada 18 (2026-08-27/28): contador na aba "Completude" (quantos
+     tickets estão perto de vencer, ver updatePrazoTabBadge() no JS). Rodada
+     18b (2026-08-27, fix pós-entrega): renomeada de "Prazo" pra "Completude"
+     -- o Luiz apontou que essa aba é especificamente sobre o prazo de
+     Completude de instalação (Basic Value não tem prazo de verdade, já era
+     assim desde a decisão de escopo original), então o nome "Prazo" sozinho
+     ficava genérico demais. data-tab/id internos continuam "prazo" de
+     propósito (só o texto visível mudou, sem re-tocar em JS/HTML além disso). */
   .tab-count-badge {
     display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
     padding: 0 5px; border-radius: 999px; background: var(--risk); color: #fff; font-size: 10.5px; font-weight: 700;
     margin-left: 4px; vertical-align: middle;
   }
+  .tab-alert-icon {
+    display: inline-flex; width: 12px; height: 12px; color: var(--warn); vertical-align: -1px; margin-right: 3px;
+  }
+  .tab-alert-icon svg { width: 100%; height: 100%; }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
   /* Rodada 18 (2026-08-27/28): "agrupar por empresa" -- checkbox simples,
@@ -814,7 +824,17 @@
   }
   .tt-icon svg { width: 10px; height: 10px; }
   [data-tt]:hover .tt-icon, .tt-icon:hover { background: var(--royal-soft-2); color: var(--royal); }
-  .ack-cell { display: flex; align-items: center; gap: 6px; }
+  /* Rodada 18 (2026-08-27/28), fix pós-entrega: o Luiz reportou de novo
+     "diferença de linha no bloco de concluir" -- causa raiz era este
+     `display: flex` aqui. Um <td> vira flex container, deixa de se comportar
+     como table-cell "de verdade" e some da conta normal de altura da linha
+     (a linha passava a se esticar só pelas OUTRAS colunas, com texto em 2
+     linhas tipo nome+ticket, deixando o checkbox desalinhado). Como só tem UM
+     elemento nessa célula (o checkbox), não precisava de flex pra centralizar
+     nada -- `vertical-align: middle` no <td> (propriedade normal de célula de
+     tabela, mantém o `display: table-cell`) já centraliza verticalmente sem
+     tirar a célula do fluxo da tabela. */
+  .ack-cell { vertical-align: middle; }
 
   /* Célula de Completude sem dado (classe fora da regra de completude por
      deal, ex. Serviço avulso/Visita Técnica) -- pedido do Luiz: opção B do
@@ -954,11 +974,15 @@
             <div class="sidebar-tabs">
               <div class="tab active" data-tab="principal" onclick="switchTab('principal')">Tickets</div>
               <!-- Rodada 18 (2026-08-27/28): aba nova pra tickets com prazo de
-                   completude perto de vencer ou já vencido (pedido do Luiz --
-                   "uma aba a parte também, que casaria com o filtro"). Badge
-                   com a contagem, atualizado em renderAll() (ver
-                   updatePrazoTabBadge()). -->
-              <div class="tab" data-tab="prazo" onclick="switchTab('prazo')">Prazo <span id="prazo-tab-badge" class="tab-count-badge" style="display:none"></span></div>
+                   completude perto de vencer (pedido do Luiz -- "uma aba a
+                   parte também, que casaria com o filtro"). Badge com a
+                   contagem, atualizado em renderAll() (ver
+                   updatePrazoTabBadge()).
+                   Rodada 18b (2026-08-27, fix pós-entrega): renomeada de
+                   "Prazo" pra "Completude" + ícone de alerta (pedido do Luiz),
+                   e o critério mudou pra só "a vencer" -- já vencido não entra
+                   mais aqui (ver isEmRisco()). -->
+              <div class="tab" data-tab="prazo" onclick="switchTab('prazo')"><span class="tab-alert-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg></span>Completude <span id="prazo-tab-badge" class="tab-count-badge" style="display:none"></span></div>
               <div class="tab" data-tab="evolucao" onclick="switchTab('evolucao')">Evolução B.V.</div>
               <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
             </div>
@@ -1276,7 +1300,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
     </div>
     <h3 style="text-align:center"><span id="prazo-risco-popup-count">0</span> <span id="prazo-risco-popup-count-label">tickets estão</span> perto de vencer o prazo</h3>
-    <p class="confirm-modal-desc">Completude de instalação, dentro do seu escopo, já vencida ou a poucos dias de vencer.</p>
+    <p class="confirm-modal-desc">Completude de instalação, dentro do seu escopo, a poucos dias de vencer o prazo.</p>
     <div class="form-actions" style="justify-content:center; gap:10px; margin-top:18px">
       <button class="btn ghost" type="button" onclick="closePrazoRiscoPopup()">Ver depois</button>
       <button class="btn" type="button" onclick="goToPrazoTab()">Ver agora</button>
@@ -1346,6 +1370,7 @@ const state = {
   responsavelFilter: [],  // Rodada 2: filtro de "Responsável"/"Usuário" (gestor_squad e gestor_geral)
   classeFilter: [],       // Rodada 17 (2026-08-27): filtro por classe_instalacao, pedido do Luiz
   groupByCompany: false,  // Rodada 18 (2026-08-27/28): "agrupar por empresa" na sidebar, pedido do Luiz
+  activeTab: "principal", // Rodada 18b (2026-08-27, fix pós-entrega): qual aba está ativa -- usado por renderAll() pra filtrar os cards de indicadores quando a aba Completude está ativa (pedido do Luiz: "também filtrar os cards quando entrar nela")
   riskFilterActive: false,
   productsByTicket: {},
   searchQuery: "",             // Rodada 3: busca unificada de cliente/empresa (aba Tickets)
@@ -1600,6 +1625,14 @@ function switchTab(tab) {
   document.getElementById("panel-evolucao").style.display = tab === "evolucao" ? "flex" : "none";
   document.getElementById("panel-admin").style.display = tab === "admin" ? "flex" : "none";
   if (tab === "admin") loadTeamTable();
+  // Rodada 18b (2026-08-27, fix pós-entrega): pedido do Luiz -- "também
+  // filtrar os cards quando entrar nela" (na aba Completude). renderAll()
+  // decide o recorte certo dos cards de indicadores a partir de
+  // state.activeTab (ver lá).
+  if (state.activeTab !== tab) {
+    state.activeTab = tab;
+    if (appInitialized) renderAll();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2220,14 +2253,22 @@ function sortArrowHtml(key) {
 function renderAll() {
   const { squadFiltered, displayRows } = applyFilters();
   renderLastSync();
-  // Rodada 16 (2026-08-27): distinctCompanies(squadFiltered) computado UMA
-  // vez aqui e reaproveitado nos dois lugares que precisavam dele (antes
-  // renderKpis e renderGradeDistribution recalculavam cada um por conta
-  // própria, passando pelo mesmo array duas vezes à toa em todo re-render).
-  const companies = distinctCompanies(squadFiltered);
-  renderKpis(squadFiltered, companies);
-  renderGradeDistribution(companies);
-  renderEvolucao(squadFiltered, companies);
+  // Rodada 18b (2026-08-27, fix pós-entrega): pedido do Luiz -- "também
+  // filtrar os cards quando entrar nela" (na aba Completude). Os cards de
+  // indicadores (Tickets em aberto/MRR potencial/Tempo médio/distribuição de
+  // Basic Value) passam a refletir só os tickets em risco de prazo enquanto
+  // essa aba estiver ativa -- a aba Evolução B.V. continua sempre no recorte
+  // cheio (squadFiltered), independente da aba ativa, porque ela mostra a
+  // foto geral do dia, não é específica de risco de prazo.
+  const kpiRows = state.activeTab === "prazo" ? squadFiltered.filter(isEmRisco) : squadFiltered;
+  // Rodada 16 (2026-08-27): distinctCompanies(...) computado UMA vez aqui e
+  // reaproveitado nos lugares que precisavam dele (antes renderKpis e
+  // renderGradeDistribution recalculavam cada um por conta própria, passando
+  // pelo mesmo array duas vezes à toa em todo re-render).
+  const kpiCompanies = distinctCompanies(kpiRows);
+  renderKpis(kpiRows, kpiCompanies);
+  renderGradeDistribution(kpiCompanies);
+  renderEvolucao(squadFiltered, distinctCompanies(squadFiltered));
   renderPrazoTab(squadFiltered);
   updatePrazoTabBadge(squadFiltered);
   // Rodada 18 (2026-08-27/28): "agrupar por empresa" (pedido do Luiz) --
@@ -2728,14 +2769,15 @@ function onRowClick(e, ticketId) {
   openTratativaModal(ticketId);
 }
 
-function renderTable(data) {
-  const wrap = document.getElementById("table-principal-wrap");
-
-  if (!data || data.length === 0) {
-    wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
-    return;
-  }
-
+// Rodada 18b (2026-08-27, fix pós-entrega): extraído de dentro de
+// renderTable()/renderGroupedTable() pra HTML puro (recebe as linhas, devolve
+// uma string) -- pedido do Luiz: "agrupar por empresa precisa funcionar no de
+// prazo também". Antes renderGroupedTable() escrevia direto em
+// #table-principal-wrap, então a aba Completude (renderPrazoTab(), que usa
+// #prazo-wrap) não tinha como reaproveitar a visão agrupada. Agora as duas
+// abas chamam a mesma flatTableHtml()/groupedTableHtml() e só decidem em qual
+// wrap o resultado entra.
+function flatTableHtml(data, sortable) {
   // Rodada 9 (2026-08-12): "Status Field" (field_status/prestador/consultor/
   // data_agendada) escondido de forma REVERSÍVEL via SHOW_FIELD_STATUS (ver
   // comentário na declaração da flag) -- o <th> só entra se a flag estiver
@@ -2743,13 +2785,21 @@ function renderTable(data) {
   // Rodada 15 (2026-08-27): todas as colunas viraram ordenáveis (antes só
   // Aberto há/Basic Value/MRR) -- pedido do Luiz. Mesmo padrão
   // sortable/onSortClick/sortArrowHtml de sempre, só estendido.
-  let html = "<table>" + ticketTableHeadHtml(true) + "<tbody>";
-
+  let html = "<table>" + ticketTableHeadHtml(sortable) + "<tbody>";
   for (const row of data) {
     html += ticketRowHtml(row);
   }
   html += "</tbody></table>";
-  wrap.innerHTML = html;
+  return html;
+}
+
+function renderTable(data) {
+  const wrap = document.getElementById("table-principal-wrap");
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
+    return;
+  }
+  wrap.innerHTML = flatTableHtml(data, true);
 }
 
 // Rodada 18 (2026-08-27/28): linha de ticket extraída de dentro de
@@ -2845,27 +2895,34 @@ function ticketTableHeadHtml(sortable) {
 // prazo/vencida (Basic Value não tem prazo de verdade, fica de fora).
 // ---------------------------------------------------------------------------
 const PRAZO_RISCO_DIAS = 7; // ponto de partida ajustável, como as faixas de Prioridade
+// Rodada 18b (2026-08-27, fix pós-entrega): pedido do Luiz depois de ver em
+// produção -- "tá trazendo os que já venceram, estes não precisam mostrar pq
+// já venceu mesmo e não vai impactar positivamente no indicador, tem que
+// mostrar só os a vencer". Antes, um ticket com completude_dentro_do_prazo
+// === false (prazo JÁ encerrado) entrava aqui também -- em produção isso
+// inflava demais a contagem (778 tickets, a maioria vencida há muito, nada
+// "proativo" nisso: já está sinalizado como "Prazo encerrado" na própria
+// tabela, não precisa duplicar num alerta). Agora só entra quem AINDA não
+// venceu, mas vence em até PRAZO_RISCO_DIAS -- é isso que faz sentido "dar
+// tempo de agir".
 function isEmRisco(row) {
   if (row.classe_instalacao === "Troca") {
     if (row.dias_aberto == null) return false;
-    return (60 - row.dias_aberto) <= PRAZO_RISCO_DIAS; // já vencido (negativo) ou perto de vencer
+    const restantes = 60 - row.dias_aberto;
+    return restantes > 0 && restantes <= PRAZO_RISCO_DIAS;
   }
-  if (row.completude_dentro_do_prazo === false) return true; // já vencido
   if (row.completude_dentro_do_prazo === true) {
     const dias = diasRestantesPrazoCompletude(row);
-    return dias != null && dias <= PRAZO_RISCO_DIAS;
+    return dias != null && dias > 0 && dias <= PRAZO_RISCO_DIAS;
   }
-  return false; // Serviço avulso/Visita Técnica/sem dado -- não entra nessa métrica
+  return false; // já vencido (completude_dentro_do_prazo === false) ou Serviço avulso/Visita Técnica/sem dado -- não entram mais nessa métrica
 }
-// Valor numérico só pra ORDENAR a aba Prazo (mais urgente primeiro) -- não é
-// exibido, por isso pode usar sentinelas (-9999/9999) sem se preocupar em
-// formatar bonito.
+// Valor numérico só pra ORDENAR a aba Completude (mais urgente = menos dias
+// restantes primeiro) -- não é exibido, por isso pode usar sentinela (9999)
+// sem se preocupar em formatar bonito. Só precisa cobrir quem isEmRisco()
+// já garantiu ser "a vencer" (dias > 0), então não há mais ramo de vencido.
 function diasParaOrdenarPrazo(row) {
   if (row.classe_instalacao === "Troca") return 60 - (row.dias_aberto == null ? 9999 : row.dias_aberto);
-  if (row.completude_dentro_do_prazo === false) {
-    const d = diasRestantesPrazoCompletude(row);
-    return d != null ? d : -9999;
-  }
   const d = diasRestantesPrazoCompletude(row);
   return d != null ? d : 9999;
 }
@@ -2881,13 +2938,13 @@ function renderPrazoTab(rows) {
   if (!wrap) return;
   const emRisco = rows.filter(isEmRisco).sort((a, b) => diasParaOrdenarPrazo(a) - diasParaOrdenarPrazo(b));
   if (!emRisco.length) {
-    wrap.innerHTML = '<div id="empty-state">Nenhum ticket perto do prazo ou com o prazo de completude vencido no filtro atual. 🎉</div>';
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket de Completude perto de vencer no filtro atual. 🎉</div>';
     return;
   }
-  let html = "<table>" + ticketTableHeadHtml(false) + "<tbody>";
-  emRisco.forEach(r => { html += ticketRowHtml(r); });
-  html += "</tbody></table>";
-  wrap.innerHTML = html;
+  // Rodada 18b (2026-08-27, fix pós-entrega): "agrupar por empresa" (pedido
+  // do Luiz) agora também vale aqui -- reaproveita groupedTableHtml(), a
+  // mesma função usada pela aba Tickets (ver toggleGroupByCompany()).
+  wrap.innerHTML = state.groupByCompany ? groupedTableHtml(emRisco, false) : flatTableHtml(emRisco, false);
 }
 
 // Popup de alerta ao entrar -- 1x por dia por usuário (localStorage), pedido
@@ -2935,15 +2992,18 @@ function toggleGroupByCompany() {
   state.groupByCompany = !state.groupByCompany;
   renderAll();
 }
-function renderGroupedTable(rows) {
-  const wrap = document.getElementById("table-principal-wrap");
+// Rodada 18b (2026-08-27, fix pós-entrega): mesma extração de flatTableHtml()
+// -- devolve a string em vez de escrever direto no DOM, pra
+// renderGroupedTable() (aba Tickets) e renderPrazoTab() (aba Completude,
+// pedido do Luiz: "agrupar por empresa precisa funcionar no de prazo
+// também") poderem reaproveitar.
+function groupedTableHtml(rows, sortable) {
   if (!rows || !rows.length) {
-    wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
-    return;
+    return '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
   }
   // Mantém a ORDEM de chegada (já vem ordenada por applyFilters()/sort ativo
-  // -- ver applyFilters()) -- cada grupo fica na posição do primeiro ticket
-  // dele que aparece na lista.
+  // -- ver applyFilters() -- ou por urgência, no caso da aba Completude) --
+  // cada grupo fica na posição do primeiro ticket dele que aparece na lista.
   const groups = new Map();
   rows.forEach(r => {
     const key = r.company_id || `_sem_empresa_${r.ticket_id}`;
@@ -2952,7 +3012,7 @@ function renderGroupedTable(rows) {
   });
 
   const colCount = 10 + (SHOW_FIELD_STATUS ? 1 : 0);
-  let html = "<table>" + ticketTableHeadHtml(true) + "<tbody>";
+  let html = "<table>" + ticketTableHeadHtml(sortable) + "<tbody>";
   groups.forEach(g => {
     const isOpen = expandedCompanies.has(g.key);
     const riscoCount = g.rows.filter(isEmRisco).length;
@@ -2973,7 +3033,11 @@ function renderGroupedTable(rows) {
     }
   });
   html += "</tbody></table>";
-  wrap.innerHTML = html;
+  return html;
+}
+function renderGroupedTable(rows) {
+  const wrap = document.getElementById("table-principal-wrap");
+  wrap.innerHTML = groupedTableHtml(rows, true);
 }
 
 // Checkbox "Agendado" (Rodada 9, 2026-08-12) -- vale pra TODO ticket da
