@@ -120,9 +120,12 @@
      um leve |, dentro ai reduz os outros dois um pouco na largura"). Virou
      3 colunas (era 4): o card combinado ocupa o espaço que antes era de 2,
      MRR/Tempo ficam um pouco mais estreitos (0.9fr em vez de 1fr) pra abrir
-     espaço. `align-items: start` continua garantindo que nenhum card
-     estique pra bater a altura do outro. */
-  .kpi-row { display: grid; grid-template-columns: 2.2fr 0.9fr 0.9fr; gap: 10px; margin-bottom: 10px; align-items: start; }
+     espaço.
+     4ª tentativa: o Luiz pediu pra deixar os 3 cards na MESMA altura
+     ("ajusta eles para ficarem na mesma altura") -- voltou
+     `align-items: stretch` (era `start`), então MRR/Tempo esticam pra bater
+     a altura do combinado, que passou a ditar a altura da linha. */
+  .kpi-row { display: grid; grid-template-columns: 2.2fr 0.9fr 0.9fr; gap: 10px; margin-bottom: 10px; align-items: stretch; }
   /* Rodada 15 (2026-08-27): linha colorida nos cards (pedido do Luiz, foto 3
      -- "coloca uma linhazinha na lateral deles"). Duas correções no mesmo
      dia depois do Luiz ver o resultado: (1) a linha tem que ser COLORIDA por
@@ -187,15 +190,24 @@
      "Tickets em aberto" -- "pode até deixar dentro do mesmo card de ticket
      separado por um leve |". Virou .kpi-ticket-classes, um bloco irmão de
      .kpi-ticket-main dentro do MESMO .kpi-card (ver .kpi-card--ticket-combo
-     abaixo) -- o multi-coluna balanceado continua o mesmo, só mudou onde
-     ele mora. */
+     abaixo).
+     4ª tentativa (dado real de produção, 10 classes): o multi-coluna
+     balanceado (column-width:82px) deixava itens mais longos ("Piloto
+     Pós-Won", "Desinstalação" + "0%") quebrando em 2 linhas dentro da
+     própria coluna, mesmo sobrando espaço horizontal no card (pedido do
+     Luiz: "aqui não pode cortar para outra linha se tem espaço, justifica
+     os blocos para ficarem iguais"). Voltou a ser CSS Grid (não
+     multi-coluna) com colunas largas o bastante pra nenhum item real
+     quebrar linha (minmax 150px) -- `1fr` faz as colunas ficarem todas do
+     MESMO tamanho ("justificado"/igual), e como agora os 3 cards da linha
+     esticam juntos (`align-items: stretch` acima), a altura extra que isso
+     precisa não é mais um problema. */
   .kpi-classe-grid {
-    display: block; column-width: 82px; column-gap: 10px; column-fill: balance;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 14px;
   }
   .kpi-classe-item {
-    display: block; font-size: 11px; color: var(--ink-mute);
-    white-space: normal; overflow: visible; text-overflow: clip;
-    break-inside: avoid; margin-bottom: 4px;
+    font-size: 11px; color: var(--ink-mute);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .kpi-classe-item b { color: var(--ink); font-weight: 700; }
   .kpi-classe-pct { color: var(--ink-mute); opacity: 0.75; font-size: 10px; }
