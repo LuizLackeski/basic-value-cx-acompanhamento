@@ -28,6 +28,16 @@
     --warn-soft:   rgba(183,121,31,0.12);
     --ok-text:     #0E7D5F;
     --ok-soft:     rgba(15,253,201,0.22);
+    /* Rampa ordinal de 1 hue só (verde), validada com o script do skill de
+       dataviz (node validate_palette.js ... --ordinal -- todos os checks
+       passam: monotonicidade de luminância, contraste do degrau mais claro
+       e hue único). Usada SÓ no gráfico de evolução (aba "Evolução B.V.") --
+       ali vários graus aparecem lado a lado na mesma visualização, onde a
+       distinguibilidade entre cores adjacentes importa de verdade. Os badges
+       existentes (.grade-pill, aprovados na Rodada 2) continuam com suas
+       cores de status (risco/aviso/ok) -- lá cada grau aparece isolado, não
+       em comparação direta lado a lado, então o rigor de paleta categórica
+       não se aplica do mesmo jeito. */
     --bv-ramp-0: #39c692;
     --bv-ramp-1: #30a67b;
     --bv-ramp-2: #278663;
@@ -41,32 +51,80 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink); font-family: inherit; -webkit-font-smoothing: antialiased; }
-  header { height: 56px; padding: 0 28px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+
+  header {
+    height: 56px;
+    padding: 0 28px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 20;
+  }
   .brand { display: flex; align-items: center; gap: 12px; }
   .brand svg { width: 26px; height: 29px; flex-shrink: 0; }
   .brand-text h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
   .brand-text p { font-size: 12px; margin: 2px 0 0; color: var(--ink-mute); }
   .who { display: flex; align-items: center; gap: 10px; }
   .who-name { font-size: 13px; font-weight: 600; color: var(--ink); }
-  .role-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-pill); background: var(--royal-soft-2); color: var(--royal); text-transform: uppercase; letter-spacing: 0.02em; }
+  .role-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-pill);
+    background: var(--royal-soft-2); color: var(--royal); text-transform: uppercase; letter-spacing: 0.02em;
+  }
+
   html, body { height: 100%; }
   #app { display: flex; flex-direction: column; height: 100vh; }
-  main { padding: 10px 28px 16px; max-width: 1520px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  main {
+    padding: 10px 28px 16px; max-width: 1520px; width: 100%; margin: 0 auto;
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+  }
+
+  /* Indicadores + toolbar: altura natural, não rolam -- só o painel abaixo rola. */
   .sticky-zone { flex-shrink: 0; }
-  #panel-principal, #panel-evolucao, #panel-admin { flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; overflow-x: auto; }
-  #panel-principal, #panel-evolucao { border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-  #login-screen { max-width: 380px; margin: 100px auto; padding: 32px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+
+  /* Os painéis (Tickets / Evolução B.V. / Administração -- "Atendimentos
+     múltiplos" removido em 2026-08-12, ver switchTab()) ocupam o espaço
+     restante e rolam por dentro -- a página/tela em si não rola. */
+  #panel-principal, #panel-evolucao, #panel-admin {
+    flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; overflow-x: auto;
+  }
+  #panel-principal, #panel-evolucao {
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
+  }
+
+  #login-screen {
+    max-width: 380px; margin: 100px auto; padding: 32px; background: #fff;
+    border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+  }
   #login-screen h2 { margin: 0 0 6px; font-size: 18px; color: var(--ink); }
-  #login-screen input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); margin-bottom: 12px; font-family: inherit; font-size: 14px; }
+  #login-screen input {
+    width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink); margin-bottom: 12px; font-family: inherit; font-size: 14px;
+  }
   #login-screen input:focus { outline: none; border-color: var(--royal); }
-  .btn { padding: 9px 16px; border-radius: 8px; border: none; background: var(--royal); color: #fff; cursor: pointer; font-weight: 600; font-size: 13px; font-family: inherit; transition: opacity .15s; }
+  .btn {
+    padding: 9px 16px; border-radius: 8px; border: none; background: var(--royal); color: #fff;
+    cursor: pointer; font-weight: 600; font-size: 13px; font-family: inherit; transition: opacity .15s;
+  }
   .btn:hover { opacity: 0.88; }
   .btn.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
   .btn.ghost:hover { background: var(--paper-2); opacity: 1; }
   #login-msg { font-size: 13px; color: var(--ink-mute); margin-top: 8px; }
+
+  /* KPI cards -- compactos de propósito: precisam sobrar espaço vertical
+     pra tabela, já que ficam sempre visíveis (sticky) enquanto rola. */
   .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
-  .kpi-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-card); padding: 8px 12px 8px 16px; display: flex; flex-direction: column; gap: 1px; position: relative; overflow: hidden; }
-  .kpi-card::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--royal-soft-2); }
+  .kpi-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow-card); padding: 8px 12px 8px 16px; display: flex; flex-direction: column; gap: 1px;
+    position: relative; overflow: hidden;
+  }
+  /* Rodada 15 (2026-08-27): linha fina lateral pra separar visualmente os
+     cards (pedido do Luiz, foto 3 -- "coloca uma linhazinha na lateral
+     deles"). Mesmo tratamento aplicado aos blocos da sidebar (.sidebar-block). */
+  .kpi-card::before {
+    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+    border-radius: 0 2px 2px 0; background: var(--royal-soft-2);
+  }
   .kpi-card.clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
   .kpi-card.clickable:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(7,7,78,0.06), 0 14px 28px rgba(7,7,78,0.10); }
   .kpi-card.active { border-color: var(--risk); box-shadow: 0 0 0 2px rgba(199,54,44,0.15); }
@@ -81,29 +139,65 @@
   .kpi-number.risk { color: var(--risk); }
   .kpi-label { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
   .kpi-hint { font-size: 10.5px; color: var(--ink-mute); }
+
+  /* Toolbar */
   .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
   .tabs { display: flex; gap: 2px; }
   .tab { padding: 9px 16px; border-radius: 10px 10px 0 0; cursor: pointer; color: var(--ink-mute); font-size: 13px; font-weight: 600; border: 1px solid transparent; }
   .tab.active { background: #fff; color: var(--ink); border-color: var(--line); border-bottom-color: #fff; }
   .spacer { flex: 1; }
-  select, input[type=text] { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); font-family: inherit; font-size: 13px; }
-  .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); background: var(--paper-2); padding: 5px 12px; border-radius: var(--radius-pill); border: 1px solid var(--line); font-weight: 500; }
+  select, input[type=text] {
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    font-family: inherit; font-size: 13px;
+  }
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft);
+    background: var(--paper-2); padding: 5px 12px; border-radius: var(--radius-pill); border: 1px solid var(--line);
+    font-weight: 500;
+  }
   .sync-badge svg { width: 12px; height: 12px; }
-  .filter-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; background: var(--risk-soft); color: var(--risk); padding: 5px 10px 5px 12px; border-radius: var(--radius-pill); cursor: pointer; border: 1px solid rgba(199,54,44,0.25); }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    background: var(--risk-soft); color: var(--risk); padding: 5px 10px 5px 12px; border-radius: var(--radius-pill);
+    cursor: pointer; border: 1px solid rgba(199,54,44,0.25);
+  }
   .filter-chip span.x { font-size: 14px; line-height: 1; }
+
   table { width: 100%; border-collapse: collapse; background: #fff; }
   th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
+  /* Rodada 12 (2026-08-12): removido `text-transform: uppercase` -- pedido do
+     Luiz ("ajusta esses nomes deixa só a primeira letra maiuscula para não
+     quebrar linha"). Texto em CAIXA ALTA ocupa mais largura que o mesmo texto
+     em caixa normal no mesmo tamanho de fonte -- era isso que fazia
+     cabeçalhos como "Aberto há" ("ABERTO HÁ") ou "Compl. instalação"
+     ("COMPL. INSTALAÇÃO") quebrarem em 2 linhas em colunas estreitas. O texto
+     de origem (`<th>Aberto há</th>` etc.) já estava em caixa normal -- só o
+     CSS forçava maiúsculas. `white-space: nowrap` adicionado como garantia
+     extra (mesma lógica do fix de `.bv-cell .bv-row`): na pior das hipóteses
+     a tabela ganha scroll horizontal em vez de cabeçalho quebrado. */
   th { color: var(--ink-mute); font-weight: 600; font-size: 11.5px; letter-spacing: 0.01em; white-space: nowrap; background: var(--paper-2); position: sticky; top: 0; z-index: 5; }
   tbody tr:nth-child(even) td { background: rgba(7,7,78,0.012); }
   tbody tr:hover td { background: var(--royal-soft); }
   tbody tr:last-child td { border-bottom: none; }
-  .client-name { font-weight: 600; color: var(--ink); font-size: 13.5px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Rodada 11 (2026-08-12): truncar nome longo com "..." -- pedido do Luiz
+     pra ganhar espaço horizontal ("Cattani Transporte..." em vez do nome
+     inteiro). Tooltip (title) mantém o nome completo ao passar o mouse. */
+  .client-name {
+    font-weight: 600; color: var(--ink); font-size: 13.5px;
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .meta-line { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
   .meta-line a { color: var(--royal); text-decoration: none; font-weight: 600; }
   .meta-line a:hover { text-decoration: underline; }
+
   .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700; white-space: nowrap; }
   .badge.ok { background: var(--ok-soft); color: var(--ok-text); }
   .badge.risk { background: var(--risk-soft); color: var(--risk); }
+  /* Rodada 15 (2026-08-27): badges de risco/ok viraram só ícone (pedido do
+     Luiz -- "coloca só um ícone de alerta", "check verde") em vez de texto,
+     tanto no Basic Value Geral quanto na Completude de Instalação. Motivo
+     textual continua disponível no title (tooltip). */
   .badge.icon-only { padding: 3px 6px; }
   .badge svg { width: 12px; height: 12px; display: block; }
   .badge.stage { background: var(--royal-soft-2); color: var(--royal); }
@@ -112,27 +206,69 @@
   .badge.squad.smb { background: rgba(183,121,31,0.10); color: var(--warn); }
   .badge.squad.icp { background: var(--green-soft); color: var(--ok-text); }
   .muted { color: var(--ink-mute); }
+
   .products-wrap { display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px; }
   .chip { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: var(--paper-2); color: var(--ink-soft); border: 1px solid var(--line); white-space: nowrap; }
   .chip.empty { background: transparent; color: var(--ink-mute); font-weight: 500; font-style: italic; border-style: dashed; }
+  /* Rastreador (telemetria) = a contagem real de ESNs do ticket -- é o "produto
+     base" da instalação, distinto dos acessórios (câmera/trava/chaveiro) que
+     vêm de propriedades HubSpot separadas. Destacado com a cor royal pra não
+     se confundir com os chips de acessório. */
   .chip.chip-core { background: var(--royal-soft-2); color: var(--royal); border-color: rgba(0,27,184,0.2); font-weight: 700; }
+
+  /* Card de distribuição por Basic Value de Instalação -- uma linha só,
+     compacta de propósito (mesma lógica dos KPIs: sobrar espaço pra tabela).
+     Rodada 2 (2026-08-10): trocado de "bolinha + texto" pra badges/pills,
+     mesmo padrão visual do resto do dashboard (.badge), com fundo bem suave
+     de cada cor em vez de um ponto colorido solto. */
   .grade-title { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
-  .grade-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--radius-pill); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .grade-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+    border-radius: var(--radius-pill); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  }
   .grade-pill b { font-size: 13.5px; font-weight: 700; }
   .grade-pill .pct { font-size: 11px; font-weight: 600; opacity: 0.72; }
+  /* Correção (2026-08-12): revertido pra cor de STATUS (risco/aviso/ok),
+     como estava antes da Rodada 6 -- CSS exato recuperado do commit
+     01c179608ade3b12ca7c414ea4a86751ca82a09d (imediatamente antes da Rodada
+     6). O Luiz esclareceu que o pedido da Rodada 4/6 era o INVERSO do que
+     tinha sido implementado: este card (.grade-pill) deveria continuar com
+     cor de status, e é a paleta de status que deveria ir pro gráfico de
+     Evolução B.V. (ver EVO_RAMP), não o contrário. */
   .grade-pill.g4 { background: var(--ok-soft); color: var(--ok-text); }
   .grade-pill.g3 { background: rgba(76,156,134,0.16); color: #3F7D69; }
   .grade-pill.g2 { background: var(--warn-soft); color: var(--warn); }
   .grade-pill.g1 { background: rgba(199,122,58,0.16); color: #A3652E; }
   .grade-pill.g0 { background: var(--risk-soft); color: var(--risk); }
   .grade-pill.gx { background: var(--paper-2); color: var(--ink-mute); }
-  .grade-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-card); padding: 9px 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .grade-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-card);
+    padding: 9px 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  /* Rodada 12 (2026-08-12): `white-space: nowrap` adicionado -- pedido do
+     Luiz ("ajustar a coluna para não quebrar em 3 linhas o completude").
+     Causa raiz: a linha "67% | +3 para 80%" é texto normal dentro de um flex
+     item -- sem isso, o texto quebra dentro do próprio .bv-row quando a
+     coluna fica estreita (tabela sem table-layout:fixed, largura decidida
+     pelo navegador conforme o conteúdo de todas as colunas), virando 2
+     linhas visuais só nessa div + a linha do badge = 3 linhas no total.
+     Com nowrap, cada .bv-row nunca quebra -- na pior das hipóteses (viewport
+     bem estreito) a TABELA ganha scroll horizontal (`#panel-principal` já
+     tem overflow-x:auto), o que é preferível a texto cortado/quebrado dentro
+     da célula. */
   .bv-cell .bv-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin-bottom: 3px; white-space: nowrap; }
   .bv-cell .bv-row b { color: var(--ink); }
   .bv-cell .mrr-line { font-size: 11.5px; color: var(--ink-mute); }
+
   .tratativa-cell select, .tratativa-cell textarea { width: 100%; font-size: 12px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-family: inherit; }
   .tratativa-cell textarea { margin-top: 6px; min-height: 44px; resize: vertical; }
   .tratativa-cell select:focus, .tratativa-cell textarea:focus { outline: none; border-color: var(--royal); }
+
+  /* Rodada 2 (2026-08-10): tirado o max-width: 780px -- era o motivo do
+     painel de Administração parecer "cortado"/mais estreito que o resto do
+     app (Tickets/Atendimentos ocupam a largura toda do <main>, até 1520px).
+     Agora acompanha a mesma largura disponível. */
   .admin-panel-card { margin: 0 0 20px; padding: 24px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); width: 100%; }
   .admin-panel-card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
   .admin-panel-card .form-desc { font-size: 12.5px; color: var(--ink-mute); margin: 0 0 16px; }
@@ -142,15 +278,37 @@
   .form-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.02em; }
   .form-grid input, .form-grid select { width: 100%; padding: 9px 10px; font-size: 13px; text-transform: none; letter-spacing: normal; font-weight: 400; color: var(--ink); }
   .form-actions { display: flex; justify-content: flex-end; }
+
   #empty-state { padding: 48px; text-align: center; color: var(--ink-mute); background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); font-size: 13px; }
+
+  /* Rodada 3: busca unificada de cliente/empresa (aba Tickets).
+     Rodada 11 (2026-08-12): removido o `min-width: 240px` daqui -- era da
+     época em que a busca vivia na toolbar horizontal (espaço de sobra).
+     Desde a Rodada 9 ela mora na sidebar (hoje 222px de área útil interna) --
+     esse min-width forçava o input a ficar sempre com 240px, 18px mais largo
+     que a sidebar, e isso é EXATAMENTE o que causava tanto o scroll
+     horizontal (antes do fix de overflow-x) quanto o corte visual (depois do
+     fix, que só trocou "aparece scroll" por "aparece cortado" -- o input
+     continuava largo demais, só a barra de rolagem que sumiu). Confirmado
+     medindo scrollWidth/clientWidth com Playwright: sem este min-width, o
+     input já respeita `.search-wrap input[type=text] { width: 100% }` e cabe
+     exatamente nos 222px, sem sobra nenhuma. */
   #search-cliente { min-width: 0; }
+
+  /* Rodada 3: ordenação clicável nas colunas */
   th.sortable { cursor: pointer; user-select: none; }
   th.sortable:hover { color: var(--ink); }
   th.sortable .sort-arrow { margin-left: 4px; opacity: 0.55; font-size: 10px; }
   th.sortable.sort-active .sort-arrow { opacity: 1; color: var(--royal); }
+
+  /* Rodada 3: badge de sincronização "desatualizada" (> 2 dias) */
   .sync-badge.stale { background: var(--warn-soft); color: var(--warn); border-color: rgba(183,121,31,0.3); }
   .sync-badge.fresh { background: var(--ok-soft); color: var(--ok-text); border-color: rgba(15,253,201,0.35); }
+
+  /* Rodada 3: campos travados no formulário de convite (gestor de squad) */
   .locked-value { padding: 9px 10px; font-size: 13px; color: var(--ink-soft); background: var(--paper-2); border-radius: 8px; border: 1px solid var(--line); }
+
+  /* Rodada 3: aba "Evolução B.V." */
   .evo-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); padding: 20px 24px; margin: 0 0 16px; }
   .evo-card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
   .evo-card .form-desc { font-size: 12.5px; color: var(--ink-mute); margin: 0 0 18px; }
@@ -158,82 +316,220 @@
   .evo-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 12px; color: var(--ink-soft); }
   .evo-legend-item { display: inline-flex; align-items: center; gap: 6px; }
   .evo-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-  .evo-tooltip { position: absolute; background: var(--ink); color: #fff; font-size: 11.5px; padding: 6px 10px; border-radius: 6px; pointer-events: none; white-space: nowrap; box-shadow: var(--shadow-card); z-index: 30; opacity: 0; transition: opacity .1s; transform: translate(-50%, -100%); }
+  .evo-tooltip {
+    position: absolute; background: var(--ink); color: #fff; font-size: 11.5px; padding: 6px 10px;
+    border-radius: 6px; pointer-events: none; white-space: nowrap; box-shadow: var(--shadow-card);
+    z-index: 30; opacity: 0; transition: opacity .1s; transform: translate(-50%, -100%);
+  }
   .evo-tooltip.show { opacity: 1; }
   .evo-table-toggle { font-size: 12px; color: var(--royal); cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
   .evo-table-wrap { margin-top: 12px; }
   .evo-empty { padding: 24px; text-align: center; color: var(--ink-mute); font-size: 13px; }
   .evo-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .evo-toggle { display: inline-flex; background: var(--paper-2); border-radius: 999px; padding: 3px; gap: 2px; }
-  .evo-toggle button { border: none; background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .evo-toggle button {
+    border: none; background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--ink-soft); padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  }
   .evo-toggle button.active { background: #fff; color: var(--royal); box-shadow: var(--shadow-card); }
-  .evo-range-select { font-family: inherit; font-size: 12.5px; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; cursor: pointer; }
-  .kpi-block-header { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 11.5px; font-weight: 700; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; padding: 2px 2px; }
+  .evo-range-select {
+    font-family: inherit; font-size: 12.5px; color: var(--ink-soft); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; background: #fff; cursor: pointer;
+  }
+
+  /* Rodada 6 (2026-08-11): KPIs + distribuição por Basic Value viraram um
+     único bloco recolhível -- por decisão do Luiz, começa SEMPRE expandido;
+     o toggle só existe pra quem quiser ganhar espaço vertical pra tabela. */
+  .kpi-block-header {
+    display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    font-size: 11.5px; font-weight: 700; color: var(--ink-mute); text-transform: uppercase;
+    letter-spacing: 0.03em; margin-bottom: 6px; padding: 2px 2px;
+  }
   .kpi-block-header:hover { color: var(--ink-soft); }
   .kpi-block-toggle { font-size: 11px; transition: transform .12s; display: inline-block; }
   .kpi-block-toggle.collapsed { transform: rotate(-90deg); }
-  .badge.covering { background: transparent; color: var(--ink-mute); border: 1px dashed var(--line); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em; }
+
+  /* Rodada 6: diferenciação visual squad titular vs. cobertura temporária
+     (access_grants) -- só aparece pra quem tem uma squad própria definida
+     (colaborador/gestor_squad) e o ticket não é da squad dela. gestor_geral
+     não tem "squad titular" (vê tudo por natureza do papel), então nunca
+     mostra esse selo. */
+  .badge.covering {
+    background: transparent; color: var(--ink-mute); border: 1px dashed var(--line);
+    font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em;
+  }
+
+  /* Rodada 6: cards de Convidar/Delegar mais compactos -- observação do Luiz
+     de que ficaram "muito largos/feios" em altura na Rodada 2. */
   .admin-panel-card.compact-admin { padding: 16px 20px; }
   .admin-panel-card.compact-admin form { margin-bottom: 14px; padding-bottom: 14px; }
   .admin-panel-card.compact-admin .form-grid { gap: 10px; margin-bottom: 10px; }
   .admin-panel-card.compact-admin h3 { font-size: 13.5px; margin-bottom: 3px; }
   .admin-panel-card.compact-admin .form-desc { font-size: 11.5px; margin-bottom: 10px; }
+
+  /* Rodada 6: ações (editar/excluir) na tabela de Cadastro atual */
   .row-actions { display: flex; gap: 6px; }
-  .row-actions button { padding: 4px 10px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink-soft); cursor: pointer; font-family: inherit; font-weight: 600; }
+  .row-actions button {
+    padding: 4px 10px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink-soft); cursor: pointer; font-family: inherit; font-weight: 600;
+  }
   .row-actions button:hover { background: var(--paper-2); }
   .row-actions button.danger { color: var(--risk); border-color: rgba(199,54,44,0.3); }
   .row-actions button.danger:hover { background: var(--risk-soft); }
+
+  /* ==========================================================================
+     Redesign de layout -- Opção A (sidebar), 2026-08-12.
+     Abas + filtros (busca, squad, gestor, responsável, prioridades) saem da
+     toolbar horizontal e vão para uma barra lateral esquerda recolhível.
+     Os indicadores reais (#kpi-row / #grade-row, MESMA renderização JS de
+     sempre) e os painéis de dados continuam no centro/topo do conteúdo
+     principal -- só foram realocados, não recriados (o mockup anterior tinha
+     esquecido o #grade-row e usado cards de KPI inventados; aqui os
+     elementos reais foram só movidos de lugar). */
   .body-shell { display: flex; flex: 1; min-height: 0; gap: 16px; }
-  .sidebar { width: 204px; flex-shrink: 0; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 12px; padding: 12px 10px; transition: width .16s ease, padding .16s ease; overflow: hidden; }
+  .sidebar {
+    width: 204px; flex-shrink: 0; background: #fff; border: 1px solid var(--line);
+    border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    display: flex; flex-direction: column; gap: 12px; padding: 12px 10px;
+    transition: width .16s ease, padding .16s ease; overflow: hidden;
+  }
   .sidebar.collapsed { width: 44px; padding: 14px 6px; gap: 10px; }
   .sidebar.collapsed .sidebar-content { display: none; }
   .sidebar-toggle-row { display: flex; justify-content: flex-end; flex-shrink: 0; }
-  .sidebar-toggle-btn { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper-2); color: var(--ink-soft); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .sidebar-toggle-btn {
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper-2);
+    color: var(--ink-soft); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
+  }
   .sidebar-toggle-btn:hover { background: var(--paper); }
+  /* Rodada 11 (2026-08-12): corrige scroll horizontal indevido na sidebar --
+     causa: "overflow-y: auto" sem "overflow-x" explícito faz o navegador
+     computar overflow-x como "auto" também (regra do spec de CSS quando um
+     eixo é non-visible e o outro não é setado) -- por isso aparecia uma
+     barra de rolagem lateral mesmo sem conteúdo realmente mais largo que a
+     sidebar. `min-width: 216px` também tirado -- deixava a margem pro
+     scrollbar vertical apertada demais. */
   .sidebar-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-y: auto; overflow-x: hidden; }
-  .sidebar-section-title { font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 6px; }
+  .sidebar-section-title {
+    font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.03em; margin: 0 0 6px;
+  }
+  /* Rodada 15 (2026-08-27): linha fina separando os blocos (Navegação /
+     Filtros / Prioridades / Sync) -- pedido do Luiz ("tá tudo muito junto"),
+     mesma ideia da linha lateral dos KPI cards (.kpi-card::before). */
   .sidebar-block { padding-top: 12px; border-top: 1px solid var(--line); }
   .sidebar-block:first-child { padding-top: 0; border-top: none; }
   .sidebar-tabs { display: flex; flex-direction: column; gap: 2px; }
-  .sidebar-tabs .tab { border-radius: 8px; padding: 9px 12px; border: 1px solid transparent; }
-  .sidebar-tabs .tab.active { background: var(--royal-soft-2); color: var(--royal); border-color: transparent; }
+  /* Reaproveita a classe .tab/.tab.active (usada por switchTab() via
+     querySelectorAll(".tab")) -- só o visual muda de "aba horizontal estilo
+     pasta" pra "item de menu vertical", sem tocar em JS. */
+  .sidebar-tabs .tab {
+    border-radius: 8px; padding: 9px 12px; border: 1px solid transparent;
+  }
+  .sidebar-tabs .tab.active {
+    background: var(--royal-soft-2); color: var(--royal); border-color: transparent;
+  }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
   .sidebar .sync-badge { width: 100%; box-sizing: border-box; justify-content: center; }
   .sidebar .btn.ghost { width: 100%; }
+
+  /* Rodada 15 (2026-08-27): filtros de Gestor/Squad/Responsável viraram
+     multi-seleção (pedido do Luiz -- "posso selecionar mais de um se
+     quiser"). Componente próprio (botão + painel de checkboxes) em vez de
+     <select multiple> nativo, que é feio e de UX ruim. */
   .msel { position: relative; width: 100%; }
-  .msel-btn { width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); font-family: inherit; font-size: 13px; cursor: pointer; }
+  .msel-btn {
+    width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    font-family: inherit; font-size: 13px; cursor: pointer;
+  }
   .msel-btn:hover { background: var(--paper-2); }
   .msel-caret { color: var(--ink-mute); font-size: 10px; margin-left: 6px; }
-  .msel-panel { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-card); padding: 6px; max-height: 220px; overflow-y: auto; }
+  .msel-panel {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-card);
+    padding: 6px; max-height: 220px; overflow-y: auto;
+  }
   .msel-panel.open { display: block; }
-  .msel-option { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 6px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
+  .msel-option {
+    display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 6px;
+    font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
+  }
   .msel-option:hover { background: var(--paper-2); }
   .msel-option input { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+
+  /* Filtros de Prioridade (hierárquico) -- Rodada 9 (2026-08-12). Dois
+     "pills" mutuamente exclusivos; selecionar um revela 2 grupos de
+     sub-opções logo abaixo, na mesma área de filtros (sem navegar pra outra
+     tela). */
   .priority-pills { display: flex; flex-direction: column; gap: 6px; }
-  .priority-pill { width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink-soft); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .priority-pill {
+    width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink-soft); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
   .priority-pill:hover { background: var(--paper-2); }
   .priority-pill.active { background: var(--royal-soft-2); color: var(--royal); border-color: rgba(0,27,184,0.25); }
   .priority-suboptions { display: none; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
-  .priority-sub-label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.02em; }
+  .priority-sub-label {
+    display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: 0.02em;
+  }
   .priority-sub-label select { width: 100%; text-transform: none; letter-spacing: normal; font-weight: 400; }
   .priority-note { font-size: 11.5px; color: var(--ink-mute); line-height: 1.4; }
+
+  /* Checkbox "Agendado" (Rodada 9, 2026-08-12) -- vale pra TODO ticket da
+     tabela de Tickets, independente de filtro de prioridade. Ao marcar, a
+     linha fica visualmente apagada (permanece assim só durante a sessão
+     atual -- da próxima vez que a página carregar, o ticket marcado nem
+     aparece mais, ver onAckTicket()/loadDashboard()). */
   .ack-checkbox { width: 17px; height: 17px; cursor: pointer; }
   tr.row-acked td { opacity: 0.42; }
   tr.row-acked .client-name, tr.row-acked td { color: var(--ink-mute) !important; }
+
+  /* Validação de ESN da propriedade (Rodada 9, 2026-08-12) -- chip de aviso
+     quando algum ESN esperado da empresa não bate com o "dono atual"
+     calculado a partir de pedido_de_entrega (ver
+     supabase/patch-esn-validacao.sql). Tooltip (title) traz o detalhe cru
+     (ESN + ModeloItem + status), sem mapear nome amigável do modelo ainda. */
   .chip.chip-esn-warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(183,121,31,0.3); font-weight: 700; }
+
+  /* Busca com botão de limpar (Rodada 11, 2026-08-12) -- pedido do Luiz */
   .search-wrap { position: relative; width: 100%; }
   .search-wrap input[type=text] { width: 100%; padding-right: 28px; box-sizing: border-box; }
-  .search-clear-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: transparent; color: var(--ink-mute); font-size: 15px; cursor: pointer; line-height: 1; padding: 4px 6px; border-radius: 6px; }
+  .search-clear-btn {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    border: none; background: transparent; color: var(--ink-mute); font-size: 15px;
+    cursor: pointer; line-height: 1; padding: 4px 6px; border-radius: 6px;
+  }
   .search-clear-btn:hover { background: var(--paper-2); color: var(--ink-soft); }
+
+  /* Tratativa em popup (Rodada 11, 2026-08-12) -- antes era select+textarea
+     inline na célula da tabela; virou popup pra liberar espaço horizontal na
+     lista (pedido do Luiz: "a tratativa abrir em popup mesmo, para ganhar
+     espaço na lista"). Célula na tabela agora só mostra um indicador
+     clicável (ver .tratativa-trigger). */
   .tratativa-trigger { cursor: pointer; }
   .tratativa-trigger:hover { text-decoration: underline; }
+  /* Rodada 12: trunca motivo+observação concatenados (podem ficar longos) --
+     mesmo padrão de .client-name. Texto completo disponível no title. */
   .tratativa-text { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(7,7,78,0.35); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .modal-card { background: #fff; border-radius: var(--radius-card); box-shadow: var(--shadow-card); padding: 24px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(7,7,78,0.35); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-card {
+    background: #fff; border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    padding: 24px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto;
+  }
   .modal-card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
+
+  /* Rodada 15 (2026-08-27): popup de Tratativa virou popup de Detalhes --
+     contatos (pra copiar rápido) + histórico de tratativas -- pedido do Luiz. */
   .contact-block { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-  .contact-line { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--paper); border-radius: 8px; font-size: 12.5px; }
+  .contact-line {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--paper);
+    border-radius: 8px; font-size: 12.5px;
+  }
   .contact-label { color: var(--ink-mute); font-weight: 600; flex-shrink: 0; width: 58px; }
   .contact-value { color: var(--ink); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .copy-btn { padding: 3px 9px !important; font-size: 11px !important; flex-shrink: 0; }
@@ -241,7 +537,10 @@
   .history-item { padding: 6px 8px; background: var(--paper); border-radius: 8px; }
   .history-date { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; margin-bottom: 2px; }
   .history-text { font-size: 12px; color: var(--ink); }
-  .modal-subsection-title { font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 6px; }
+  .modal-subsection-title {
+    font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.03em; margin: 0 0 6px;
+  }
   tbody tr.clickable-row { cursor: pointer; }
 </style>
 </head>
@@ -279,6 +578,14 @@
 
   <main>
     <div class="body-shell">
+      <!-- Redesign de layout -- Opção A (sidebar), 2026-08-12: abas e filtros
+           (busca/squad/gestor/responsável/prioridades) movidos pra cá, barra
+           lateral recolhível (toggleSidebar()). Dados (tabela) ficam no
+           conteúdo central (.main-content) -- ver correções combinadas com o
+           Luiz no topo desta seção: KPIs (#kpi-row) e distribuição por Basic
+           Value (#grade-row) continuam EXATAMENTE como estavam, só
+           realocados pro topo do conteúdo central, não pra dentro da
+           sidebar. -->
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-toggle-row">
           <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Recolher/expandir menu"><span id="sidebar-toggle-icon">‹</span></button>
@@ -300,6 +607,10 @@
                 <input type="text" id="search-cliente" placeholder="Buscar cliente, empresa, ticket..." oninput="onSearchChange()" />
                 <button type="button" class="search-clear-btn" id="search-clear-btn" onclick="clearSearch()" style="display:none" title="Limpar busca">×</button>
               </div>
+              <!-- Rodada 15 (2026-08-27): multi-seleção (antes era <select>
+                   único) -- pedido do Luiz ("posso selecionar mais de um se
+                   quiser, principalmente se for gestor"). Ver toggleMsel()/
+                   toggleMselValue()/populate*Options() no JS. -->
               <div class="msel" id="gestor-filter-wrap" style="display:none">
                 <button type="button" class="msel-btn" onclick="toggleMsel('gestor')"><span class="msel-btn-text">Todos os gestores</span><span class="msel-caret">▾</span></button>
                 <div class="msel-panel" id="gestor-filter-panel"></div>
@@ -315,6 +626,14 @@
             </div>
           </div>
 
+          <!-- Filtros de Prioridade hierárquicos (Rodada 9, 2026-08-12) --
+               dois pills mutuamente exclusivos; selecionar um filtra a tabela
+               de Tickets (só empresas com dado não-nulo naquela categoria),
+               ordena do caso mais urgente pro menos urgente por padrão, e
+               revela 2 grupos de sub-opções abaixo (ver
+               renderPrioritySubOptions()). Faixas de quantidade/dias abaixo
+               são um PONTO DE PARTIDA ajustável -- o Luiz pode pedir
+               recalibração depois de ver os dados reais. -->
           <div class="sidebar-block">
             <p class="sidebar-section-title">Prioridades</p>
             <div class="priority-pills">
@@ -324,6 +643,11 @@
             <div class="priority-suboptions" id="priority-suboptions"></div>
           </div>
 
+          <!-- Rodada 15 (2026-08-27): botão "Atualizar" removido -- não
+               tocava no banco, só recarregava a mesma leitura (pedido do
+               Luiz: "não precisa né, pq clicando nele não vai alterar nada
+               já que não muda o banco"). Fica só o status, colorido conforme
+               a idade da sincronização (ver renderLastSync()). -->
           <div class="sidebar-block">
             <span class="sync-badge" id="last-sync">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
@@ -365,6 +689,11 @@
             <label>Nome
               <input type="text" id="inv-name" placeholder="Nome completo" required />
             </label>
+            <!-- Rodada 6 (2026-08-11): papel vem ANTES da squad -- pedido do
+                 Luiz, porque pro gestor_geral (que vê tudo, não fica restrito
+                 a uma squad) pedir squad não vinculava nada de verdade. O
+                 campo de squad só aparece quando o papel selecionado NÃO é
+                 gestor_geral (ver onInviteRoleChange). -->
             <label id="inv-role-label">Papel
               <select id="inv-role" onchange="onInviteRoleChange()">
                 <option value="colaborador">Colaborador</option>
@@ -415,6 +744,10 @@
         <div id="team-table-wrap"></div>
       </div>
 
+      <!-- Rodada 15 (2026-08-27): antes não existia NENHUM jeito de ver ou
+           remover uma delegação de visão já concedida (só o formulário
+           "Delegar visão" acima, que só cria) -- pedido do Luiz ("hoje quando
+           libera uma visão... não tenho como saber"). -->
       <div class="admin-panel-card">
         <h3>Acessos delegados ativos</h3>
         <p class="form-desc">Quem está enxergando os tickets de quem, além do próprio escopo -- e a opção de remover.</p>
@@ -448,6 +781,12 @@
               <input type="number" id="edit-owner-id" placeholder="ex.: 199072037" />
             </label>
           </div>
+          <!-- Rodada 15 (2026-08-27): texto corrigido -- desde a migração pro
+               Job nativo do Databricks (Rodada 14), o vínculo de squad passou
+               a ser resolvido pelo e-mail da pessoa em v_dashboard (a coluna
+               owner_hubspot_id do HubSpot deixou de vir preenchida), não mais
+               por este ID. Campo mantido por enquanto (legado), mas não é
+               mais o que determina a squad dos tickets. -->
           <p class="form-desc" style="margin-top:-8px">
             A squad dos tickets é resolvida pelo e-mail da pessoa (precisa bater com o e-mail do dono do ticket no
             HubSpot). O ID do HubSpot acima não é mais usado pra isso -- é um campo legado, pode deixar em branco.
@@ -464,6 +803,14 @@
   </main>
 </div>
 
+<!-- Popup de Tratativa (Rodada 11, 2026-08-12) -- antes era select+textarea
+     inline na célula da tabela; virou popup pra liberar espaço horizontal
+     na lista (pedido do Luiz). Clique fora do card fecha o popup. -->
+<!-- Rodada 15 (2026-08-27): popup de "Observação" virou popup de "Detalhes"
+     -- pedido do Luiz: contatos da empresa (pra copiar rápido e agilizar o
+     contato) + histórico de tratativas anteriores (ticket_checks já guardava
+     isso, só nunca tinha sido mostrado), além do registro de tratativa que
+     já existia. -->
 <div class="modal-overlay" id="tratativa-modal-overlay" style="display:none" onclick="if(event.target===this) closeTratativaModal()">
   <div class="modal-card">
     <h3>Detalhes do agendamento</h3>
@@ -490,47 +837,132 @@
 </div>
 
 <script>
+// ============================================================================
+// CONFIGURAÇÃO — a anon key é feita para ser pública (a segurança de verdade
+// está no RLS do Supabase, não em esconder isto). Troque pela sua.
+// ============================================================================
 const SUPABASE_URL = "https://tmjmjrhgmyqamuphgdvi.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtam1qcmhnbXlxYW11cGhnZHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjY4NzMsImV4cCI6MjA5MjcwMjg3M30.gjClWn46TOgfa-y4PAUMBg4ZxS4xhFjep1mk_DcU2QY";
+
+// ID do portal HubSpot da Cobli, usado para montar o link "abrir no HubSpot"
+// direto a partir do ticket_id (formato: /contacts/<portal>/record/0-5/<ticket_id>/
+// -- "0-5" é o tipo de objeto "Ticket" no HubSpot, fixo).
 const HUBSPOT_PORTAL_ID = "5282301";
+
+// URL de produção do dashboard (GitHub Pages) -- usada explicitamente como
+// destino do link mágico (ver sendMagicLink() abaixo). Corrige o bug
+// descoberto em 2026-08-10: sem isso, o Supabase usa o "Site URL" cadastrado
+// no painel do projeto pra montar o link do e-mail -- e esse campo, se nunca
+// foi ajustado, fica no valor padrão "http://localhost:3000" (não existe
+// nada rodando lá, então o link dá "Não é possível acessar esse site"/
+// ERR_CONNECTION_REFUSED pra QUALQUER pessoa que pedir o link, inclusive
+// quem já estava logado antes). Com este `emailRedirectTo` fixo, o link do
+// e-mail sempre volta pra cá, direto -- não depende mais daquela
+// configuração do painel do Supabase.
 const DASHBOARD_URL = "https://luizlackeski.github.io/basic-value-cx-acompanhamento/";
+
+// Rodada 9 (2026-08-12): "vamos tirar a aba múltiplo da field e o status da
+// field também depois explico" -- pedido do Luiz, sem detalhar o motivo
+// ainda. Removido de forma REVERSÍVEL: os campos (field_status/prestador/
+// consultor/data_agendada) continuam vindo normalmente do Supabase/v_dashboard
+// (nada mudou no schema nem na query) -- só a exibição na UI é escondida via
+// esta flag. Pra reverter, basta trocar para `true`. NÃO mexe no KPI "Já
+// agendados na Field" (renderKpis já usa row.field_status pra calculá-lo) --
+// deixamos esse card como está, porque não ficou claro se ele deve continuar
+// usando esse dado, mudar de fonte, ou sumir; ver relatório final.
 const SHOW_FIELD_STATUS = false;
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 let currentUser = null;
-let currentMember = null;
-let appInitialized = false;
+let currentMember = null; // linha de team_members do usuário logado
+let appInitialized = false; // evita re-renderizar tudo (e resetar a aba ativa) quando o Supabase só faz refresh de token
+
+// state do dashboard principal
 const state = {
-  allRows: [],
+  allRows: [],       // tudo que veio de v_dashboard para este usuário (já filtrado pelo RLS)
+  // Rodada 15 (2026-08-27): viraram arrays (multi-seleção) -- array vazio =
+  // "todos/todas" (sem filtro), igual ao antigo valor sentinela "todos"/
+  // "todas". Ver toggleMselValue()/applyFilters().
   squadFilter: [],
-  gestorFilter: [],
-  responsavelFilter: [],
+  gestorFilter: [],       // Rodada 2: filtro de "Gestor" (gestor_geral) -- guarda a(s) squad(s) do(s) gestor(es) selecionado(s)
+  responsavelFilter: [],  // Rodada 2: filtro de "Responsável"/"Usuário" (gestor_squad e gestor_geral)
   riskFilterActive: false,
   productsByTicket: {},
-  searchQuery: "",
-  sortKey: null,
-  sortDir: 1,
-  priorityCategory: null,
-  priorityCompletudeFaixaQtd: "1-4",
-  priorityCompletudeFaixaDias: null,
-  priorityBVFaixaQtd: "1-5",
-  priorityBVFaixaMrr: "todos",
+  searchQuery: "",             // Rodada 3: busca unificada de cliente/empresa (aba Tickets)
+  sortKey: null,               // Rodada 3: "dias_aberto" | "basic_value" | "mrr" | null (ordem original de createdate)
+  sortDir: 1,                  // 1 = crescente, -1 = decrescente
+
+  // Rodada 9 (2026-08-12): filtros de Prioridade hierárquicos. Faixas de
+  // quantidade/dias abaixo são um PONTO DE PARTIDA ajustável -- combinar com
+  // o Luiz depois de ver os dados reais.
+  priorityCategory: null,             // null | "completude" | "basic_value" -- mutuamente exclusivos
+  priorityCompletudeFaixaQtd: "1-4",   // padrão pré-selecionado (ver inFaixaQtdFalta)
+  priorityCompletudeFaixaDias: null,   // sem filtro por padrão -- só ordena por dias restantes crescente
+  priorityBVFaixaQtd: "1-5",           // padrão pré-selecionado (ver inFaixaQtdNota3)
+  priorityBVFaixaMrr: "todos",         // sem filtro por padrão -- só ordena por mrr decrescente
+
+  // Rodada 9: checkbox "Agendado" -- tickets marcados nesta sessão (ver
+  // onAckTicket()). Diferente dos que já estavam marcados ANTES desta carga
+  // (esses nem entram em allRows, ver loadDashboard()) -- os desta sessão
+  // continuam visíveis, só ficam "apagados" visualmente, até o próximo reload.
   justAcked: new Set(),
 };
+
+// ---------------------------------------------------------------------------
+// AUTH
+// ---------------------------------------------------------------------------
+// Rodada 5 (2026-08-10): antes, qualquer e-mail @cobli.co disparava o magic
+// link direto -- mesmo gente não cadastrada em team_members conseguia
+// completar o login (só não enxergava dado nenhum depois, por causa da
+// RLS). Agora valida o cadastro ANTES de mandar o e-mail: se não encontrar,
+// nem chama signInWithOtp -- mostra uma mensagem pedindo pra solicitar
+// acesso ao gestor. A checagem usa a função RPC email_is_registered()
+// (security definer, só devolve true/false) porque, neste ponto, quem está
+// clicando ainda não tem sessão -- não dá pra consultar team_members direto
+// via RLS normal. Precisa rodar supabase/patch-login-flow.sql no Supabase
+// antes desta validação funcionar de verdade.
 async function sendMagicLink() {
   const email = document.getElementById("login-email").value.trim();
   const msg = document.getElementById("login-msg");
-  if (!email.endsWith("@cobli.co")) { msg.textContent = "Use seu e-mail @cobli.co."; return; }
+  if (!email.endsWith("@cobli.co")) {
+    msg.textContent = "Use seu e-mail @cobli.co.";
+    return;
+  }
   msg.textContent = "Verificando cadastro...";
   const { data: isRegistered, error: checkError } = await sb.rpc("email_is_registered", { check_email: email });
-  if (checkError) { msg.textContent = "Erro ao verificar cadastro: " + checkError.message; return; }
-  if (!isRegistered) { msg.textContent = "Esse e-mail ainda não tem acesso. Peça para seu gestor te convidar no painel de Administração."; return; }
+  if (checkError) {
+    msg.textContent = "Erro ao verificar cadastro: " + checkError.message;
+    return;
+  }
+  if (!isRegistered) {
+    msg.textContent = "Esse e-mail ainda não tem acesso. Peça para seu gestor te convidar no painel de Administração.";
+    return;
+  }
   const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: DASHBOARD_URL } });
   msg.textContent = error ? ("Erro: " + error.message) : "Link enviado! Confira seu e-mail.";
 }
+
+// Rodada 11 (2026-08-12): pedido do Luiz -- "vamos ajustar o login já para
+// o formato que sugeriu, google [login], link para esqueceu a senha, e
+// login e senha normal para fora da cobli". sendMagicLink() acima ficou no
+// código (não é mais chamada pela UI) só por segurança/reversibilidade --
+// pode reativar trocando o botão de volta, se precisar.
+//
+// "Entrar com Google": só funciona de verdade depois que o Luiz configurar
+// o provider Google no painel do Supabase (Authentication > Providers) --
+// até lá, dá erro "provider not enabled", inofensivo (só quem clicar vê o
+// erro na tela).
 async function loginWithGoogle() {
   const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: DASHBOARD_URL } });
   if (error) document.getElementById("login-msg").textContent = "Erro: " + error.message;
 }
+
+// E-mail + senha: pra gente de fora da Cobli (ou qualquer um, na prática) --
+// sem checagem de domínio @cobli.co, porque a única forma de alguém TER uma
+// senha é via sendPasswordReset() abaixo, que já valida email_is_registered()
+// antes de mandar o link -- então o cadastro continua sendo o gate real, não
+// o domínio do e-mail.
 async function loginWithPassword() {
   const email = document.getElementById("login-email").value.trim();
   const password = document.getElementById("login-password").value;
@@ -540,6 +972,12 @@ async function loginWithPassword() {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   msg.textContent = error ? ("Erro: " + error.message) : "";
 }
+
+// "Esqueceu a senha?" também é o fluxo de PRIMEIRO ACESSO com senha -- não
+// existe uma tela separada de "criar senha": o link do Supabase
+// (resetPasswordForEmail) funciona igual pra quem nunca teve senha (só usava
+// magic link antes) e pra quem já tem senha e esqueceu. Ou seja: ninguém
+// precisa ser excluído/recriado no cadastro pra "ganhar" uma senha.
 async function sendPasswordReset() {
   const email = document.getElementById("login-email").value.trim();
   const msg = document.getElementById("login-msg");
@@ -547,76 +985,163 @@ async function sendPasswordReset() {
   msg.textContent = "Verificando cadastro...";
   const { data: isRegistered, error: checkError } = await sb.rpc("email_is_registered", { check_email: email });
   if (checkError) { msg.textContent = "Erro ao verificar cadastro: " + checkError.message; return; }
-  if (!isRegistered) { msg.textContent = "Esse e-mail ainda não tem acesso. Peça para seu gestor te convidar no painel de Administração."; return; }
+  if (!isRegistered) {
+    msg.textContent = "Esse e-mail ainda não tem acesso. Peça para seu gestor te convidar no painel de Administração.";
+    return;
+  }
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: DASHBOARD_URL });
   msg.textContent = error ? ("Erro: " + error.message) : "Link enviado! Confira seu e-mail pra definir/trocar sua senha.";
 }
-async function logout() { await sb.auth.signOut(); location.reload(); }
+
+async function logout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// IMPORTANTE (corrigido 2026-08-09): o Supabase dispara onAuthStateChange não
+// só no login, mas também em eventos como TOKEN_REFRESHED (renovação
+// silenciosa do token, que acontece sozinha, inclusive quando você troca de
+// aba do navegador e volta). Antes, isso rodava onLoggedIn() de novo inteiro
+// a cada disparo -- recarregando a tela, resetando a aba ativa e perdendo
+// filtros. Agora só inicializa a tela uma vez; disparos seguintes só
+// atualizam o usuário em memória, sem re-renderizar nada.
 sb.auth.onAuthStateChange(async (_event, session) => {
   if (session && session.user) {
     currentUser = session.user;
-    if (!appInitialized) { appInitialized = true; await onLoggedIn(); }
+    if (!appInitialized) {
+      appInitialized = true;
+      await onLoggedIn();
+    }
   } else {
     appInitialized = false;
     document.getElementById("login-screen").style.display = "block";
     document.getElementById("app").style.display = "none";
   }
 });
+
 async function onLoggedIn() {
   document.getElementById("login-screen").style.display = "none";
+  // "flex" (não "block"): #app é o shell flex-column que trava a altura em
+  // 100vh (ver CSS) pra só o painel de baixo rolar -- "block" aqui quebrava
+  // esse layout inteiro (era o bug dos cards/toolbar rolando junto com a
+  // tabela em vez de ficarem fixos).
   document.getElementById("app").style.display = "flex";
+
   const { data: member } = await sb.from("team_members").select("*").eq("email", currentUser.email).maybeSingle();
   currentMember = member;
+
   document.getElementById("who-name").textContent = member ? member.name : currentUser.email;
   document.getElementById("who-role").textContent = member ? labelRole(member.role) : "sem cadastro";
-  if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) { document.getElementById("tab-admin").style.display = "block"; }
-  if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) { document.getElementById("responsavel-filter-wrap").style.display = "block"; }
+
+  if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) {
+    document.getElementById("tab-admin").style.display = "block";
+  }
+  // Rodada 2: filtros client-side por papel. Só RESTRINGEM ainda mais os
+  // dados que a RLS já trouxe para este usuário (state.allRows) -- nunca
+  // expandem visibilidade, então são seguros de adicionar sem tocar em RLS.
+  // colaborador: nenhum filtro extra (RLS já trava nos tickets dele).
+  // gestor_squad: filtro de "Responsável" (pessoa dentro da própria squad).
+  // gestor_geral: filtros de "Gestor" (squad de um gestor_squad), "Squad" e
+  // "Responsável"/"Usuário" (mesmo controle, serve pros dois papéis).
+  if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) {
+    document.getElementById("responsavel-filter-wrap").style.display = "block";
+  }
   if (member && member.role === "gestor_geral") {
     document.getElementById("squad-filter-wrap").style.display = "block";
     document.getElementById("gestor-filter-wrap").style.display = "block";
     populateSquadOptions();
     await populateGestorOptions();
   }
+  // Rodada 3: gestor de squad só pode convidar "colaborador" pra própria
+  // squad (não pode criar outro gestor, nem cadastrar gente em outra
+  // squad) -- gestor_geral continua sem restrição no formulário.
   applyInviteFormRestrictions(member);
+
   if (!member) {
-    document.getElementById("table-principal-wrap").innerHTML = '<div id="empty-state">Seu e-mail ainda não foi cadastrado no time. Peça para um gestor te convidar.</div>';
+    document.getElementById("table-principal-wrap").innerHTML =
+      '<div id="empty-state">Seu e-mail ainda não foi cadastrado no time. Peça para um gestor te convidar.</div>';
     return;
   }
+
   await loadDashboard();
 }
-function labelRole(role) { return { colaborador: "Colaborador", gestor_squad: "Gestor de squad", gestor_geral: "Gestor geral" }[role] || role; }
-function labelSquad(squad) { return { onboarding: "Onboarding", smb: "SMB", icp: "ICP" }[squad] || "Sem squad"; }
-function squadClass(squad) { return ["onboarding", "smb", "icp"].includes(squad) ? squad : ""; }
+
+function labelRole(role) {
+  return { colaborador: "Colaborador", gestor_squad: "Gestor de squad", gestor_geral: "Gestor geral" }[role] || role;
+}
+function labelSquad(squad) {
+  return { onboarding: "Onboarding", smb: "SMB", icp: "ICP" }[squad] || "Sem squad";
+}
+function squadClass(squad) {
+  return ["onboarding", "smb", "icp"].includes(squad) ? squad : "";
+}
+
+// Rodada 6 (2026-08-11): bloco de KPIs + distribuição por Basic Value virou
+// recolhível (pedido do Luiz, pra sobrar espaço vertical pra tabela quando
+// quiser). Começa SEMPRE expandido -- decisão explícita do Luiz -- o toggle é
+// só uma opção pra quem quiser recolher, não persiste entre sessões.
 let kpiBlockCollapsed = false;
 function toggleKpiBlock() {
   kpiBlockCollapsed = !kpiBlockCollapsed;
   document.getElementById("kpi-block-body").style.display = kpiBlockCollapsed ? "none" : "block";
   document.getElementById("kpi-block-toggle-icon").classList.toggle("collapsed", kpiBlockCollapsed);
 }
+
+// Rodada 9 (2026-08-12): sidebar recolhível (Opção A do redesign de layout).
+// Não persiste entre sessões -- mesma lógica do bloco de KPIs acima.
 let sidebarCollapsed = false;
 function toggleSidebar() {
   sidebarCollapsed = !sidebarCollapsed;
   document.getElementById("sidebar").classList.toggle("collapsed", sidebarCollapsed);
   document.getElementById("sidebar-toggle-icon").textContent = sidebarCollapsed ? "›" : "‹";
 }
+
+// ---------------------------------------------------------------------------
+// TABS
+// ---------------------------------------------------------------------------
+// Rodada 9 (2026-08-12): aba "Atendimentos múltiplos" removida da navegação a
+// pedido do Luiz ("vamos tirar a aba múltiplo da field... depois explico") --
+// não entra mais na sidebar nova (ver HTML), e switchTab() não aceita mais
+// "multiplos". loadMultiplos() e a view v_atendimentos_multiplos em si foram
+// mantidos como estavam (não apagados) -- só a aba deixou de existir/ser
+// acessível, de propósito, pra ficar reversível.
 function switchTab(tab) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  // "flex" (não "block"): estes painéis são os que rolam por dentro (ver
+  // CSS de #panel-principal/#panel-admin) -- setar "block" aqui
+  // sobrescreveria isso pelo estilo inline.
   document.getElementById("panel-principal").style.display = tab === "principal" ? "flex" : "none";
   document.getElementById("panel-evolucao").style.display = tab === "evolucao" ? "flex" : "none";
   document.getElementById("panel-admin").style.display = tab === "admin" ? "flex" : "none";
   if (tab === "evolucao") loadEvolucao();
   if (tab === "admin") loadTeamTable();
 }
+
+// ---------------------------------------------------------------------------
+// ICONS (inline, sem dependência externa)
+// ---------------------------------------------------------------------------
 const ICONS = {
   ticket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 1 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 1 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M13 5v2M13 17v2M13 11v2"></path></svg>',
   alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>',
   calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>',
+  // Rodada 15 (2026-08-27): ícone de "atingido" (check verde) -- substitui os
+  // badges de texto "ok"/"dentro do prazo" (pedido do Luiz).
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>',
 };
+
+// ---------------------------------------------------------------------------
+// DASHBOARD PRINCIPAL
+// ---------------------------------------------------------------------------
+
+// O Supabase (PostgREST) limita cada resposta a um teto de linhas -- "Max
+// Rows" no projeto, hoje 1000 -- então buscar `.select("*")` sem mais nada
+// SEMPRE corta em 1000, mesmo tendo 1721 tickets. Corrigido buscando em
+// páginas de 1000 via `.range()` até a página vir incompleta.
 const PAGE_SIZE = 1000;
 async function fetchAllPages(buildQuery) {
-  let all = []; let from = 0;
+  let all = [];
+  let from = 0;
   while (true) {
     const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
     if (error) throw error;
@@ -626,27 +1151,52 @@ async function fetchAllPages(buildQuery) {
   }
   return all;
 }
+
 async function loadDashboard() {
   const wrap = document.getElementById("table-principal-wrap");
   wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
+
   try {
-    state.allRows = await fetchAllPages((from, to) => sb.from("v_dashboard").select("*").order("createdate", { ascending: true }).range(from, to));
+    state.allRows = await fetchAllPages((from, to) =>
+      sb.from("v_dashboard").select("*").order("createdate", { ascending: true }).range(from, to)
+    );
   } catch (error) {
     wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
     return;
   }
+
+  // Rodada 9 (2026-08-12): checkbox "Agendado" -- ticket com
+  // ticket_priority_ack já existente ANTES desta carga não aparece mais na
+  // tabela dali em diante (marcação permanente, não snooze de 1 dia -- ver
+  // supabase/patch-ticket-priority-ack.sql). Os marcados NESTA sessão
+  // (state.justAcked) continuam em allRows -- só ficam visualmente
+  // "apagados" até o próximo reload (ver renderTable/onAckTicket).
   state.justAcked = new Set();
   try {
-    const ackedRows = await fetchAllPages((from, to) => sb.from("ticket_priority_ack").select("ticket_id").range(from, to));
+    const ackedRows = await fetchAllPages((from, to) =>
+      sb.from("ticket_priority_ack").select("ticket_id").range(from, to)
+    );
     const ackedAtLoad = new Set(ackedRows.map(r => r.ticket_id));
     state.allRows = state.allRows.filter(r => !ackedAtLoad.has(r.ticket_id));
   } catch (error) {
+    // Tabela pode ainda não existir se supabase/patch-ticket-priority-ack.sql
+    // não tiver rodado ainda -- não trava o resto do dashboard por isso.
     console.error("Erro ao carregar ticket_priority_ack (o patch SQL já foi rodado?):", error.message);
   }
+
   state.productsByTicket = await loadProductsFor(state.allRows.map(d => d.ticket_id));
   populateResponsavelOptions();
+
   renderAll();
 }
+
+// Rodada 2: opções do filtro de "Responsável"/"Usuário" -- lista de
+// owner_name distintos dentro do que a RLS já trouxe (state.allRows), não
+// uma lista geral de pessoas. Assim o gestor de squad só vê nomes da própria
+// squad (porque é só isso que aparece em allRows pra ele).
+// Rodada 15 (2026-08-27): filtros de multi-seleção -- componente próprio
+// (botão + painel de checkboxes), ver .msel* no CSS. `MSEL_STATE_KEY` mapeia
+// o nome curto usado nos ids/onclick pra chave real em `state`.
 const MSEL_STATE_KEY = { gestor: "gestorFilter", squad: "squadFilter", responsavel: "responsavelFilter" };
 const MSEL_ALL_LABEL = { gestor: "Todos os gestores", squad: "Todas as squads", responsavel: "Todos os responsáveis" };
 const SQUAD_FILTER_OPTIONS = [
@@ -655,6 +1205,7 @@ const SQUAD_FILTER_OPTIONS = [
   { value: "icp", label: "ICP" },
   { value: "sem_squad", label: "Sem squad definido" },
 ];
+
 function toggleMsel(name) {
   const panel = document.getElementById(name + "-filter-panel");
   const isOpen = panel.classList.contains("open");
@@ -662,8 +1213,11 @@ function toggleMsel(name) {
   if (!isOpen) panel.classList.add("open");
 }
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".msel")) { document.querySelectorAll(".msel-panel.open").forEach(p => p.classList.remove("open")); }
+  if (!e.target.closest(".msel")) {
+    document.querySelectorAll(".msel-panel.open").forEach(p => p.classList.remove("open"));
+  }
 });
+
 function renderMselOptions(name, options) {
   const panel = document.getElementById(name + "-filter-panel");
   const key = MSEL_STATE_KEY[name];
@@ -675,6 +1229,7 @@ function renderMselOptions(name, options) {
     </label>`).join("");
   updateMselButtonLabel(name, options);
 }
+
 function updateMselButtonLabel(name, options) {
   const wrap = document.getElementById(name + "-filter-wrap");
   const label = wrap && wrap.querySelector(".msel-btn-text");
@@ -689,54 +1244,135 @@ function updateMselButtonLabel(name, options) {
   }
   label.textContent = selected.length + " selecionados";
 }
+
 function toggleMselValue(name, value) {
   const key = MSEL_STATE_KEY[name];
   const arr = state[key];
   const idx = arr.indexOf(value);
   if (idx === -1) arr.push(value); else arr.splice(idx, 1);
-  const options = Array.from(document.querySelectorAll(`#${name}-filter-panel .msel-option`)).map(l => ({ value: l.querySelector("input").value, label: l.querySelector("span").textContent }));
+  const options = Array.from(document.querySelectorAll(`#${name}-filter-panel .msel-option`)).map(l => ({
+    value: l.querySelector("input").value, label: l.querySelector("span").textContent,
+  }));
   updateMselButtonLabel(name, options);
   renderAll();
 }
-function populateSquadOptions() { renderMselOptions("squad", SQUAD_FILTER_OPTIONS); }
+
+function populateSquadOptions() {
+  renderMselOptions("squad", SQUAD_FILTER_OPTIONS);
+}
+
 function populateResponsavelOptions() {
   const wrap = document.getElementById("responsavel-filter-wrap");
-  if (wrap.style.display === "none") return;
-  const names = Array.from(new Set(state.allRows.map(r => r.owner_name).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  if (wrap.style.display === "none") return; // papel atual não usa esse filtro
+  const names = Array.from(new Set(state.allRows.map(r => r.owner_name).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
   renderMselOptions("responsavel", names.map(n => ({ value: n, label: n })));
 }
+
+// Rodada 2: opções do filtro de "Gestor" (só gestor_geral) -- lista quem tem
+// papel gestor_squad em team_members. Selecionar um gestor filtra o
+// dashboard pela squad daquele gestor (hoje um gestor = uma squad; se um dia
+// isso deixar de ser verdade, este filtro precisa ser revisado).
 async function populateGestorOptions() {
-  const { data, error } = await sb.from("team_members").select("name,squad").eq("role", "gestor_squad").eq("active", true).order("name");
+  const { data, error } = await sb.from("team_members").select("name,squad")
+    .eq("role", "gestor_squad").eq("active", true).order("name");
   if (error || !data) return;
   renderMselOptions("gestor", data.map(m => ({ value: m.squad, label: m.name })));
 }
+
 function applyFilters() {
   let rows = state.allRows;
-  if (state.squadFilter.length) { rows = rows.filter(r => state.squadFilter.includes(r.owner_squad || "sem_squad")); }
-  if (state.gestorFilter.length) { rows = rows.filter(r => state.gestorFilter.includes(r.owner_squad || "sem_squad")); }
-  if (state.responsavelFilter.length) { rows = rows.filter(r => state.responsavelFilter.includes(r.owner_name)); }
+  if (state.squadFilter.length) {
+    rows = rows.filter(r => state.squadFilter.includes(r.owner_squad || "sem_squad"));
+  }
+  if (state.gestorFilter.length) {
+    rows = rows.filter(r => state.gestorFilter.includes(r.owner_squad || "sem_squad"));
+  }
+  if (state.responsavelFilter.length) {
+    rows = rows.filter(r => state.responsavelFilter.includes(r.owner_name));
+  }
   const squadFiltered = rows;
-  if (state.riskFilterActive) { rows = rows.filter(r => r.mrr_status === "em_risco"); }
+  if (state.riskFilterActive) {
+    rows = rows.filter(r => r.mrr_status === "em_risco");
+  }
+  // Rodada 3: busca unificada -- nome do cliente/empresa, ticket_id,
+  // company_id e grupo econômico (deal_id ainda não está disponível na
+  // nossa sincronização -- ver nota no doc do projeto). Aplicada depois do
+  // filtro de risco, igual às outras: só restringe o que já está na tela.
   const q = state.searchQuery.trim().toLowerCase();
   if (q) {
     rows = rows.filter(r => {
-      const haystack = [r.display_name, r.subject_raw, r.company_name, r.ticket_id, r.company_id, r.id_grupo_economico].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [
+        r.display_name, r.subject_raw, r.company_name, r.ticket_id,
+        r.company_id, r.id_grupo_economico,
+      ].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(q);
     });
   }
+
+  // ---------------------------------------------------------------------
+  // Rodada 9 (2026-08-12): filtros de Prioridade hierárquicos. Só afetam a
+  // tabela de Tickets (displayRows) -- NUNCA os KPIs/distribuição
+  // (squadFiltered, já capturado acima). Ver design combinado com o Luiz
+  // (histórico completo no doc do projeto, seção 5) -- "Design final a
+  // implementar".
+  // ---------------------------------------------------------------------
   if (state.priorityCategory === "completude") {
+    // Filtro OBRIGATÓRIO, sempre aplicado nesta categoria (não é opcional):
+    // só entram tickets com completude_dentro_do_prazo = true. Tickets com
+    // prazo já vencido são EXCLUÍDOS inteiramente -- regra de negócio
+    // confirmada pelo Luiz ("se já passou de 60 dias mesmo que eu faça não
+    // contabiliza, então não precisa mostrar nas prioridades"). NÃO existe
+    // opção "Vencido" nas sub-opções (removida a pedido dele).
     rows = rows.filter(r => r.completude_qtd_falta != null && r.completude_dentro_do_prazo === true);
-    if (state.priorityCompletudeFaixaQtd) { rows = rows.filter(r => inFaixaQtdFalta(r.completude_qtd_falta, state.priorityCompletudeFaixaQtd)); }
-    if (state.priorityCompletudeFaixaDias) { rows = rows.filter(r => inFaixaDiasRestantes(diasRestantes(r), state.priorityCompletudeFaixaDias)); }
+    if (state.priorityCompletudeFaixaQtd) {
+      rows = rows.filter(r => inFaixaQtdFalta(r.completude_qtd_falta, state.priorityCompletudeFaixaQtd));
+    }
+    if (state.priorityCompletudeFaixaDias) {
+      rows = rows.filter(r => inFaixaDiasRestantes(diasRestantes(r), state.priorityCompletudeFaixaDias));
+    }
   } else if (state.priorityCategory === "basic_value") {
+    // Basic Value NÃO tem corte de prazo/expiração -- "o basic vale não tem
+    // expiração pode trazer todos" (confirmado pelo Luiz). Traz todas as
+    // empresas elegíveis (dado não-nulo nesta categoria).
     rows = rows.filter(r => r.completude_qtd_falta_nota_3 != null);
+    // Percentis de MRR calculados sobre o conjunto elegível da categoria
+    // (antes do sub-filtro de quantidade, pra não mover o "chão" da
+    // comparação conforme a faixa de quantidade escolhida) -- ver
+    // computeMrrPercentiles(). Simplificação assumida: calculado sobre
+    // linhas de TICKET (não deduplicado por empresa) -- uma empresa com
+    // vários tickets abertos entra várias vezes na amostra.
     const mrrPercentiles = computeMrrPercentiles(rows);
-    if (state.priorityBVFaixaQtd) { rows = rows.filter(r => inFaixaQtdNota3(r.completude_qtd_falta_nota_3, state.priorityBVFaixaQtd)); }
-    if (state.priorityBVFaixaMrr && state.priorityBVFaixaMrr !== "todos") { rows = rows.filter(r => passesMrrFilter(r.mrr, state.priorityBVFaixaMrr, mrrPercentiles)); }
+    if (state.priorityBVFaixaQtd) {
+      rows = rows.filter(r => inFaixaQtdNota3(r.completude_qtd_falta_nota_3, state.priorityBVFaixaQtd));
+    }
+    if (state.priorityBVFaixaMrr && state.priorityBVFaixaMrr !== "todos") {
+      rows = rows.filter(r => passesMrrFilter(r.mrr, state.priorityBVFaixaMrr, mrrPercentiles));
+    }
   }
+
+  // Rodada 3: ordenação clicável. "basic_value" ordena pela nota de
+  // instalação -- é o que importa mais pra squad, não pelo Basic Value geral
+  // (a pedido do Luiz) -- com o score geral como critério de desempate.
+  // Rodada 6 (2026-08-11): adicionado "mrr" como terceira coluna ordenável.
+  // Rodada 8 (2026-08-11): a nota agora é completude_nota_instalacao
+  // (recalculada do zero a partir da Completude de Instalação, mesma % de
+  // qtd_instalada/qtd_completude), substituindo instalation_completeness_grade
+  // (Databricks) -- ver basicValueCellHtml e
+  // queries/query-completude-instalacao-sync.sql.
+  // Rodada 9 (2026-08-12): quando um filtro de Prioridade está ativo E o
+  // usuário ainda não clicou manualmente numa coluna pra ordenar
+  // (state.sortKey === null), aplica a ordenação padrão de cada categoria
+  // (mais urgente primeiro) -- clicar numa coluna sempre tem prioridade sobre
+  // esse padrão.
   if (state.sortKey) {
     const dir = state.sortDir;
     const key = state.sortKey;
+    // Rodada 15 (2026-08-27): ordenação estendida pra todas as colunas
+    // (antes só dias_aberto/basic_value/mrr) -- pedido do Luiz ("deixar as
+    // colunas todas com opção de ordenação"). Colunas de texto usam
+    // localeCompare; numéricas/booleanas continuam com o mesmo tratamento de
+    // "sem dado sempre por último" de antes.
     rows = rows.slice().sort((a, b) => {
       let av, bv;
       if (key === "dias_aberto") { av = a.dias_aberto; bv = b.dias_aberto; }
@@ -749,26 +1385,67 @@ function applyFilters() {
       else if (key === "produtos") { av = (state.productsByTicket[a.ticket_id] || []).length; bv = (state.productsByTicket[b.ticket_id] || []).length; }
       else if (key === "tratativa") { av = a.status_tratativa || a.observacao; bv = b.status_tratativa || b.observacao; }
       const aNull = av == null || av === "", bNull = bv == null || bv === "";
-      if (aNull && bNull) { if (key !== "basic_value") return 0; return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0)); }
-      if (aNull) return 1;
+      if (aNull && bNull) {
+        if (key !== "basic_value") return 0;
+        return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0));
+      }
+      if (aNull) return 1;  // sem dado sempre por último, em qualquer direção
       if (bNull) return -1;
-      if (typeof av === "string" || typeof bv === "string") { const cmp = String(av).localeCompare(String(bv), "pt-BR"); if (cmp !== 0) return dir * cmp; return 0; }
+      if (typeof av === "string" || typeof bv === "string") {
+        const cmp = String(av).localeCompare(String(bv), "pt-BR");
+        if (cmp !== 0) return dir * cmp;
+        return 0;
+      }
       if (av !== bv) return dir * (av - bv);
       if (key === "basic_value") return dir * ((a.basic_value_score || 0) - (b.basic_value_score || 0));
       return 0;
     });
   } else if (state.priorityCategory === "completude") {
-    rows = rows.slice().sort((a, b) => { const da = diasRestantes(a), db = diasRestantes(b); if (da == null && db == null) return 0; if (da == null) return 1; if (db == null) return -1; return da - db; });
+    // "Dias pra vencer o prazo": padrão ordena por dias restantes crescente
+    // (mais perto de vencer primeiro).
+    rows = rows.slice().sort((a, b) => {
+      const da = diasRestantes(a), db = diasRestantes(b);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da - db;
+    });
   } else if (state.priorityCategory === "basic_value") {
+    // "MRR": padrão ordena por MRR decrescente.
     rows = rows.slice().sort((a, b) => (Number(b.mrr) || 0) - (Number(a.mrr) || 0));
   }
   return { squadFiltered, displayRows: rows };
 }
-function prazoTotalDias(segmento) { return segmento === "Onboarding" ? 90 : 60; }
+
+// ---------------------------------------------------------------------------
+// PRIORIDADES (Rodada 9, 2026-08-12) -- helpers de faixa/percentil.
+// Faixas de quantidade/dias são um PONTO DE PARTIDA ajustável -- o Luiz pode
+// pedir recalibração depois de ver os dados reais.
+// ---------------------------------------------------------------------------
+function prazoTotalDias(segmento) {
+  return segmento === "Onboarding" ? 90 : 60; // ICP/SMB = 60, Onboarding = 90 -- mesmos prazos já usados no resto do dashboard
+}
 function diasRestantes(row) {
   if (row.completude_time_segmento == null || row.dias_aberto == null) return null;
   return prazoTotalDias(row.completude_time_segmento) - row.dias_aberto;
 }
+
+// Rodada 12 (2026-08-12): dias restantes do prazo pra mostrar dentro do badge
+// "dentro do prazo Nd" na coluna Compl. instalação (pedido do Luiz: "sei que
+// tem 10 dias ainda dentro do prazo, casando com o filtro de prioridades").
+// `completude_dias_restantes_prazo` é o campo CERTO (calculado por deal, a
+// partir da assinatura do PRÓPRIO deal do ticket) -- ainda não existe em
+// produção, vem da migração "completude por deal" (agendada pra rodar às
+// 17h30 de hoje, ver backlog.md). Até essa migração publicar o campo, cai
+// pro diasRestantes() já existente (mesmo cálculo do filtro de Prioridades,
+// baseado em dias_aberto -- daí "casando com o filtro"), mas só usa esse
+// valor de fallback quando dá um número positivo plausível: como
+// diasRestantes() usa um relógio diferente (idade do TICKET, não da
+// assinatura -- ver Rodada 11), ele pode contradizer completude_dentro_do_prazo
+// em alguns casos, e mostrar um número negativo do lado de "dentro do prazo"
+// ficaria pior que não mostrar nada. Depois que a migração por deal publicar
+// completude_dias_restantes_prazo, essa função passa a usar o valor certo
+// automaticamente, sem precisar mexer no front-end de novo.
 function diasRestantesPrazoCompletude(row) {
   if (row.completude_dias_restantes_prazo != null) return row.completude_dias_restantes_prazo;
   return diasRestantes(row);
@@ -802,6 +1479,8 @@ function inFaixaQtdNota3(qtd, faixa) {
   if (faixa === "16+") return qtd >= 16;
   return true;
 }
+// Percentis calculados no cliente, a partir dos dados reais já carregados --
+// nunca uma faixa fixa em R$ chutada (pedido explícito do Luiz).
 function computeMrrPercentiles(rows) {
   const vals = rows.map(r => Number(r.mrr)).filter(v => !isNaN(v)).sort((a, b) => a - b);
   if (!vals.length) return { p50: null, p75: null, p90: null };
@@ -814,20 +1493,23 @@ function passesMrrFilter(mrr, faixa, p) {
   if (faixa === "acima_mediana") return p.p50 != null && v > p.p50;
   if (faixa === "top25") return p.p75 != null && v >= p.p75;
   if (faixa === "top10") return p.p90 != null && v >= p.p90;
-  return true;
+  return true; // "todos"
 }
+
 function togglePriorityCategory(cat) {
   state.priorityCategory = state.priorityCategory === cat ? null : cat;
   renderPriorityPills();
   renderPrioritySubOptions();
   renderAll();
 }
+
 function renderPriorityPills() {
   const elCompletude = document.getElementById("pp-completude");
   const elBv = document.getElementById("pp-basic_value");
   if (elCompletude) elCompletude.classList.toggle("active", state.priorityCategory === "completude");
   if (elBv) elBv.classList.toggle("active", state.priorityCategory === "basic_value");
 }
+
 function renderPrioritySubOptions() {
   const el = document.getElementById("priority-suboptions");
   if (!el) return;
@@ -882,30 +1564,44 @@ function renderPrioritySubOptions() {
     el.innerHTML = "";
   }
 }
+
 function onPriorityCompletudeQtdChange(v) { state.priorityCompletudeFaixaQtd = v; renderAll(); }
 function onPriorityCompletudeDiasChange(v) { state.priorityCompletudeFaixaDias = v || null; renderAll(); }
 function onPriorityBVQtdChange(v) { state.priorityBVFaixaQtd = v; renderAll(); }
 function onPriorityBVMrrChange(v) { state.priorityBVFaixaMrr = v; renderAll(); }
+
 function onSearchChange() {
   state.searchQuery = document.getElementById("search-cliente").value;
   document.getElementById("search-clear-btn").style.display = state.searchQuery ? "inline-flex" : "none";
   renderAll();
 }
+
+// Rodada 11 (2026-08-12): botão "X" pra limpar a busca -- pedido do Luiz.
 function clearSearch() {
   state.searchQuery = "";
   document.getElementById("search-cliente").value = "";
   document.getElementById("search-clear-btn").style.display = "none";
   renderAll();
 }
+
 function onSortClick(key) {
-  if (state.sortKey === key) { state.sortDir = -state.sortDir; } else { state.sortKey = key; state.sortDir = 1; }
+  if (state.sortKey === key) {
+    state.sortDir = -state.sortDir;
+  } else {
+    state.sortKey = key;
+    state.sortDir = 1;
+  }
   renderAll();
 }
-function sortArrowClass(key) { return state.sortKey === key ? "sort-active" : ""; }
+
+function sortArrowClass(key) {
+  return state.sortKey === key ? "sort-active" : "";
+}
 function sortArrowHtml(key) {
   if (state.sortKey !== key) return '<span class="sort-arrow">↕</span>';
   return `<span class="sort-arrow">${state.sortDir === 1 ? "↑" : "↓"}</span>`;
 }
+
 function renderAll() {
   const { squadFiltered, displayRows } = applyFilters();
   renderLastSync();
@@ -913,11 +1609,23 @@ function renderAll() {
   renderGradeDistribution(squadFiltered);
   renderTable(displayRows);
 }
+
+// Rodada 15 (2026-08-27): desde o Job nativo do Databricks (Rodada 14) a
+// sincronização roda sozinha todo dia útil às 7h -- então "desatualizado"
+// deixou de ser "manual, faz X dias" (SYNC_STALE_DAYS) e passou a ser
+// simplesmente "não é de hoje" (pedido do Luiz: "verdinho se for do dia, e o
+// vermelho leve se não tiver atualizado"). Texto também abreviado
+// ("Sincr. em DD/MM | HHhMM") pra não quebrar linha na sidebar mais estreita.
 function renderLastSync() {
   const el = document.getElementById("last-sync-text");
   const badge = document.getElementById("last-sync");
   const times = state.allRows.map(r => r.synced_at).filter(Boolean).sort();
-  if (!times.length) { el.textContent = "sem sincronização"; badge.classList.remove("stale", "fresh"); badge.title = ""; return; }
+  if (!times.length) {
+    el.textContent = "sem sincronização";
+    badge.classList.remove("stale", "fresh");
+    badge.title = "";
+    return;
+  }
   const last = new Date(times[times.length - 1]);
   const now = new Date();
   const isToday = last.toDateString() === now.toDateString();
@@ -926,22 +1634,43 @@ function renderLastSync() {
   el.textContent = `Sincr. em ${dateTxt} | ${hourTxt}`;
   badge.classList.toggle("fresh", isToday);
   badge.classList.toggle("stale", !isToday);
-  badge.title = isToday ? "Sincronizado hoje" : `Última sincronização em ${dateTxt} às ${hourTxt} -- dado pode estar desatualizado`;
+  badge.title = isToday
+    ? "Sincronizado hoje"
+    : `Última sincronização em ${dateTxt} às ${hourTxt} -- dado pode estar desatualizado`;
 }
+
+// Um mesmo company_id pode aparecer em vários tickets (várias instalações
+// pendentes na mesma empresa) -- para métricas que são da EMPRESA (risco de
+// MRR, soma de MRR), contar/somar por ticket duplicaria a empresa uma vez
+// por ticket dela. Aqui reduzimos a uma linha por company_id antes de somar.
 function distinctCompanies(rows) {
   const seen = new Map();
-  for (const r of rows) { if (!r.company_id) continue; if (!seen.has(r.company_id)) seen.set(r.company_id, r); }
+  for (const r of rows) {
+    if (!r.company_id) continue;
+    if (!seen.has(r.company_id)) seen.set(r.company_id, r);
+  }
   return Array.from(seen.values());
 }
+
 function renderKpis(rows) {
-  const total = rows.length;
+  const total = rows.length; // tickets (nível certo pra essa métrica -- não é por empresa)
+  // NOTA (Rodada 10, 2026-08-12): o card "Já agendados na Field" foi removido
+  // a pedido do Luiz ("pode excluir pq não temos mais ele") -- resolve a
+  // dúvida em aberto da Rodada 9 sobre esse card usar field_status por baixo
+  // dos panos. Nenhum dado/coluna foi apagado (field_status continua em
+  // v_dashboard, só não alimenta mais nenhum card aqui).
   const diasValidos = rows.map(r => r.dias_aberto).filter(v => v != null);
   const mediaDias = diasValidos.length ? Math.round(diasValidos.reduce((a, b) => a + b, 0) / diasValidos.length) : 0;
+
+  // MRR/risco é por EMPRESA, não por ticket -- deduplicado por company_id
+  // (uma empresa com 3 tickets abertos conta 1 vez, não 3; e o MRR dela
+  // não é somado 3 vezes).
   const companies = distinctCompanies(rows);
   const totalEmpresas = companies.length;
   const empresasRisco = companies.filter(c => c.mrr_status === "em_risco");
   const mrrRiscoTotal = empresasRisco.reduce((sum, c) => sum + (Number(c.mrr) || 0), 0);
   const pctRisco = totalEmpresas ? Math.round((empresasRisco.length / totalEmpresas) * 100) : 0;
+
   const kpiRow = document.getElementById("kpi-row");
   kpiRow.innerHTML = `
     <div class="kpi-card">
@@ -952,6 +1681,7 @@ function renderKpis(rows) {
       <div class="kpi-number">${total}</div>
       <div class="kpi-hint">em "Agendar Instalação" no seu escopo</div>
     </div>
+
     <div class="kpi-card clickable ${state.riskFilterActive ? "active" : ""}" onclick="toggleRiskFilter()">
       <div class="kpi-top">
         <div class="kpi-label">MRR Potencial</div>
@@ -960,6 +1690,7 @@ function renderKpis(rows) {
       <div class="kpi-number risk">${empresasRisco.length}<span style="font-size:12px;color:var(--ink-mute);font-weight:600"> (${pctRisco}% das empresas)</span></div>
       <div class="kpi-hint">${fmtCurrency(mrrRiscoTotal)} em MRR · ${state.riskFilterActive ? "clique p/ ver todos" : "clique p/ filtrar"}</div>
     </div>
+
     <div class="kpi-card">
       <div class="kpi-top">
         <div class="kpi-label">Tempo médio em aberto</div>
@@ -970,16 +1701,57 @@ function renderKpis(rows) {
     </div>
   `;
 }
+
+// Basic Value: célula da tabela principal (2026-08-11, Rodada 8, a pedido do
+// Luiz). A nota de "Instalação" (0 a 4) foi recalculada do zero a partir da
+// Completude de Instalação (mesma % qtd_instalada/qtd_completude já usada na
+// coluna "Compl. instalação"), substituindo o instalation_completeness_grade
+// que vinha do Databricks -- esse campo tinha linhas sem dado, e a nossa base
+// (completude_nota_instalacao) cobre 100% dos casos das 3 segmentações. A
+// faixa de corte (0-4) muda por segmento (completude_time_segmento): SMB e
+// ICP têm escalas diferentes entre si, e Onboarding usa a escala de SMB ou de
+// ICP dependendo do potencial total da empresa/grupo econômico (ver
+// queries/query-completude-instalacao-sync.sql). Pra SMB e ICP, "Geral"
+// (basic_value_score) sai da célula -- fica só Instalação + o comparativo de
+// quanto falta pra bater a nota mínima 3. Onboarding mantém os dois valores
+// (Instalação + Geral, com o badge de risco) mais o comparativo.
+// Rodada 12 (2026-08-12): wording padronizado pra ficar igual ao padrão da
+// coluna "Compl. instalação" (pedido do Luiz -- "o basic vale também seguir
+// o mesmo padrão do completude o texto, pra ficarem iguais"): valor em
+// negrito + "| +N para <meta>" (ou "| meta batida") na mesma linha, sem
+// rótulo extra antes do número (o cabeçalho da coluna já diz "Basic Value").
+// Rodada 12 (2026-08-12), 2º ajuste do mesmo dia: o Luiz pediu de volta o
+// comentário ("+N para nota 3") numa linha SEPARADA, embaixo do valor --
+// "deixa o comentário na linha de baixo, assim dá pra reduzir a largura um
+// pouco" (2 linhas mais estreitas cabem em menos largura de coluna que 1
+// linha longa). Diferente da Completude (que continua numa linha só, "67% |
+// +3 para 80%" já é curto o suficiente).
 function basicValueCellHtml(row, riskBadge) {
   const nota = row.completude_nota_instalacao;
   const gap = row.completude_qtd_falta_nota_3;
-  const gapHtml = gap == null ? "" : `<div class="bv-row muted" style="margin-top:2px">${gap > 0 ? `+${gap} para nota 3` : "meta batida"}</div>`;
+  const gapHtml = gap == null
+    ? ""
+    : `<div class="bv-row muted" style="margin-top:2px">${gap > 0 ? `+${gap} para nota 3` : "meta batida"}</div>`;
   const notaHtml = `<div class="bv-row" style="font-size:13.5px"><b>${fmtNum(nota)}</b></div>`;
   if (row.completude_time_segmento === "Onboarding") {
-    return notaHtml + gapHtml + `<div class="bv-row muted" style="margin-top:2px">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>`;
+    return notaHtml + gapHtml +
+      `<div class="bv-row muted" style="margin-top:2px">Geral: ${fmtNum(row.basic_value_score)} ${riskBadge}</div>`;
   }
   return notaHtml + gapHtml;
 }
+
+// Distribuição de empresas (dedup por company_id) pelo grau de completude da
+// instalação (instalation_completeness_grade, 0 a 4, vindo do Databricks).
+// Métrica separada do "MRR em risco": aqui é especificamente sobre a
+// instalação em si, não sobre o Basic Value geral nem sobre MRR.
+// Nota (2026-08-11, Rodada 8): esta distribuição e o snapshot de evolução
+// logo abaixo (maybeCaptureSnapshotIfGestorGeral) ainda usam
+// instalation_completeness_grade (Databricks), não completude_nota_instalacao
+// -- fora do escopo pedido pelo Luiz nesta rodada (só a célula da tabela e o
+// mrr_status). Mantido assim de propósito por ora; considerar migrar depois
+// pra manter os dois indicadores consistentes.
+// Rodada 15 (2026-08-27): "Grau" renomeado pra "Nota" -- pedido do Luiz
+// ("Os badge de Basic Value altera o texto 'grau' para 'Nota'").
 const GRADE_ORDER = [
   { key: "4", label: "Nota 4 · completo", cls: "g4" },
   { key: "3", label: "Nota 3", cls: "g3" },
@@ -988,54 +1760,122 @@ const GRADE_ORDER = [
   { key: "0", label: "Nota 0 · não iniciado", cls: "g0" },
   { key: "sem_dado", label: "Sem dado", cls: "gx" },
 ];
+
 function renderGradeDistribution(rows) {
   const el = document.getElementById("grade-row");
   const companies = distinctCompanies(rows);
   const total = companies.length;
   const buckets = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, sem_dado: 0 };
-  companies.forEach(c => { const g = c.instalation_completeness_grade; const key = String(g); if (g == null || !(key in buckets)) buckets.sem_dado++; else buckets[key]++; });
+  companies.forEach(c => {
+    const g = c.instalation_completeness_grade;
+    const key = String(g);
+    if (g == null || !(key in buckets)) buckets.sem_dado++;
+    else buckets[key]++;
+  });
+
   el.innerHTML = `<span class="grade-title">Empresas por Basic Value de instalação</span>` +
-    GRADE_ORDER.map(o => { const n = buckets[o.key] || 0; const pct = total ? Math.round((n / total) * 100) : 0; return `<span class="grade-pill ${o.cls}"><b>${n}</b> ${o.label} <span class="pct">${pct}%</span></span>`; }).join("");
+    GRADE_ORDER.map(o => {
+      const n = buckets[o.key] || 0;
+      const pct = total ? Math.round((n / total) * 100) : 0;
+      return `<span class="grade-pill ${o.cls}"><b>${n}</b> ${o.label} <span class="pct">${pct}%</span></span>`;
+    }).join("");
 }
+
+// ---------------------------------------------------------------------------
+// ABA: EVOLUÇÃO B.V. (Rodada 3, item 5)
+// ---------------------------------------------------------------------------
+// Por hora sempre "geral" (não segmentado por squad/usuário) -- o Luiz pediu
+// pra deixar assim por enquanto e ajustar depois, quando tivermos um jeito
+// confiável de identificar a squad "da época" de cada ticket.
+//
+// Histórico: o Databricks já guarda o Basic Value por `event_week` desde
+// 2025-10-27 -- rodamos um backfill único (supabase/backfill-evolucao.sql)
+// puxando essa série semanal completa pra bv_grade_snapshots. Dali em diante,
+// cada abertura da aba por um gestor_geral grava um snapshot novo do dia
+// (maybeCaptureSnapshotIfGestorGeral), então o gráfico segue crescendo com
+// pontos novos conforme as sincronizações manuais forem acontecendo.
+//
+// Paleta (correção 2026-08-12): trocada a rampa ordinal verde pela MESMA
+// paleta de status (risco/aviso/ok) usada em .grade-pill -- pedido do Luiz
+// (a direção certa era levar a paleta de status pro gráfico, não o
+// contrário -- ver comentário em .grade-pill no CSS). g4=--ok-text,
+// g3=verde-azulado intermediário (#3F7D69), g2=--warn, g1=laranja mais
+// escuro (#A3652E), g0=--risk, sem_dado=--ink-mute.
 const EVO_RAMP = { "4": "#0E7D5F", "3": "#3F7D69", "2": "#B7791F", "1": "#A3652E", "0": "#C7362C", sem_dado: "#8288A3" };
 const EVO_LABELS = { "4": "Nota 4 · completo", "3": "Nota 3", "2": "Nota 2", "1": "Nota 1", "0": "Nota 0 · não iniciado", sem_dado: "Sem dado" };
 const EVO_ORDER = ["4", "3", "2", "1", "0", "sem_dado"];
+// Rodada 6 (2026-08-11): rótulo de dado direto no gráfico (antes só aparecia
+// no tooltip, a pedido do Luiz). Cor do texto por segmento, pra manter
+// contraste -- os graus mais altos (4/3/2) têm fill escuro (texto branco);
+// os mais claros (1/0) e "sem_dado" (cinza claro) usam texto escuro.
 const EVO_LABEL_TEXT = { "4": "#fff", "3": "#fff", "2": "#fff", "1": "#0b2a1f", "0": "#0b2a1f", sem_dado: "#4A4F73" };
+
 let evoRawRows = [];
-let evoMode = "weekly";
-let evoWeeklyRange = 5;
+let evoMode = "weekly";       // "weekly" | "monthly"
+let evoWeeklyRange = 5;       // 5 | 10 | "all" -- só se aplica no modo "weekly"
+
 function todayDateStr() {
   const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
+
+// Só gestor_geral grava o snapshot -- é o único papel cujo state.allRows
+// representa de verdade "todas as empresas" (bypass de RLS); se um
+// colaborador/gestor_squad gravasse, o snapshot ficaria incompleto (só o
+// próprio recorte) e corromperia o histórico geral.
 async function maybeCaptureSnapshotIfGestorGeral() {
   if (!currentMember || currentMember.role !== "gestor_geral") return;
   const today = todayDateStr();
   const { data: existing } = await sb.from("bv_grade_snapshots").select("grade").eq("snapshot_date", today).limit(1);
-  if (existing && existing.length) return;
+  if (existing && existing.length) return; // já capturado hoje
+
   const companies = distinctCompanies(state.allRows);
   const total = companies.length;
   if (!total) return;
   const buckets = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, sem_dado: 0 };
-  companies.forEach(c => { const g = c.instalation_completeness_grade; const key = String(g); if (g == null || !(key in buckets)) buckets.sem_dado++; else buckets[key]++; });
-  const rows = Object.keys(buckets).map(grade => ({ snapshot_date: today, grade, company_count: buckets[grade], total_companies: total }));
+  companies.forEach(c => {
+    const g = c.instalation_completeness_grade;
+    const key = String(g);
+    if (g == null || !(key in buckets)) buckets.sem_dado++;
+    else buckets[key]++;
+  });
+
+  const rows = Object.keys(buckets).map(grade => ({
+    snapshot_date: today, grade, company_count: buckets[grade], total_companies: total,
+  }));
   const { error } = await sb.from("bv_grade_snapshots").insert(rows);
   if (error) console.error("Erro ao gravar snapshot de evolução:", error.message);
 }
+
 async function loadEvolucao() {
   const wrap = document.getElementById("evolucao-wrap");
   wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
+
   await maybeCaptureSnapshotIfGestorGeral();
+
   const { data, error } = await sb.from("bv_grade_snapshots").select("*").order("snapshot_date", { ascending: true });
-  if (error) { wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>"; return; }
+  if (error) {
+    wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
+    return;
+  }
   evoRawRows = data || [];
   renderEvolucaoChart();
 }
-function setEvoMode(mode) { evoMode = mode; renderEvolucaoChart(); }
-function setEvoRange(v) { evoWeeklyRange = v === "all" ? "all" : Number(v); renderEvolucaoChart(); }
+
+function setEvoMode(mode) {
+  evoMode = mode;
+  renderEvolucaoChart();
+}
+
+function setEvoRange(v) {
+  evoWeeklyRange = v === "all" ? "all" : Number(v);
+  renderEvolucaoChart();
+}
+
 function renderEvolucaoChart() {
   const wrap = document.getElementById("evolucao-wrap");
   const rows = evoRawRows;
+
   if (!rows.length) {
     wrap.innerHTML = `
       <div class="evo-card">
@@ -1045,13 +1885,21 @@ function renderEvolucaoChart() {
       </div>`;
     return;
   }
+
   const byDate = new Map();
-  rows.forEach(r => { if (!byDate.has(r.snapshot_date)) byDate.set(r.snapshot_date, {}); byDate.get(r.snapshot_date)[r.grade] = r; });
+  rows.forEach(r => {
+    if (!byDate.has(r.snapshot_date)) byDate.set(r.snapshot_date, {});
+    byDate.get(r.snapshot_date)[r.grade] = r;
+  });
   const allDates = Array.from(byDate.keys()).sort();
+
   let dates, byGroup, labelFormat;
   if (evoMode === "monthly") {
     const byMonth = new Map();
-    allDates.forEach(d => { const ym = d.slice(0, 7); if (!byMonth.has(ym) || d > byMonth.get(ym)) byMonth.set(ym, d); });
+    allDates.forEach(d => {
+      const ym = d.slice(0, 7);
+      if (!byMonth.has(ym) || d > byMonth.get(ym)) byMonth.set(ym, d);
+    });
     const months = Array.from(byMonth.keys()).sort();
     dates = months;
     byGroup = new Map(months.map(ym => [ym, byDate.get(byMonth.get(ym))]));
@@ -1061,10 +1909,12 @@ function renderEvolucaoChart() {
     byGroup = byDate;
     labelFormat = (d) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   }
+
   const W = 900, H = 260, padL = 20, padR = 12, padT = 10, padB = 28;
   const chartW = W - padL - padR, chartH = H - padT - padB;
   const groupW = chartW / dates.length;
   const barW = Math.min(48, groupW * 0.55);
+
   let bars = "";
   dates.forEach((key, i) => {
     const groupData = byGroup.get(key) || {};
@@ -1088,16 +1938,20 @@ function renderEvolucaoChart() {
     const label = labelFormat(key);
     bars += `<text x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#8288A3">${label}</text>`;
   });
+
   const legend = EVO_ORDER.map(g => `<span class="evo-legend-item"><span class="evo-legend-dot" style="background:${EVO_RAMP[g]}"></span>${EVO_LABELS[g]}</span>`).join("");
+
   const noteHistorico = (allDates.length < 3 && (Date.now() - new Date(allDates[0] + "T00:00:00").getTime()) < 14 * 86400000)
     ? `<p class="form-desc" style="margin-top:14px">Histórico começou a ser registrado em ${new Date(allDates[0] + "T00:00:00").toLocaleDateString("pt-BR")} -- rode o backfill (supabase/backfill-evolucao.sql) pra trazer o histórico semanal completo do Databricks.</p>`
     : "";
+
   const rangeSelect = evoMode === "weekly" ? `
     <select class="evo-range-select" onchange="setEvoRange(this.value)">
       <option value="5" ${evoWeeklyRange === 5 ? "selected" : ""}>Últimas 5 semanas</option>
       <option value="10" ${evoWeeklyRange === 10 ? "selected" : ""}>Últimas 10 semanas</option>
       <option value="all" ${evoWeeklyRange === "all" ? "selected" : ""}>Todo o período</option>
     </select>` : "";
+
   wrap.innerHTML = `
     <div class="evo-card">
       <h3>Evolução do Basic Value de instalação</h3>
@@ -1118,9 +1972,11 @@ function renderEvolucaoChart() {
       <span class="evo-table-toggle" onclick="toggleEvoTable()">ver como tabela</span>
       <div class="evo-table-wrap" id="evo-table-wrap" style="display:none"></div>
     </div>`;
+
   attachEvoTooltip();
   renderEvoTable(dates, byGroup, labelFormat);
 }
+
 function attachEvoTooltip() {
   const svg = document.querySelector(".evo-chart-svg");
   const tooltip = document.getElementById("evo-tooltip");
@@ -1130,7 +1986,9 @@ function attachEvoTooltip() {
       const rect = svg.parentElement.getBoundingClientRect();
       const pct = Math.round((Number(seg.dataset.count) / Number(seg.dataset.total)) * 100);
       const rawKey = seg.dataset.date;
-      const dateLabel = rawKey.length === 7 ? new Date(rawKey + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" }) : new Date(rawKey + "T00:00:00").toLocaleDateString("pt-BR");
+      const dateLabel = rawKey.length === 7
+        ? new Date(rawKey + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+        : new Date(rawKey + "T00:00:00").toLocaleDateString("pt-BR");
       const gradeLabel = EVO_LABELS[seg.dataset.grade] || seg.dataset.grade;
       tooltip.textContent = `${dateLabel} · ${gradeLabel}: ${seg.dataset.count} empresa(s) (${pct}%)`;
       tooltip.style.left = (e.clientX - rect.left) + "px";
@@ -1140,7 +1998,12 @@ function attachEvoTooltip() {
     seg.addEventListener("mouseleave", () => tooltip.classList.remove("show"));
   });
 }
-function toggleEvoTable() { const el = document.getElementById("evo-table-wrap"); el.style.display = el.style.display === "none" ? "block" : "none"; }
+
+function toggleEvoTable() {
+  const el = document.getElementById("evo-table-wrap");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
 function renderEvoTable(keys, byGroup, labelFormat) {
   const el = document.getElementById("evo-table-wrap");
   if (!el) return;
@@ -1148,13 +2011,27 @@ function renderEvoTable(keys, byGroup, labelFormat) {
   keys.forEach(key => {
     const groupData = byGroup.get(key) || {};
     const total = EVO_ORDER.reduce((sum, g) => sum + (groupData[g] ? groupData[g].company_count : 0), 0) || 1;
-    html += `<tr><td>${labelFormat(key)}</td>` + EVO_ORDER.map(g => { const count = groupData[g] ? groupData[g].company_count : 0; const pct = Math.round((count / total) * 100); return `<td>${count} (${pct}%)</td>`; }).join("") + "</tr>";
+    html += `<tr><td>${labelFormat(key)}</td>` +
+      EVO_ORDER.map(g => {
+        const count = groupData[g] ? groupData[g].company_count : 0;
+        const pct = Math.round((count / total) * 100);
+        return `<td>${count} (${pct}%)</td>`;
+      }).join("") + "</tr>";
   });
   html += "</tbody></table>";
   el.innerHTML = html;
 }
-function toggleRiskFilter() { state.riskFilterActive = !state.riskFilterActive; renderAll(); }
-function hubspotTicketUrl(ticketId) { return `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/0-5/${ticketId}/`; }
+
+function toggleRiskFilter() {
+  state.riskFilterActive = !state.riskFilterActive;
+  renderAll();
+}
+
+
+function hubspotTicketUrl(ticketId) {
+  return `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/0-5/${ticketId}/`;
+}
+
 function squadBadgeHtml(row) {
   const squadBadge = `<span class="badge squad ${squadClass(row.owner_squad)}">${labelSquad(row.owner_squad)}</span>`;
   const hasOwnSquad = currentMember && currentMember.role !== "gestor_geral" && currentMember.squad;
@@ -1163,6 +2040,14 @@ function squadBadgeHtml(row) {
   }
   return squadBadge;
 }
+
+// Rodada 12 (2026-08-12): antes a célula só mostrava um badge genérico com o
+// status_tratativa (motivo), ou "com observação"/"Clique p/..." quando não
+// tinha motivo -- nunca o texto de fato registrado. Pedido do Luiz: mostrar
+// motivo + observação concatenados (ex. "Aguardando cliente - Cliente irá
+// retornar amanhã"), pra dar pra ler o que já foi registrado sem precisar
+// abrir o popup. `.tratativa-text` trunca com "..." (mesmo padrão do nome do
+// cliente) -- texto completo continua no title do <span>.
 function tratativaCellHtml(row) {
   const motivo = row.status_tratativa;
   const obs = row.observacao;
@@ -1170,15 +2055,34 @@ function tratativaCellHtml(row) {
   if (motivo && obs) texto = `${motivo} - ${obs}`;
   else if (motivo) texto = motivo;
   else if (obs) texto = obs;
-  return texto ? `<span class="muted tratativa-text" title="${escapeHtml(texto)}">${escapeHtml(texto)}</span>` : '<span class="muted">-</span>';
+  return texto
+    ? `<span class="muted tratativa-text" title="${escapeHtml(texto)}">${escapeHtml(texto)}</span>`
+    : '<span class="muted">-</span>';
 }
+
+// Rodada 15 (2026-08-27): clique na linha inteira abre o popup de detalhes
+// -- ignora cliques em links/checkbox (senão o clique no link do HubSpot ou
+// no checkbox de concluir também abriria o popup por engano).
 function onRowClick(e, ticketId) {
   if (e.target.closest("a, input, button")) return;
   openTratativaModal(ticketId);
 }
+
 function renderTable(data) {
   const wrap = document.getElementById("table-principal-wrap");
-  if (!data || data.length === 0) { wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>'; return; }
+
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum ticket encontrado com os filtros atuais. 🎉</div>';
+    return;
+  }
+
+  // Rodada 9 (2026-08-12): "Status Field" (field_status/prestador/consultor/
+  // data_agendada) escondido de forma REVERSÍVEL via SHOW_FIELD_STATUS (ver
+  // comentário na declaração da flag) -- o <th> só entra se a flag estiver
+  // ligada, current: false.
+  // Rodada 15 (2026-08-27): todas as colunas viraram ordenáveis (antes só
+  // Aberto há/Basic Value/MRR) -- pedido do Luiz. Mesmo padrão
+  // sortable/onSortClick/sortArrowHtml de sempre, só estendido.
   let html = "<table><thead><tr>" +
     '<th style="width:1%">Concluir</th>' +
     `<th class="sortable ${sortArrowClass("cliente")}" onclick="onSortClick('cliente')">Cliente / Ticket${sortArrowHtml("cliente")}</th>` +
@@ -1192,24 +2096,43 @@ function renderTable(data) {
     (SHOW_FIELD_STATUS ? "<th>Status Field</th>" : "") +
     `<th class="sortable ${sortArrowClass("tratativa")}" onclick="onSortClick('tratativa')">Tratativa${sortArrowHtml("tratativa")}</th>` +
     "</tr></thead><tbody>";
+
   for (const row of data) {
     const dias = row.dias_aberto != null ? Math.floor(row.dias_aberto) : "-";
-    const riskBadge = row.mrr_status === "em_risco" ? `<span class="badge risk icon-only" title="MRR em risco">${ICONS.alert}</span>` : `<span class="badge ok icon-only" title="MRR ok">${ICONS.check}</span>`;
+    // Rodada 15 (2026-08-27): badge de texto "em risco"/"ok" virou ícone
+    // (alerta/check) -- pedido do Luiz. Motivo continua no title (tooltip).
+    const riskBadge = row.mrr_status === "em_risco"
+      ? `<span class="badge risk icon-only" title="MRR em risco">${ICONS.alert}</span>`
+      : `<span class="badge ok icon-only" title="MRR ok">${ICONS.check}</span>`;
     const squadBadge = squadBadgeHtml(row);
     const isAcked = state.justAcked.has(row.ticket_id);
+
     const accessoryProducts = state.productsByTicket[row.ticket_id] || [];
     const chips = [];
     if (row.esn_count) {
+      // Validação de ESN da propriedade (2026-08-12, ver
+      // supabase/patch-esn-validacao.sql): tooltip traz o ModeloItem CRU por
+      // ESN (sem mapear pra nome amigável ainda, a pedido do Luiz).
       const modelos = (row.esn_modelos_raw || []).filter(Boolean).join(", ");
       chips.push(`<span class="chip chip-core"${modelos ? ` title="${escapeHtml(modelos)}"` : ""}>${row.esn_count}x Rastreador</span>`);
     }
     const esnProblemas = (row.esn_divergente_count || 0) + (row.esn_sem_match_count || 0);
     if (esnProblemas > 0) {
-      const detalhe = (row.esn_detalhe || []).filter(d => d.status !== "ok").map(d => `ESN ${d.esn} (${d.modelo_item || "modelo desconhecido"}): ${d.status}`).join("\n");
+      const detalhe = (row.esn_detalhe || [])
+        .filter(d => d.status !== "ok")
+        .map(d => `ESN ${d.esn} (${d.modelo_item || "modelo desconhecido"}): ${d.status}`)
+        .join("\n");
       chips.push(`<span class="chip chip-esn-warn" title="${escapeHtml(detalhe)}">⚠ ${esnProblemas} ESN(s) a validar</span>`);
     }
     accessoryProducts.forEach(p => chips.push(`<span class="chip">${p.quantity}x ${escapeHtml(p.product_label)}</span>`));
-    const productsHtml = chips.length ? '<div class="products-wrap">' + chips.join("") + '</div>' : '<div class="products-wrap"><span class="chip empty">não informado</span></div>';
+    const productsHtml = chips.length
+      ? '<div class="products-wrap">' + chips.join("") + '</div>'
+      : '<div class="products-wrap"><span class="chip empty">não informado</span></div>';
+
+    // Rodada 15 (2026-08-27): clicar em qualquer lugar da linha abre o popup
+    // de detalhes/tratativa (antes só a célula "Tratativa" abria) -- pedido
+    // do Luiz. onRowClick ignora cliques em link/checkbox pra não capturar
+    // esses cliques (ver onRowClick()).
     html += `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')" title="Clique para registrar tratativa">
       <td>
         <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
@@ -1241,26 +2164,64 @@ function renderTable(data) {
   html += "</tbody></table>";
   wrap.innerHTML = html;
 }
+
+// Checkbox "Agendado" (Rodada 9, 2026-08-12) -- vale pra TODO ticket da
+// tabela de Tickets, sempre, independente de qualquer filtro de Prioridade
+// estar ativo (correção explícita do Luiz: "o check box é para todos os
+// tickets ok, não somente os prioridades"). Grava em ticket_priority_ack
+// (ver supabase/patch-ticket-priority-ack.sql) -- marcação PERMANENTE, não um
+// snooze de 1 dia: da próxima vez que a página carregar (reload ou dia
+// seguinte), este ticket não aparece mais (ver loadDashboard()). Suposição
+// registrada pro Luiz poder pedir ajuste: não existe hoje um jeito de ver ou
+// desmarcar os já agendados -- se ele quiser isso, precisa de uma tela nova.
+// Rodada 15 (2026-08-27): confirmação antes de concluir -- pedido do Luiz
+// ("ao apertar um pop para confirmar, esta ação irá tirar o ticket da
+// visão..."), porque a marcação é permanente (não dá pra desmarcar hoje).
 async function onAckTicket(ticketId, checkbox) {
-  if (!confirm("Esta ação irá tirar o ticket da visão. Tem certeza que deseja concluir?")) { checkbox.checked = false; return; }
+  if (!confirm("Esta ação irá tirar o ticket da visão. Tem certeza que deseja concluir?")) {
+    checkbox.checked = false;
+    return;
+  }
   checkbox.disabled = true;
-  const { error } = await sb.from("ticket_priority_ack").insert({ ticket_id: ticketId, marked_by: currentUser ? currentUser.email : null });
-  if (error) { alert("Erro ao marcar como agendado (o patch supabase/patch-ticket-priority-ack.sql já foi rodado?): " + error.message); checkbox.disabled = false; checkbox.checked = false; return; }
+  const { error } = await sb.from("ticket_priority_ack").insert({
+    ticket_id: ticketId,
+    marked_by: currentUser ? currentUser.email : null,
+  });
+  if (error) {
+    alert("Erro ao marcar como agendado (o patch supabase/patch-ticket-priority-ack.sql já foi rodado?): " + error.message);
+    checkbox.disabled = false;
+    checkbox.checked = false;
+    return;
+  }
   state.justAcked.add(ticketId);
   renderAll();
 }
+
 async function loadProductsFor(ticketIds) {
   if (!ticketIds.length) return {};
   const map = {};
   for (let i = 0; i < ticketIds.length; i += 200) {
     const batch = ticketIds.slice(i, i + 200);
-    const rows = await fetchAllPages((from, to) => sb.from("ticket_products").select("*").in("ticket_id", batch).range(from, to));
-    rows.forEach(p => { map[p.ticket_id] = map[p.ticket_id] || []; map[p.ticket_id].push(p); });
+    const rows = await fetchAllPages((from, to) =>
+      sb.from("ticket_products").select("*").in("ticket_id", batch).range(from, to)
+    );
+    rows.forEach(p => {
+      map[p.ticket_id] = map[p.ticket_id] || [];
+      map[p.ticket_id].push(p);
+    });
   }
   return map;
 }
+
 async function saveTratativa(ticketId, status, observacao) {
-  const { data: last } = await sb.from("ticket_checks").select("*").eq("ticket_id", ticketId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  const { data: last } = await sb
+    .from("ticket_checks")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const payload = {
     ticket_id: ticketId,
     user_email: currentUser.email,
@@ -1268,16 +2229,34 @@ async function saveTratativa(ticketId, status, observacao) {
     observacao: observacao !== null ? observacao : (last ? last.observacao : null),
     updated_at: new Date().toISOString(),
   };
+
   await sb.from("ticket_checks").insert(payload);
 }
+
+// Popup de Tratativa (Rodada 11, 2026-08-12) -- pedido do Luiz pra liberar
+// espaço horizontal na tabela. O popup edita status_tratativa + observacao
+// juntos (diferente do select/textarea antigos, que salvavam cada campo
+// separado ao trocar/perder foco) -- por isso aqui SEMPRE manda os dois
+// valores pro saveTratativa() (nunca `null` pra "não tocar"), incluindo
+// string vazia quando o usuário quer limpar o status.
 const TRATATIVA_OPTIONS = ["Aguardando cliente", "Sem previsão de instalação", "Veículos indisponíveis", "Dispositivos instalados", "Solicitado cancelamento/Churn"];
 let tratativaModalTicketId = null;
+
+// Rodada 15 (2026-08-27): contatos da empresa -- pedido do Luiz ("seria
+// muito bom se conseguíssemos trazer os números de contatos da empresa, pra
+// já facilitar o contato"). Vem de colunas novas em v_dashboard
+// (contato_nome/contato_telefone/contato_email, extraídas do
+// instalacao__cliente_* no Databricks -- ver claude/rodada15... no projeto);
+// até essas colunas existirem/serem populadas, mostra "sem dados de contato".
 function renderTratativaContacts(row) {
   const wrap = document.getElementById("tratativa-modal-contacts");
   const nome = row.contato_nome;
   const tel = row.contato_telefone;
   const email = row.contato_email;
-  if (!nome && !tel && !email) { wrap.innerHTML = '<p class="muted" style="font-size:12px;margin:0 0 14px">Sem dados de contato para este ticket.</p>'; return; }
+  if (!nome && !tel && !email) {
+    wrap.innerHTML = '<p class="muted" style="font-size:12px;margin:0 0 14px">Sem dados de contato para este ticket.</p>';
+    return;
+  }
   const line = (label, value) => {
     if (!value) return "";
     const safeValue = escapeHtml(value).replace(/'/g, "\\'").replace(/"/g, "&quot;");
@@ -1289,14 +2268,26 @@ function renderTratativaContacts(row) {
   };
   wrap.innerHTML = '<div class="contact-block">' + line("Nome", nome) + line("Telefone", tel) + line("E-mail", email) + '</div>';
 }
+
 function copyToClipboard(text, btn) {
   if (!text) return;
-  navigator.clipboard.writeText(text).then(() => { const original = btn.textContent; btn.textContent = "Copiado!"; setTimeout(() => { btn.textContent = original; }, 1200); }).catch(() => alert("Não foi possível copiar -- copie manualmente: " + text));
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.textContent;
+    btn.textContent = "Copiado!";
+    setTimeout(() => { btn.textContent = original; }, 1200);
+  }).catch(() => alert("Não foi possível copiar -- copie manualmente: " + text));
 }
+
+// Rodada 15 (2026-08-27): histórico de tratativas -- o Luiz reportou que
+// "hoje não tem" jeito de ver quando foi a última tratativa registrada.
+// ticket_checks já é append-only (insert, nunca update) desde sempre, então
+// o histórico completo já existia no banco -- só nunca tinha sido consultado
+// nem mostrado em lugar nenhum da UI.
 async function loadTratativaHistory(ticketId) {
   const wrap = document.getElementById("tratativa-modal-history");
   wrap.innerHTML = '<p class="muted" style="font-size:12px">Carregando histórico...</p>';
-  const { data, error } = await sb.from("ticket_checks").select("*").eq("ticket_id", ticketId).order("updated_at", { ascending: false }).limit(20);
+  const { data, error } = await sb.from("ticket_checks").select("*")
+    .eq("ticket_id", ticketId).order("updated_at", { ascending: false }).limit(20);
   if (error) { wrap.innerHTML = '<p class="muted" style="font-size:12px">Erro ao carregar histórico.</p>'; return; }
   if (!data || !data.length) { wrap.innerHTML = '<p class="muted" style="font-size:12px">Nenhum registro anterior.</p>'; return; }
   wrap.innerHTML = data.map(h => {
@@ -1308,6 +2299,7 @@ async function loadTratativaHistory(ticketId) {
     </div>`;
   }).join("");
 }
+
 function openTratativaModal(ticketId) {
   const row = state.allRows.find(r => r.ticket_id === ticketId);
   if (!row) return;
@@ -1315,29 +2307,46 @@ function openTratativaModal(ticketId) {
   document.getElementById("tratativa-modal-subtitle").textContent = row.display_name || row.subject_raw || ticketId;
   renderTratativaContacts(row);
   const sel = document.getElementById("tratativa-modal-select");
-  sel.innerHTML = '<option value="">-- selecionar --</option>' + TRATATIVA_OPTIONS.map(opt => `<option value="${opt}" ${row.status_tratativa === opt ? "selected" : ""}>${opt}</option>`).join("");
+  sel.innerHTML = '<option value="">-- selecionar --</option>' +
+    TRATATIVA_OPTIONS.map(opt => `<option value="${opt}" ${row.status_tratativa === opt ? "selected" : ""}>${opt}</option>`).join("");
   document.getElementById("tratativa-modal-textarea").value = row.observacao || "";
   document.getElementById("tratativa-modal-overlay").style.display = "flex";
   loadTratativaHistory(ticketId);
 }
-function closeTratativaModal() { document.getElementById("tratativa-modal-overlay").style.display = "none"; tratativaModalTicketId = null; }
+
+function closeTratativaModal() {
+  document.getElementById("tratativa-modal-overlay").style.display = "none";
+  tratativaModalTicketId = null;
+}
+
 async function saveTratativaModal() {
   if (!tratativaModalTicketId) return;
   const ticketId = tratativaModalTicketId;
   const status = document.getElementById("tratativa-modal-select").value;
   const observacao = document.getElementById("tratativa-modal-textarea").value;
   await saveTratativa(ticketId, status, observacao);
+  // Atualiza em memória pra refletir na tabela sem precisar de loadDashboard().
   const row = state.allRows.find(r => r.ticket_id === ticketId);
   if (row) { row.status_tratativa = status || null; row.observacao = observacao; }
   closeTratativaModal();
   renderAll();
 }
+
+
 async function loadMultiplos() {
   const wrap = document.getElementById("table-multiplos-wrap");
   wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
+
   const { data, error } = await sb.from("v_atendimentos_multiplos").select("*").order("ticket_id");
-  if (error) { wrap.innerHTML = '<div id="empty-state">Erro: ' + escapeHtml(error.message) + "</div>"; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<div id="empty-state">Nenhum atendimento múltiplo no seu escopo agora.</div>'; return; }
+  if (error) {
+    wrap.innerHTML = '<div id="empty-state">Erro: ' + escapeHtml(error.message) + "</div>";
+    return;
+  }
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<div id="empty-state">Nenhum atendimento múltiplo no seu escopo agora.</div>';
+    return;
+  }
+
   let html = "<table><thead><tr><th>Cliente / Ticket</th><th>Ordem de serviço</th><th>Status</th><th>Prestador</th><th>Consultor</th><th>Data agendada</th></tr></thead><tbody>";
   for (const row of data) {
     html += `<tr>
@@ -1352,12 +2361,15 @@ async function loadMultiplos() {
   html += "</tbody></table>";
   wrap.innerHTML = html;
 }
+
 function applyInviteFormRestrictions(member) {
   if (!member) return;
   const isSquadManager = member.role === "gestor_squad";
+
   document.getElementById("inv-role-label").style.display = isSquadManager ? "none" : "flex";
   document.getElementById("inv-role-locked-label").style.display = isSquadManager ? "flex" : "none";
   document.getElementById("inv-squad-locked-label").style.display = isSquadManager ? "flex" : "none";
+
   if (isSquadManager) {
     document.getElementById("inv-squad-label").style.display = "none";
     document.getElementById("inv-squad-locked-text").textContent = labelSquad(member.squad);
@@ -1365,61 +2377,86 @@ function applyInviteFormRestrictions(member) {
     onInviteRoleChange();
   }
 }
+
 function onInviteRoleChange() {
   if (currentMember && currentMember.role === "gestor_squad") return;
   const role = document.getElementById("inv-role").value;
   document.getElementById("inv-squad-label").style.display = role === "gestor_geral" ? "none" : "flex";
 }
+
 async function inviteMember(e) {
   e.preventDefault();
   const email = document.getElementById("inv-email").value.trim();
   const name = document.getElementById("inv-name").value.trim();
   const isSquadManager = currentMember && currentMember.role === "gestor_squad";
   const role = isSquadManager ? "colaborador" : document.getElementById("inv-role").value;
-  const squad = isSquadManager ? currentMember.squad : (role === "gestor_geral" ? null : document.getElementById("inv-squad").value);
+  const squad = isSquadManager
+    ? currentMember.squad
+    : (role === "gestor_geral" ? null : document.getElementById("inv-squad").value);
+
   const { error } = await sb.from("team_members").insert({ email, name, squad, role });
   if (error) { alert("Erro ao convidar: " + error.message); return false; }
+
   const { error: otpError } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: DASHBOARD_URL } });
   if (otpError) {
     alert(name + " foi cadastrado(a), mas houve um erro ao enviar o link de acesso automaticamente: " + otpError.message + ". Peça pra essa pessoa acessar " + DASHBOARD_URL + " e clicar em \"Entrar\".");
   } else {
+    // Rodada 15 (2026-08-27): texto corrigido -- squad é resolvida por
+    // e-mail desde a Rodada 14, não mais pelo ID do HubSpot.
     alert(name + " foi cadastrado(a) — um link de acesso já foi enviado pro e-mail dela. Os tickets dela aparecem com a squad certa assim que o e-mail dela bater com o dono do ticket no HubSpot.");
   }
   loadTeamTable();
   return false;
 }
+
 async function grantAccess(e) {
   e.preventDefault();
   const grantee_email = document.getElementById("grant-grantee").value.trim();
   const target_email = document.getElementById("grant-target").value.trim();
   const reason = document.getElementById("grant-reason").value.trim();
   const endsRaw = document.getElementById("grant-ends").value.trim();
-  const { error } = await sb.from("access_grants").insert({ grantee_email, target_email, reason: reason || null, ends_at: endsRaw ? new Date(endsRaw).toISOString() : null, created_by: currentUser.email });
+
+  const { error } = await sb.from("access_grants").insert({
+    grantee_email, target_email, reason: reason || null,
+    ends_at: endsRaw ? new Date(endsRaw).toISOString() : null,
+    created_by: currentUser.email,
+  });
   if (error) { alert("Erro ao liberar acesso: " + error.message); return false; }
   alert(grantee_email + " agora também vê os itens de " + target_email + ".");
   return false;
 }
+
 function populateGrantSelects(members) {
-  const opts = members.filter(m => m.active).slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map(m => `<option value="${escapeHtml(m.email)}">${escapeHtml(m.name)} (${escapeHtml(m.email)})</option>`).join("");
+  const opts = members
+    .filter(m => m.active)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+    .map(m => `<option value="${escapeHtml(m.email)}">${escapeHtml(m.name)} (${escapeHtml(m.email)})</option>`)
+    .join("");
   const granteeSel = document.getElementById("grant-grantee");
   const targetSel = document.getElementById("grant-target");
   if (granteeSel) granteeSel.innerHTML = '<option value="">-- selecionar --</option>' + opts;
   if (targetSel) targetSel.innerHTML = '<option value="">-- selecionar --</option>' + opts;
 }
+
 async function loadTeamTable() {
   const wrap = document.getElementById("team-table-wrap");
   const { data, error } = await sb.from("team_members").select("*").order("squad").order("name");
   if (error) { wrap.innerHTML = "Erro: " + escapeHtml(error.message); return; }
+
   const canManageAll = currentMember && currentMember.role === "gestor_geral";
   const canManageOwnSquad = currentMember && currentMember.role === "gestor_squad";
+
   let html = "<table><thead><tr><th>Nome</th><th>E-mail</th><th>Squad</th><th>Papel</th><th>Ativo</th><th>Ações</th></tr></thead><tbody>";
   for (const m of data) {
     const canManageThis = canManageAll || (canManageOwnSquad && m.squad === currentMember.squad);
     const squadCell = m.squad ? `<span class="badge squad ${squadClass(m.squad)}">${labelSquad(m.squad)}</span>` : '<span class="muted">-</span>';
-    const actions = canManageThis ? `<div class="row-actions">
+    const actions = canManageThis
+      ? `<div class="row-actions">
            <button type="button" onclick="openEditMember('${escapeHtml(m.email)}')">Editar</button>
            <button type="button" class="danger" onclick="deleteMember('${escapeHtml(m.email)}', '${escapeHtml(m.name).replace(/'/g, "\\'")}')">Excluir</button>
-         </div>` : '<span class="muted">-</span>';
+         </div>`
+      : '<span class="muted">-</span>';
     html += `<tr>
       <td>${escapeHtml(m.name)}</td>
       <td>${escapeHtml(m.email)}</td>
@@ -1431,17 +2468,36 @@ async function loadTeamTable() {
   }
   html += "</tbody></table>";
   wrap.innerHTML = html;
+
   populateGrantSelects(data);
   loadAccessGrantsTable(data);
 }
+
+// Rodada 15 (2026-08-27): antes não existia jeito de VER ou REMOVER uma
+// delegação de visão já concedida (só o formulário "Delegar visão", que só
+// cria) -- pedido do Luiz ("hoje quando libera uma visão de outra pessoa ou
+// squad para alguém não tenho como saber"). `members` (já carregado por
+// loadTeamTable) é reaproveitado só pra exibir nome em vez de e-mail cru.
+// NOTA: access_grants foi criada direto no SQL Editor do Supabase (não tem
+// arquivo de schema versionado no repo), então não temos certeza se existe
+// uma coluna `id`/`created_at` -- por segurança, list+delete aqui usam só as
+// colunas que sabemos que existem (grantee_email/target_email/reason/
+// ends_at/created_by, confirmadas pelo insert em grantAccess()). Se
+// aparecer erro de coluna inexistente, veja com o Luiz o schema real
+// (`select * from access_grants limit 1` no SQL Editor resolve).
 async function loadAccessGrantsTable(members) {
   const wrap = document.getElementById("grants-table-wrap");
   if (!wrap) return;
   const nameByEmail = {};
   (members || []).forEach(m => { nameByEmail[m.email] = m.name; });
+
   const { data, error } = await sb.from("access_grants").select("*").order("grantee_email");
   if (error) { wrap.innerHTML = "Erro: " + escapeHtml(error.message); return; }
-  if (!data || !data.length) { wrap.innerHTML = '<p class="muted" style="font-size:12.5px">Nenhum acesso delegado ativo no momento.</p>'; return; }
+  if (!data || !data.length) {
+    wrap.innerHTML = '<p class="muted" style="font-size:12.5px">Nenhum acesso delegado ativo no momento.</p>';
+    return;
+  }
+
   let html = "<table><thead><tr><th>Quem enxerga</th><th>De quem</th><th>Motivo</th><th>Até quando</th><th>Ações</th></tr></thead><tbody>";
   for (const g of data) {
     const grantee = nameByEmail[g.grantee_email] || g.grantee_email;
@@ -1458,12 +2514,15 @@ async function loadAccessGrantsTable(members) {
   html += "</tbody></table>";
   wrap.innerHTML = html;
 }
+
 async function revokeAccessGrant(granteeEmail, targetEmail, granteeName, targetName) {
   if (!confirm(`Remover o acesso de ${granteeName} aos tickets de ${targetName}?`)) return;
-  const { error } = await sb.from("access_grants").delete().eq("grantee_email", granteeEmail).eq("target_email", targetEmail);
+  const { error } = await sb.from("access_grants").delete()
+    .eq("grantee_email", granteeEmail).eq("target_email", targetEmail);
   if (error) { alert("Erro ao remover: " + error.message); return; }
   loadTeamTable();
 }
+
 async function openEditMember(email) {
   const { data: m, error } = await sb.from("team_members").select("*").eq("email", email).maybeSingle();
   if (error || !m) { alert("Não foi possível carregar o cadastro dessa pessoa."); return; }
@@ -1478,11 +2537,17 @@ async function openEditMember(email) {
   card.style.display = "block";
   card.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-function cancelEditMember() { document.getElementById("edit-member-card").style.display = "none"; return false; }
+
+function cancelEditMember() {
+  document.getElementById("edit-member-card").style.display = "none";
+  return false;
+}
+
 function onEditRoleChange() {
   const role = document.getElementById("edit-role").value;
   document.getElementById("edit-squad-label").style.display = role === "gestor_geral" ? "none" : "flex";
 }
+
 async function saveEditMember(e) {
   e.preventDefault();
   const email = document.getElementById("edit-email").value;
@@ -1491,6 +2556,7 @@ async function saveEditMember(e) {
   const squad = role === "gestor_geral" ? null : document.getElementById("edit-squad").value;
   const ownerIdRaw = document.getElementById("edit-owner-id").value.trim();
   const hubspot_owner_id = ownerIdRaw ? Number(ownerIdRaw) : null;
+
   const { error } = await sb.from("team_members").update({ name, role, squad, hubspot_owner_id }).eq("email", email);
   if (error) { alert("Erro ao salvar: " + error.message); return false; }
   alert("Cadastro atualizado.");
@@ -1498,6 +2564,7 @@ async function saveEditMember(e) {
   loadTeamTable();
   return false;
 }
+
 async function deleteMember(email, name) {
   if (!confirm("Excluir o cadastro de " + name + " (" + email + ")? Essa ação não pode ser desfeita.")) return;
   const { error } = await sb.from("team_members").delete().eq("email", email);
@@ -1512,18 +2579,77 @@ async function deleteMember(email, name) {
   alert(name + " foi removido(a) do cadastro.");
   loadTeamTable();
 }
+
 function escapeHtml(s) {
   if (s == null) return "";
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function fmtNum(n) { return n == null ? "-" : Number(n).toFixed(1); }
 function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 }); }
+
+// Completude de Instalação (2026-08-11, ajustado em 2026-08-11 a pedido do
+// Luiz) -- % já instalado sobre o que é elegível por empresa e quanto falta
+// pra bater a meta de 80%. Vem de completude_instalacao_snapshot
+// (Databricks -> sync -> Supabase), agora em coluna própria (não mais dentro
+// da célula de Basic Value). O dado é sempre exibido, mesmo se a empresa já
+// passou do prazo (90 dias Onboarding / 60 dias ICP-SMB contados da
+// assinatura) -- o campo completude_dentro_do_prazo apenas sinaliza se ainda
+// dá tempo de completar dentro do prazo ou se o prazo já encerrou. Ver
+// supabase/patch-completude-instalacao.sql,
+// supabase/patch-completude-instalacao-prazo.sql e
+// queries/query-completude-instalacao-sync.sql.
+// Rodada 11 (2026-08-12): pedido do Luiz -- formato "10% | +2 para 80%" na
+// 1a linha, e na 2a linha o status do prazo.
+//
+// Correção da mesma Rodada 11 (depois do Luiz reportar "faltam 0 dia(s)"
+// aparecendo em toda linha, mesmo em tickets claramente vencidos -- ex.
+// ticket 36311791626/W.P. Construtora, 258 dias desde a assinatura real):
+// a 1a versão desta função reaproveitava diasRestantes(), que usa
+// row.dias_aberto (há quantos dias o TICKET está aberto no HubSpot) como se
+// fosse "dias desde a assinatura do contrato" -- são relógios diferentes! Um
+// ticket pode ficar meses parado em "Agendar instalação" bem depois do
+// prazo de 60/90 dias da assinatura já ter vencido (ou nem ter relação com
+// qual assinatura conta pro prazo -- ver nota grande abaixo). Isso fazia
+// diasRestantes() dar sempre um número bem negativo, que o Math.max(...,0)
+// zerava -- daí "faltam 0 dia(s)" em quase toda linha, mesmo mostrando
+// "dentro do prazo". Removido até termos o dado certo vindo do Databricks
+// (contagem de dias real, a partir da assinatura elegível mais recente
+// dentro do prazo) -- por ora mostra só o status (badge), sem contagem de
+// dias, exatamente como pedido pro caso "encerrado" ("e o que encerrou só o
+// texto mesmo").
+//
+// ATENÇÃO -- limitação maior, achada ao investigar o ticket 36311791626
+// (ver conversa): completude_instalacao_snapshot é por EMPRESA
+// (company_id), não por ticket/negócio. Uma empresa com mais de uma venda
+// Upsell ao longo do tempo (comum) tem UM SÓ valor de "dentro_do_prazo"/pct
+// pra TODOS os tickets dela -- calculado como "existe ALGUMA venda elegível
+// da empresa ainda dentro do prazo dela". Ou seja: um ticket antigo, cuja
+// própria venda já venceu há muito, ainda pode aparecer como "dentro do
+// prazo" só porque a empresa fechou uma venda NOVA depois. Confirmado no
+// Databricks pra este ticket específico: deal 49779167653 (do próprio
+// ticket) assinado em 2025-11-27, 258 dias atrás -- muito além do prazo de
+// 60 dias (Upsell/ICP-SMB) -- mas a mesma empresa (9608025244) tem outra
+// venda Upsell mais recente (deal 62115236907, assinada 2026-07-06, só 37
+// dias atrás, ainda dentro do prazo), e é essa venda nova que está
+// "carregando" o dentro_do_prazo=true e o % mostrados em TODOS os tickets
+// da empresa, inclusive neste aqui. Combinar com o Luiz se isso deve
+// continuar sendo uma métrica por empresa (aí talvez precise de um aviso
+// deixando isso claro) ou se cada ticket deveria mostrar o status da SUA
+// PRÓPRIA venda (precisaria vincular ticket -> deal_id na query, mudança
+// maior no pipeline do Databricks).
 function completudeInstalacaoHtml(row) {
-  if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) { return '<span class="muted">-</span>'; }
+  if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) {
+    return '<span class="muted">-</span>';
+  }
   const pct = Math.round((row.completude_pct || 0) * 100);
   const faltam = row.completude_qtd_falta || 0;
   const cor = pct >= 80 ? "var(--ok-text)" : (pct >= 50 ? "var(--warn)" : "var(--risk)");
-  const faltamTxt = faltam > 0 ? ` <span class="muted">| +${faltam} para 80%</span>` : ` <span class="muted">| meta batida</span>`;
+  const faltamTxt = faltam > 0
+    ? ` <span class="muted">| +${faltam} para 80%</span>`
+    : ` <span class="muted">| meta batida</span>`;
+  // Rodada 15 (2026-08-27): badge de texto virou ícone (mesmo padrão do
+  // riskBadge de MRR acima) -- pedido do Luiz. Detalhe (dias restantes) some
+  // do texto visível e vai pro title (tooltip).
   let prazoLine = "";
   if (row.completude_dentro_do_prazo === false) {
     prazoLine = `<span class="badge risk icon-only" title="Prazo encerrado">${ICONS.alert}</span>`;
@@ -1532,7 +2658,8 @@ function completudeInstalacaoHtml(row) {
     const diasTxt = (dias != null && dias > 0) ? ` -- faltam ${Math.round(dias)}d` : "";
     prazoLine = `<span class="badge ok icon-only" title="Dentro do prazo${diasTxt}">${ICONS.check}</span>`;
   }
-  return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` + (prazoLine ? `<div class="bv-row muted" style="margin-top:2px">${prazoLine}</div>` : "");
+  return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
+    (prazoLine ? `<div class="bv-row muted" style="margin-top:2px">${prazoLine}</div>` : "");
 }
 </script>
 </body>
