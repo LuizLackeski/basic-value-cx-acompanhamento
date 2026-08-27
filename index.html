@@ -3668,9 +3668,14 @@ function completudeInstalacaoHtml(row) {
     }
     const restantes = 60 - row.dias_aberto;
     const tip = 'Classe "Troca" não tem completude por deal -- aqui o prazo é de 60 dias corridos desde a abertura do ticket.';
+    // Rodada 18d (2026-08-27): removida a condição "restantes > 0" que escondia
+    // o contador exatamente no dia do limite (restantes === 0) -- pedido do
+    // Luiz: "perto disso não deve ficar sem informação". Formato também
+    // trocado de "-- faltam Nd" para "+Nd", igual ao padrão já usado em
+    // "+N para 80%"/"+N para nota 3" na mesma linha.
     const badge = restantes < 0
       ? `<span class="badge risk" data-tt="${escapeHtml(tip)}">Prazo encerrado</span>`
-      : `<span class="badge ok" data-tt="${escapeHtml(tip)}">Dentro do prazo${restantes > 0 ? ` -- faltam ${Math.ceil(restantes)}d` : ""}</span>`;
+      : `<span class="badge ok" data-tt="${escapeHtml(tip)}">Dentro do prazo +${Math.ceil(restantes)}d</span>`;
     return badge;
   }
 
@@ -3689,14 +3694,21 @@ function completudeInstalacaoHtml(row) {
   // Rodada 15 (2026-08-27): revertido no mesmo dia -- o pedido do Luiz de
   // ícone (triângulo/check) era só pra Basic Value (basicValueCellHtml),
   // não pra Completude de Instalação. Aqui volta ao texto padrão de sempre
-  // ("dentro do prazo -- faltam Nd" / "prazo encerrado"), como era antes
-  // desta rodada.
+  // ("dentro do prazo +Nd" / "prazo encerrado"), como era antes desta
+  // rodada (formato "+Nd" ajustado na Rodada 18d, ver comentário abaixo).
   let prazoLine = "";
   if (row.completude_dentro_do_prazo === false) {
     prazoLine = `<span class="badge risk">Prazo encerrado</span>`;
   } else if (row.completude_dentro_do_prazo === true) {
     const dias = diasRestantesPrazoCompletude(row);
-    const diasTxt = (dias != null && dias > 0) ? ` -- faltam ${Math.round(dias)}d` : "";
+    // Rodada 18d (2026-08-27): antes só mostrava a contagem com "dias > 0" --
+    // isso escondia o número justo nos casos batendo exatamente no limite do
+    // prazo (dias === 0), que são reais (não falta de dado) mas o Luiz pediu
+    // pra continuar mostrando informação mesmo perto do fim ("perto disso não
+    // deve ficar sem informação"). Trocado pra "dias >= 0" e formato "+Nd"
+    // (igual ao "+N para 80%"/"+N para nota 3" já usado na mesma linha), no
+    // lugar de "-- faltam Nd".
+    const diasTxt = (dias != null && dias >= 0) ? ` +${Math.round(dias)}d` : "";
     prazoLine = `<span class="badge ok">Dentro do prazo${diasTxt}</span>`;
   }
   return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
