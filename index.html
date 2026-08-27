@@ -113,18 +113,29 @@
   /* KPI cards -- compactos de propósito: precisam sobrar espaço vertical
      pra tabela, já que ficam sempre visíveis (sticky) enquanto rola. */
   .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+  /* Rodada 15 (2026-08-27): linha colorida nos cards (pedido do Luiz, foto 3
+     -- "coloca uma linhazinha na lateral deles"). Duas correções no mesmo
+     dia depois do Luiz ver o resultado: (1) a linha tem que ser COLORIDA por
+     tipo de card (royal/risk/warn -- mesma cor do ícone dele), não uma cor
+     cinza fixa pra todos; (2) não é só um traço vertical solto na lateral --
+     é a borda de cima + a borda da esquerda GROSSAS e coloridas, contornando
+     o canto arredondado do card junto (referência visual que ele mandou:
+     card com a borda colorida "abraçando" o topo e a lateral esquerda, com a
+     curva no canto). Trocado o approach de ::before (traço flutuante) pra
+     border-top/border-left de verdade no próprio .kpi-card, com
+     border-top-left-radius igual ao border-radius do card -- assim o
+     navegador desenha a curva sozinho, sem precisar simular com um elemento
+     extra. Classe modificadora (.kpi-card--royal/--risk/--warn) adicionada
+     em cada card na renderização (ver renderKpis()). */
   .kpi-card {
     background: #fff; border: 1px solid var(--line); border-radius: 10px;
-    box-shadow: var(--shadow-card); padding: 8px 12px 8px 16px; display: flex; flex-direction: column; gap: 1px;
+    border-top-width: 3px; border-left-width: 3px;
+    box-shadow: var(--shadow-card); padding: 8px 12px 8px 14px; display: flex; flex-direction: column; gap: 1px;
     position: relative; overflow: hidden;
   }
-  /* Rodada 15 (2026-08-27): linha fina lateral pra separar visualmente os
-     cards (pedido do Luiz, foto 3 -- "coloca uma linhazinha na lateral
-     deles"). Mesmo tratamento aplicado aos blocos da sidebar (.sidebar-block). */
-  .kpi-card::before {
-    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
-    border-radius: 0 2px 2px 0; background: var(--royal-soft-2);
-  }
+  .kpi-card.kpi-card--royal { border-top-color: var(--royal); border-left-color: var(--royal); }
+  .kpi-card.kpi-card--risk { border-top-color: var(--risk); border-left-color: var(--risk); }
+  .kpi-card.kpi-card--warn { border-top-color: var(--warn); border-left-color: var(--warn); }
   .kpi-card.clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
   .kpi-card.clickable:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(7,7,78,0.06), 0 14px 28px rgba(7,7,78,0.10); }
   .kpi-card.active { border-color: var(--risk); box-shadow: 0 0 0 2px rgba(199,54,44,0.15); }
@@ -386,21 +397,31 @@
      principal -- só foram realocados, não recriados (o mockup anterior tinha
      esquecido o #grade-row e usado cards de KPI inventados; aqui os
      elementos reais foram só movidos de lugar). */
-  .body-shell { display: flex; flex: 1; min-height: 0; gap: 16px; }
+  /* Correção (2026-08-27, mesmo dia da Rodada 15): a sidebar virou uma
+     coluna de navegação de verdade -- colada na borda esquerda da página,
+     ocupando a altura inteira (não mais um "cartão" branco flutuando dentro
+     de <main>, com borda/sombra/cantos arredondados e sobra de espaço nas
+     laterais). Pra isso, .body-shell (que envolve sidebar+conteúdo) saiu de
+     dentro de <main> e virou filho direto de #app, irmão do <header> -- ver
+     HTML. <main> agora contém só o conteúdo (mantém seu max-width/padding/
+     centralização de sempre, só que medidos a partir do que sobra depois da
+     sidebar, não mais da largura inteira da viewport). Cor de fundo = navy
+     oficial da Cobli (--indigo), pedido do Luiz ("com a cor da cobli"). */
+  .body-shell { display: flex; flex: 1; min-height: 0; }
   .sidebar {
-    width: 204px; flex-shrink: 0; background: #fff; border: 1px solid var(--line);
-    border-radius: var(--radius-card); box-shadow: var(--shadow-card);
-    display: flex; flex-direction: column; gap: 12px; padding: 12px 10px;
+    width: 204px; flex-shrink: 0; background: var(--indigo);
+    display: flex; flex-direction: column; gap: 12px; padding: 16px 10px;
+    box-shadow: 2px 0 16px rgba(7,7,78,0.10);
     transition: width .16s ease, padding .16s ease; overflow: hidden;
   }
-  .sidebar.collapsed { width: 44px; padding: 14px 6px; gap: 10px; }
+  .sidebar.collapsed { width: 44px; padding: 16px 6px; gap: 10px; }
   .sidebar.collapsed .sidebar-content { display: none; }
   .sidebar-toggle-row { display: flex; justify-content: flex-end; flex-shrink: 0; }
   .sidebar-toggle-btn {
-    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper-2);
-    color: var(--ink-soft); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.75); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
   }
-  .sidebar-toggle-btn:hover { background: var(--paper); }
+  .sidebar-toggle-btn:hover { background: rgba(255,255,255,0.16); }
   /* Rodada 11 (2026-08-12): corrige scroll horizontal indevido na sidebar --
      causa: "overflow-y: auto" sem "overflow-x" explícito faz o navegador
      computar overflow-x como "auto" também (regra do spec de CSS quando um
@@ -410,28 +431,33 @@
      scrollbar vertical apertada demais. */
   .sidebar-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-y: auto; overflow-x: hidden; }
   .sidebar-section-title {
-    font-size: 10.5px; color: var(--ink-mute); font-weight: 700; text-transform: uppercase;
+    font-size: 10.5px; color: rgba(255,255,255,0.45); font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.03em; margin: 0 0 6px;
   }
   /* Rodada 15 (2026-08-27): linha fina separando os blocos (Navegação /
      Filtros / Prioridades / Sync) -- pedido do Luiz ("tá tudo muito junto"),
-     mesma ideia da linha lateral dos KPI cards (.kpi-card::before). */
-  .sidebar-block { padding-top: 12px; border-top: 1px solid var(--line); }
+     mesma ideia da linha lateral dos KPI cards (.kpi-card::before). Cor
+     ajustada pra tom claro translúcido -- fundo da sidebar agora é escuro
+     (navy), a var(--line) original (quase invisível, pensada pra fundo
+     branco) sumia por completo aqui. */
+  .sidebar-block { padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.14); }
   .sidebar-block:first-child { padding-top: 0; border-top: none; }
   .sidebar-tabs { display: flex; flex-direction: column; gap: 2px; }
   /* Reaproveita a classe .tab/.tab.active (usada por switchTab() via
      querySelectorAll(".tab")) -- só o visual muda de "aba horizontal estilo
-     pasta" pra "item de menu vertical", sem tocar em JS. */
+     pasta" pra "item de menu vertical", sem tocar em JS. Cores ajustadas pro
+     fundo navy (mesma correção do fundo da sidebar). */
   .sidebar-tabs .tab {
-    border-radius: 8px; padding: 9px 12px; border: 1px solid transparent;
+    border-radius: 8px; padding: 9px 12px; border: 1px solid transparent; color: rgba(255,255,255,0.68);
   }
   .sidebar-tabs .tab.active {
-    background: var(--royal-soft-2); color: var(--royal); border-color: transparent;
+    background: rgba(255,255,255,0.14); color: #fff; border-color: transparent;
   }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
   .sidebar .sync-badge { width: 100%; box-sizing: border-box; justify-content: center; }
-  .sidebar .btn.ghost { width: 100%; }
+  .sidebar .btn.ghost { width: 100%; color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.2); }
+  .sidebar .btn.ghost:hover { background: rgba(255,255,255,0.1); }
 
   /* Rodada 15 (2026-08-27): filtros de Gestor/Squad/Responsável viraram
      multi-seleção (pedido do Luiz -- "posso selecionar mais de um se
@@ -469,13 +495,17 @@
   }
   .priority-pill:hover { background: var(--paper-2); }
   .priority-pill.active { background: var(--royal-soft-2); color: var(--royal); border-color: rgba(0,27,184,0.25); }
-  .priority-suboptions { display: none; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  /* .priority-suboptions/.priority-sub-label/.priority-note vivem direto em
+     cima do fundo navy da sidebar (não dentro de um cartão branco, como
+     .priority-pill/.msel-btn) -- cores claras/translúcidas, mesma correção
+     de contraste do resto da sidebar. */
+  .priority-suboptions { display: none; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.18); }
   .priority-sub-label {
-    display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--ink-soft);
+    display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
     text-transform: uppercase; letter-spacing: 0.02em;
   }
   .priority-sub-label select { width: 100%; text-transform: none; letter-spacing: normal; font-weight: 400; }
-  .priority-note { font-size: 11.5px; color: var(--ink-mute); line-height: 1.4; }
+  .priority-note { font-size: 11.5px; color: rgba(255,255,255,0.5); line-height: 1.4; }
 
   /* Checkbox "Agendado" (Rodada 9, 2026-08-12) -- vale pra TODO ticket da
      tabela de Tickets, independente de filtro de prioridade. Ao marcar, a
@@ -576,16 +606,19 @@
     </div>
   </header>
 
-  <main>
-    <div class="body-shell">
-      <!-- Redesign de layout -- Opção A (sidebar), 2026-08-12: abas e filtros
-           (busca/squad/gestor/responsável/prioridades) movidos pra cá, barra
-           lateral recolhível (toggleSidebar()). Dados (tabela) ficam no
-           conteúdo central (.main-content) -- ver correções combinadas com o
-           Luiz no topo desta seção: KPIs (#kpi-row) e distribuição por Basic
-           Value (#grade-row) continuam EXATAMENTE como estavam, só
-           realocados pro topo do conteúdo central, não pra dentro da
-           sidebar. -->
+  <!-- Redesign de layout -- Opção A (sidebar), 2026-08-12: abas e filtros
+       (busca/squad/gestor/responsável/prioridades) movidos pra cá, barra
+       lateral recolhível (toggleSidebar()). Dados (tabela) ficam no
+       conteúdo central (.main-content) -- ver correções combinadas com o
+       Luiz no topo desta seção: KPIs (#kpi-row) e distribuição por Basic
+       Value (#grade-row) continuam EXATAMENTE como estavam, só realocados
+       pro topo do conteúdo central, não pra dentro da sidebar.
+       Correção (2026-08-27): .body-shell saiu de dentro de <main> e virou
+       irmão do <header> -- é o que deixa a sidebar colada na borda esquerda
+       da PÁGINA (viewport inteira) em vez de só na borda esquerda de <main>
+       (que tem max-width/padding/centralização) -- "sobrava" espaço dos
+       dois lados da sidebar quando a janela é mais larga que 1520px. -->
+  <div class="body-shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-toggle-row">
           <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Recolher/expandir menu"><span id="sidebar-toggle-icon">‹</span></button>
@@ -657,6 +690,7 @@
         </div>
       </aside>
 
+      <main>
       <div class="main-content" style="flex:1; min-width:0; display:flex; flex-direction:column; min-height:0;">
         <div class="kpi-block" id="kpi-block">
           <div class="kpi-block-header" onclick="toggleKpiBlock()">
@@ -799,8 +833,8 @@
       </div>
     </div>
       </div>
+      </main>
     </div>
-  </main>
 </div>
 
 <!-- Popup de Tratativa (Rodada 11, 2026-08-12) -- antes era select+textarea
@@ -1673,7 +1707,7 @@ function renderKpis(rows) {
 
   const kpiRow = document.getElementById("kpi-row");
   kpiRow.innerHTML = `
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card--royal">
       <div class="kpi-top">
         <div class="kpi-label">Tickets em aberto</div>
         <div class="kpi-icon royal">${ICONS.ticket}</div>
@@ -1682,7 +1716,7 @@ function renderKpis(rows) {
       <div class="kpi-hint">em "Agendar Instalação" no seu escopo</div>
     </div>
 
-    <div class="kpi-card clickable ${state.riskFilterActive ? "active" : ""}" onclick="toggleRiskFilter()">
+    <div class="kpi-card kpi-card--risk clickable ${state.riskFilterActive ? "active" : ""}" onclick="toggleRiskFilter()">
       <div class="kpi-top">
         <div class="kpi-label">MRR Potencial</div>
         <div class="kpi-icon risk">${ICONS.alert}</div>
@@ -1691,7 +1725,7 @@ function renderKpis(rows) {
       <div class="kpi-hint">${fmtCurrency(mrrRiscoTotal)} em MRR · ${state.riskFilterActive ? "clique p/ ver todos" : "clique p/ filtrar"}</div>
     </div>
 
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card--warn">
       <div class="kpi-top">
         <div class="kpi-label">Tempo médio em aberto</div>
         <div class="kpi-icon warn">${ICONS.clock}</div>
@@ -1726,12 +1760,25 @@ function renderKpis(rows) {
 // pouco" (2 linhas mais estreitas cabem em menos largura de coluna que 1
 // linha longa). Diferente da Completude (que continua numa linha só, "67% |
 // +3 para 80%" já é curto o suficiente).
+// Correção (2026-08-27, mesmo dia da Rodada 15): o triângulo/check é só
+// pra Basic Value (aqui) -- Completude de Instalação (completudeInstalacaoHtml,
+// mais abaixo) foi revertida pro texto padrão, o Luiz não pediu ícone lá.
+// SMB/ICP mostram só a linha de Instalação -- ganha o ícone de acordo com o
+// próprio gap (nota_instalacao vs. meta 3). Onboarding mostra as duas linhas
+// (Instalação + Geral) -- cada uma com seu próprio ícone, avaliado
+// separadamente: Instalação pelo gap (mesma regra do SMB/ICP), Geral pelo
+// riskBadge já calculado em renderTable() (mrr_status, que por sua vez já é
+// baseado em nota_instalacao < 3 -- ver v_dashboard) -- não trocado, já
+// existia desde antes da Rodada 15, só ficou mais visível agora.
 function basicValueCellHtml(row, riskBadge) {
   const nota = row.completude_nota_instalacao;
   const gap = row.completude_qtd_falta_nota_3;
+  const gapBadge = gap == null ? "" : (gap > 0
+    ? `<span class="badge risk icon-only" title="Faltam ${gap} para nota 3">${ICONS.alert}</span>`
+    : `<span class="badge ok icon-only" title="Meta nota 3 batida">${ICONS.check}</span>`);
   const gapHtml = gap == null
     ? ""
-    : `<div class="bv-row muted" style="margin-top:2px">${gap > 0 ? `+${gap} para nota 3` : "meta batida"}</div>`;
+    : `<div class="bv-row muted" style="margin-top:2px">${gap > 0 ? `+${gap} para nota 3` : "meta batida"} ${gapBadge}</div>`;
   const notaHtml = `<div class="bv-row" style="font-size:13.5px"><b>${fmtNum(nota)}</b></div>`;
   if (row.completude_time_segmento === "Onboarding") {
     return notaHtml + gapHtml +
@@ -2647,16 +2694,18 @@ function completudeInstalacaoHtml(row) {
   const faltamTxt = faltam > 0
     ? ` <span class="muted">| +${faltam} para 80%</span>`
     : ` <span class="muted">| meta batida</span>`;
-  // Rodada 15 (2026-08-27): badge de texto virou ícone (mesmo padrão do
-  // riskBadge de MRR acima) -- pedido do Luiz. Detalhe (dias restantes) some
-  // do texto visível e vai pro title (tooltip).
+  // Rodada 15 (2026-08-27): revertido no mesmo dia -- o pedido do Luiz de
+  // ícone (triângulo/check) era só pra Basic Value (basicValueCellHtml),
+  // não pra Completude de Instalação. Aqui volta ao texto padrão de sempre
+  // ("dentro do prazo -- faltam Nd" / "prazo encerrado"), como era antes
+  // desta rodada.
   let prazoLine = "";
   if (row.completude_dentro_do_prazo === false) {
-    prazoLine = `<span class="badge risk icon-only" title="Prazo encerrado">${ICONS.alert}</span>`;
+    prazoLine = `<span class="badge risk">Prazo encerrado</span>`;
   } else if (row.completude_dentro_do_prazo === true) {
     const dias = diasRestantesPrazoCompletude(row);
     const diasTxt = (dias != null && dias > 0) ? ` -- faltam ${Math.round(dias)}d` : "";
-    prazoLine = `<span class="badge ok icon-only" title="Dentro do prazo${diasTxt}">${ICONS.check}</span>`;
+    prazoLine = `<span class="badge ok">Dentro do prazo${diasTxt}</span>`;
   }
   return `<div class="bv-row" style="font-size:13.5px"><b style="color:${cor}">${pct}%</b>${faltamTxt}</div>` +
     (prazoLine ? `<div class="bv-row muted" style="margin-top:2px">${prazoLine}</div>` : "");
