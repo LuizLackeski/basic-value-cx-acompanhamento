@@ -128,9 +128,22 @@
 
   html, body { height: 100%; }
   #app { display: flex; flex-direction: column; height: 100vh; }
+  /* Rodada 18c (2026-08-27, fix pós-entrega): pedido do Luiz -- "quando vai
+     para a tela do notebook tá ficando estranho o layout, com barra de
+     rolagem para lateral". Causa raiz: <main> é o item flex de .body-shell
+     (linha: sidebar + main lado a lado) que precisa encolher numa tela mais
+     estreita, mas um item flex sem `min-width` explícito usa `min-width:auto`
+     por padrão -- ou seja, o tamanho mínimo de CONTEÚDO dele (a tabela, os
+     cards de indicadores, etc.), não zero. Isso fazia <main> se recusar a
+     encolher abaixo do conteúdo mais largo lá dentro, e como ninguém acima
+     dele tem overflow-x (só os painéis internos, cada um isolado), o excesso
+     virava corte invisível (sem barra de rolagem NENHUMA) em vez de rolar --
+     bem pior que a tabela, que já tinha overflow-x:auto próprio de sempre.
+     `min-width: 0` aqui deixa <main> encolher de verdade, e cada painel
+     interno volta a cuidar do próprio scroll horizontal quando precisar. */
   main {
     padding: 10px 28px 16px; max-width: 1520px; width: 100%; margin: 0 auto;
-    display: flex; flex-direction: column; flex: 1; min-height: 0;
+    display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0;
   }
 
   /* Indicadores + toolbar: altura natural, não rolam -- só o painel abaixo rola. */
@@ -181,7 +194,17 @@
      ("ajusta eles para ficarem na mesma altura") -- voltou
      `align-items: stretch` (era `start`), então MRR/Tempo esticam pra bater
      a altura do combinado, que passou a ditar a altura da linha. */
-  .kpi-row { display: grid; grid-template-columns: 2.2fr 0.9fr 0.9fr; gap: 10px; margin-bottom: 10px; align-items: stretch; }
+  /* Rodada 18c (2026-08-27, fix pós-entrega): pedido do Luiz -- "quando vai
+     para a tela do notebook tá ficando estranho o layout". Numa tela mais
+     estreita (notebook), os cards de indicadores + a linha de distribuição de
+     Basic Value (grid/flex com conteúdo que não quebra linha, ex. números e
+     "TICKETS POR CLASSE") não cabiam mais e simplesmente sumiam pra fora da
+     área visível (sem barra de rolagem nenhuma ali, diferente da tabela logo
+     abaixo, que já tinha overflow-x:auto desde sempre). #kpi-block-body
+     ganha o mesmo tratamento -- na pior das hipóteses os cards ganham scroll
+     horizontal em vez de sumir cortados. */
+  #kpi-block-body { overflow-x: auto; padding-bottom: 2px; }
+  .kpi-row { display: grid; grid-template-columns: 2.2fr 0.9fr 0.9fr; gap: 10px; margin-bottom: 10px; align-items: stretch; min-width: 900px; }
   /* Rodada 15 (2026-08-27): linha colorida nos cards (pedido do Luiz, foto 3
      -- "coloca uma linhazinha na lateral deles"). Duas correções no mesmo
      dia depois do Luiz ver o resultado: (1) a linha tem que ser COLORIDA por
@@ -617,10 +640,12 @@
     padding: 0 5px; border-radius: 999px; background: var(--risk); color: #fff; font-size: 10.5px; font-weight: 700;
     margin-left: 4px; vertical-align: middle;
   }
+  /* Rodada 18c (2026-08-27, fix pós-entrega): emoji em vez de SVG (ver
+     comentário no HTML) -- font-size próprio, sem herdar o tamanho do texto
+     "Completude" ao lado, pra ficar num tamanho parecido com o badge. */
   .tab-alert-icon {
-    display: inline-flex; width: 12px; height: 12px; color: var(--warn); vertical-align: -1px; margin-right: 3px;
+    display: inline-flex; font-size: 13px; vertical-align: -1px; margin-right: 3px;
   }
-  .tab-alert-icon svg { width: 100%; height: 100%; }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
   /* Rodada 18 (2026-08-27/28): "agrupar por empresa" -- checkbox simples,
@@ -981,8 +1006,13 @@
                    Rodada 18b (2026-08-27, fix pós-entrega): renomeada de
                    "Prazo" pra "Completude" + ícone de alerta (pedido do Luiz),
                    e o critério mudou pra só "a vencer" -- já vencido não entra
-                   mais aqui (ver isEmRisco()). -->
-              <div class="tab" data-tab="prazo" onclick="switchTab('prazo')"><span class="tab-alert-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg></span>Completude <span id="prazo-tab-badge" class="tab-count-badge" style="display:none"></span></div>
+                   mais aqui (ver isEmRisco()).
+                   Rodada 18c (2026-08-27, fix pós-entrega): ícone trocado do
+                   SVG de contorno fino pro emoji ⚠️ -- pedido do Luiz ("o
+                   triângulo que comentei é assim mais visível?"), o emoji
+                   colorido (amarelo/preto) chama mais atenção que o outline
+                   fino de antes. -->
+              <div class="tab" data-tab="prazo" onclick="switchTab('prazo')"><span class="tab-alert-icon">⚠️</span>Completude <span id="prazo-tab-badge" class="tab-count-badge" style="display:none"></span></div>
               <div class="tab" data-tab="evolucao" onclick="switchTab('evolucao')">Evolução B.V.</div>
               <div class="tab" data-tab="admin" id="tab-admin" style="display:none" onclick="switchTab('admin')">Administração</div>
             </div>
@@ -2687,8 +2717,18 @@ function renderEvolucao(rows, companies) {
   // Rodada 18: nota explicando por que às vezes não tem seta de tendência
   // (evita parecer que "quebrou" pra quem não é gestor_geral, ou nos
   // primeiros dias antes do histórico acumular 7 dias).
+  // Rodada 18c (2026-08-27, fix pós-entrega): removido o `margin-top:-10px`
+  // -- o Luiz reportou "tem algo escondido no dasch, não mostra o texto".
+  // Causa: essa nota é o PRIMEIRO elemento dentro de #evolucao-wrap, que fica
+  // dentro de #panel-evolucao (scrollável, overflow-y:auto -- ver CSS). Uma
+  // margem negativa no primeiro filho de um container com scroll empurra o
+  // topo do elemento pra FORA da área visível/rolável, cortando as primeiras
+  // linhas do texto (exatamente o que ele viu, só um pedacinho aparecendo).
+  // `.evo-bar-sub` já tem `margin: 0 0 16px` (sem margem no topo) -- sem essa
+  // sobrescrita inline não tem mais nada puxando o elemento pra cima do
+  // limite do container.
   const trendNote = (currentMember && currentMember.role === "gestor_geral" && !evoTrendBaseline)
-    ? `<p class="evo-bar-sub" style="margin-top:-10px">Histórico ainda acumulando -- a comparação com dias anteriores aparece assim que houver pelo menos 2 dias de captura.</p>`
+    ? `<p class="evo-bar-sub">Histórico ainda acumulando -- a comparação com dias anteriores aparece assim que houver pelo menos 2 dias de captura.</p>`
     : "";
 
   wrap.innerHTML = `
@@ -2894,7 +2934,7 @@ function ticketTableHeadHtml(sortable) {
 // filtro". Escopo confirmado por pergunta direta: só Completude perto do
 // prazo/vencida (Basic Value não tem prazo de verdade, fica de fora).
 // ---------------------------------------------------------------------------
-const PRAZO_RISCO_DIAS = 7; // ponto de partida ajustável, como as faixas de Prioridade
+const PRAZO_RISCO_DIAS = 10; // Rodada 18c (2026-08-27, fix pós-entrega): 7 -> 10, pedido do Luiz ("considerar 10 dias para mostrar, 7 é pouco")
 // Rodada 18b (2026-08-27, fix pós-entrega): pedido do Luiz depois de ver em
 // produção -- "tá trazendo os que já venceram, estes não precisam mostrar pq
 // já venceu mesmo e não vai impactar positivamente no indicador, tem que
@@ -3004,19 +3044,34 @@ function groupedTableHtml(rows, sortable) {
   // Mantém a ORDEM de chegada (já vem ordenada por applyFilters()/sort ativo
   // -- ver applyFilters() -- ou por urgência, no caso da aba Completude) --
   // cada grupo fica na posição do primeiro ticket dele que aparece na lista.
+  // EXCEÇÃO (Rodada 18c, fix pós-entrega, pedido do Luiz: "na agrupação por
+  // empresa seria bom se desse para ordenar por mrr"): ordenar pela posição
+  // do PRIMEIRO ticket não funciona pra MRR, porque o MRR que aparece por
+  // grupo é a SOMA de todos os tickets da empresa, não o MRR do primeiro
+  // ticket -- então clicar a seta "MRR" reordenava os tickets individuais,
+  // mas os grupos continuavam fora de ordem em relação à soma exibida (era
+  // isso que aparecia "errado" no print dele). Quando o sort ativo é "mrr" (e
+  // a tabela é a sortable, ou seja não é a aba Completude, que tem sua própria
+  // ordem por urgência), os GRUPOS em si são reordenados pela soma.
   const groups = new Map();
   rows.forEach(r => {
     const key = r.company_id || `_sem_empresa_${r.ticket_id}`;
     if (!groups.has(key)) groups.set(key, { key, label: r.display_name || r.subject_raw || r.ticket_id, rows: [] });
     groups.get(key).rows.push(r);
   });
+  let groupList = Array.from(groups.values()).map(g => ({
+    ...g,
+    mrrSum: g.rows.reduce((sum, r) => sum + (Number(r.mrr) || 0), 0),
+  }));
+  if (sortable && state.sortKey === "mrr") {
+    groupList = groupList.sort((a, b) => (a.mrrSum - b.mrrSum) * state.sortDir);
+  }
 
   const colCount = 10 + (SHOW_FIELD_STATUS ? 1 : 0);
   let html = "<table>" + ticketTableHeadHtml(sortable) + "<tbody>";
-  groups.forEach(g => {
+  groupList.forEach(g => {
     const isOpen = expandedCompanies.has(g.key);
     const riscoCount = g.rows.filter(isEmRisco).length;
-    const mrrSum = g.rows.reduce((sum, r) => sum + (Number(r.mrr) || 0), 0);
     html += `<tr class="company-group-row" onclick="toggleCompanyGroup('${escapeHtml(g.key)}')">
       <td colspan="${colCount}">
         <div class="company-group-head">
@@ -3024,7 +3079,7 @@ function groupedTableHtml(rows, sortable) {
           <span class="company-group-name">${escapeHtml(g.label)}</span>
           <span class="company-group-count">${g.rows.length} ticket${g.rows.length === 1 ? "" : "s"}</span>
           ${riscoCount ? `<span class="badge risk">${riscoCount} em risco</span>` : ""}
-          <span class="company-group-mrr">${fmtCurrency(mrrSum)}</span>
+          <span class="company-group-mrr">${fmtCurrency(g.mrrSum)}</span>
         </div>
       </td>
     </tr>`;
