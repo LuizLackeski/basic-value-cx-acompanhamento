@@ -774,44 +774,33 @@
   /* Rodada 17 (2026-08-27): tooltip próprio (substitui o atributo `title`
      nativo do navegador -- cinza, sem estilo, não dá pra mudar fonte/cor).
      Pedido do Luiz: "deixa a dica de ferramenta que já tem para o popup de
-     registrar tratativa e concluir neste padrão também" (mesmo padrão visual
-     escolhido pra célula de completude sem dado -- opção B, pílula com
-     ícone). Componente genérico (.tt-wrap/.tt-box), usado em 3 lugares:
-     coluna "Concluir" da tabela, indicador de clique-pra-tratativa, e a
-     célula de Completude sem dado (ver .info-pill abaixo, que reusa .tt-box). */
-  .tt-wrap { position: relative; display: inline-flex; }
-  .tt-box {
-    display: none; position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
-    background: var(--indigo); color: #fff; font-size: 11.5px; font-weight: 400; line-height: 1.4;
-    padding: 8px 10px; border-radius: 8px; width: max-content; max-width: 220px;
-    box-shadow: 0 6px 18px rgba(7,7,78,0.28); z-index: 15; text-align: left;
+     registrar tratativa e concluir neste padrão também".
+     Correção (mesmo dia, 2ª e 3ª tentativas): a 1ª versão usava um componente
+     CSS-only por elemento (.tt-wrap/.tt-box, position:absolute ancorado no
+     próprio elemento) -- quebrava de duas formas: (1) quando o elemento
+     ficava perto da borda esquerda da tabela, o tooltip vazava por baixo da
+     sidebar/saía cortado pelo scroll da tabela ("a dica tá ficando dentro da
+     tabela"); (2) aparecia instantâneo no hover, sem nenhum delay. Virou UM
+     ÚNICO elemento global (#global-tooltip, injetado direto no <body> --
+     ver HTML logo antes do </body>), posicionado via JS com position:fixed
+     (não é filho de nada que tenha overflow/scroll, então nunca é cortado) e
+     com atraso de ~700ms antes de aparecer (ver gttShow()/gttHide() no JS).
+     Qualquer elemento vira um "tooltip trigger" só com o atributo
+     data-tt="texto" -- nada de HTML aninhado (.tt-wrap/.tt-icon) precisa
+     mais existir por elemento. */
+  #global-tooltip {
+    display: none; position: fixed; z-index: 200; background: var(--indigo); color: #fff;
+    font-size: 11.5px; font-weight: 400; line-height: 1.4; padding: 8px 10px; border-radius: 8px;
+    width: max-content; max-width: 220px; box-shadow: 0 6px 18px rgba(7,7,78,0.28); text-align: left;
+    pointer-events: none;
   }
-  .tt-wrap:hover .tt-box { display: block; }
   .tt-icon {
     width: 15px; height: 15px; border-radius: 50%; background: var(--paper-2); color: var(--ink-mute);
     display: inline-flex; align-items: center; justify-content: center; cursor: help; flex-shrink: 0;
   }
   .tt-icon svg { width: 10px; height: 10px; }
-  .tt-icon:hover { background: var(--royal-soft-2); color: var(--royal); }
-
-  /* Célula do checkbox "Concluir". Rodada 17, correção (2026-08-27): a
-     dica de "clique na linha" tinha virado um iconezinho separado do lado
-     do checkbox -- pedido do Luiz pra desfazer isso ("quebrou algo ali no
-     canto... tem que ser na linha como antes"). Agora não tem ícone extra
-     nenhum: o hover funciona na LINHA INTEIRA de novo (como o title nativo
-     de antes), só que mostrando o tooltip escuro (.row-click-tip) em vez do
-     tooltip cinza do navegador. .ack-cell vira o ponto de ancoragem
-     (position:relative) porque <tr>/<td> sem isso não é um bom container
-     pra position:absolute em todo navegador -- o gatilho continua sendo
-     :hover na linha (tr.clickable-row), não nesta célula. */
-  .ack-cell { display: flex; align-items: center; gap: 6px; position: relative; }
-  .row-click-tip {
-    display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
-    background: var(--indigo); color: #fff; font-size: 11.5px; font-weight: 400; line-height: 1.4;
-    padding: 8px 10px; border-radius: 8px; width: max-content; max-width: 200px;
-    box-shadow: 0 6px 18px rgba(7,7,78,0.28); z-index: 15; text-align: left;
-  }
-  tr.clickable-row:hover .row-click-tip { display: block; }
+  [data-tt]:hover .tt-icon, .tt-icon:hover { background: var(--royal-soft-2); color: var(--royal); }
+  .ack-cell { display: flex; align-items: center; gap: 6px; }
 
   /* Célula de Completude sem dado (classe fora da regra de completude por
      deal, ex. Serviço avulso/Visita Técnica) -- pedido do Luiz: opção B do
@@ -1222,6 +1211,15 @@
     </div>
   </div>
 </div>
+
+<!-- Rodada 17, correção (2026-08-27): tooltip escuro global -- um elemento
+     só, reaproveitado por qualquer coisa com data-tt="texto" (ver
+     gttShow()/gttHide() no JS). Fica fora de qualquer contêiner com
+     scroll/overflow (por isso não é filho de #table-principal-wrap nem de
+     .sidebar-content) -- position:fixed some do fluxo normal e não é cortado
+     por overflow de ancestral nenhum, resolvendo o "a dica tá ficando dentro
+     da tabela" do Luiz. -->
+<div id="global-tooltip"></div>
 
 <script>
 // ============================================================================
@@ -2603,14 +2601,11 @@ function renderTable(data) {
     // de detalhes/tratativa (antes só a célula "Tratativa" abria) -- pedido
     // do Luiz. onRowClick ignora cliques em link/checkbox pra não capturar
     // esses cliques (ver onRowClick()).
-    html += `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')">
+    html += `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')" data-tt="Clique em qualquer lugar da linha para registrar tratativa">
       <td class="ack-cell">
-        <span class="tt-wrap">
-          <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
-            onchange="onAckTicket('${row.ticket_id}', this)" />
-          <span class="tt-box">Marcar como concluído -- some da lista permanentemente a partir do próximo carregamento</span>
-        </span>
-        <span class="row-click-tip">Clique em qualquer lugar da linha para registrar tratativa</span>
+        <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
+          onchange="onAckTicket('${row.ticket_id}', this)"
+          data-tt="Marcar como concluído -- some da lista permanentemente a partir do próximo carregamento" />
       </td>
       <td>
         <div class="client-name" title="${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
@@ -3073,6 +3068,62 @@ function escapeHtml(s) {
   if (s == null) return "";
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+
+// Rodada 17, correção (2026-08-27): tooltip escuro global via delegação de
+// evento -- qualquer elemento com data-tt="texto" vira um "tooltip trigger".
+// Substitui a 1ª tentativa (.tt-wrap/.tt-box por elemento, position:absolute
+// ancorado no próprio elemento), que o Luiz reportou quebrada de duas
+// formas: aparecia cortada pela tabela/sidebar quando o elemento ficava
+// perto da borda, e aparecia instantânea no hover (sem delay nenhum). Aqui:
+// (1) um ÚNICO elemento (#global-tooltip) reaproveitado por todos os
+// triggers, posicionado com position:fixed -- nunca é cortado por overflow
+// de tabela/sidebar porque não é filho de nenhum contêiner com scroll; (2)
+// timer de ~700ms antes de mostrar (pedido do Luiz: "pode aparecer tipo
+// depois de um segundo"), cancelado se o mouse sair antes disso; (3) usa
+// closest() pra achar o data-tt mais ESPECÍFICO sob o cursor -- então
+// passar o mouse exatamente no checkbox "Concluir" (que tem seu próprio
+// data-tt) mostra só a dica do checkbox, não a da linha inteira por baixo
+// (as duas nunca aparecem juntas/sobrepostas).
+const GTT_DELAY_MS = 700;
+let gttTimer = null;
+function gttPositionAndShow(el, text) {
+  const box = document.getElementById("global-tooltip");
+  box.textContent = text;
+  box.style.display = "block";
+  const r = el.getBoundingClientRect();
+  box.style.left = (r.left + r.width / 2) + "px";
+  box.style.top = r.top + "px";
+  box.style.transform = "translate(-50%, calc(-100% - 8px))";
+  // Depois de renderizado (pra ter largura real), reposiciona se estourar a
+  // viewport pros lados -- evita cortar a dica na borda da tela.
+  requestAnimationFrame(() => {
+    const br = box.getBoundingClientRect();
+    let shift = 0;
+    if (br.left < 4) shift = 4 - br.left;
+    else if (br.right > window.innerWidth - 4) shift = (window.innerWidth - 4) - br.right;
+    if (shift) box.style.left = (r.left + r.width / 2 + shift) + "px";
+  });
+}
+function gttHide() {
+  clearTimeout(gttTimer);
+  gttTimer = null;
+  document.getElementById("global-tooltip").style.display = "none";
+}
+document.addEventListener("mouseover", (e) => {
+  const el = e.target.closest("[data-tt]");
+  if (!el) return;
+  if (el.hasAttribute("disabled")) return; // checkbox já marcado/desabilitado -- sem dica
+  clearTimeout(gttTimer);
+  gttTimer = setTimeout(() => gttPositionAndShow(el, el.getAttribute("data-tt")), GTT_DELAY_MS);
+});
+document.addEventListener("mouseout", (e) => {
+  const el = e.target.closest("[data-tt]");
+  if (!el) return;
+  // Só esconde se o mouse realmente saiu do trigger (não de um filho interno
+  // dele) -- evita a dica piscar ao mover o cursor dentro do mesmo elemento.
+  if (el.contains(e.relatedTarget)) return;
+  gttHide();
+});
 function fmtNum(n) { return n == null ? "-" : Number(n).toFixed(1); }
 function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 }); }
 
@@ -3135,7 +3186,7 @@ const TT_INFO_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 // não entram na métrica de completude por deal (Serviço avulso/Visita
 // Técnica) ou que genuinamente não têm dado.
 function infoPillHtml(reason) {
-  return `<span class="tt-wrap"><span class="info-pill">${TT_INFO_ICON_SVG}Não se aplica</span><span class="tt-box">${escapeHtml(reason)}</span></span>`;
+  return `<span class="info-pill" data-tt="${escapeHtml(reason)}">${TT_INFO_ICON_SVG}Não se aplica</span>`;
 }
 
 function completudeInstalacaoHtml(row) {
@@ -3154,10 +3205,11 @@ function completudeInstalacaoHtml(row) {
       return infoPillHtml('Classe "Troca" não entra na métrica de completude de instalação por deal, e este ticket não tem data de abertura disponível para calcular o prazo de 60 dias.');
     }
     const restantes = 60 - row.dias_aberto;
+    const tip = 'Classe "Troca" não tem completude por deal -- aqui o prazo é de 60 dias corridos desde a abertura do ticket.';
     const badge = restantes < 0
-      ? `<span class="badge risk">Prazo encerrado</span>`
-      : `<span class="badge ok">Dentro do prazo${restantes > 0 ? ` -- faltam ${Math.ceil(restantes)}d` : ""}</span>`;
-    return `<span class="tt-wrap">${badge}<span class="tt-box">Classe "Troca" não tem completude por deal -- aqui o prazo é de 60 dias corridos desde a abertura do ticket.</span></span>`;
+      ? `<span class="badge risk" data-tt="${escapeHtml(tip)}">Prazo encerrado</span>`
+      : `<span class="badge ok" data-tt="${escapeHtml(tip)}">Dentro do prazo${restantes > 0 ? ` -- faltam ${Math.ceil(restantes)}d` : ""}</span>`;
+    return badge;
   }
 
   if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) {
