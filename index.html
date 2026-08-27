@@ -52,24 +52,74 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink); font-family: inherit; -webkit-font-smoothing: antialiased; }
 
+  /* Rodada 17 (2026-08-27): header ganhou identidade visual da Cobli (arcos
+     em degradê royal->indigo) no lugar do usuário, que desceu pro rodapé da
+     sidebar (ver .sidebar-user-block) -- pedido do Luiz ("colcoar o nome de
+     usuáruio no final também tirar lá da parte de cima... essa linha de cima
+     pode por algum detalhe da cobli, de cores, arcos"). O badge de
+     sincronização também subiu pra cá (ver .header-sync), saindo da sidebar. */
   header {
     height: 56px;
     padding: 0 28px;
-    background: #fff;
-    border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(120deg, var(--indigo) 0%, var(--royal) 62%, var(--royal) 100%);
     position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    overflow: hidden;
   }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .brand svg { width: 26px; height: 29px; flex-shrink: 0; }
-  .brand-text h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
-  .brand-text p { font-size: 12px; margin: 2px 0 0; color: var(--ink-mute); }
-  .who { display: flex; align-items: center; gap: 10px; }
-  .who-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+  /* Arcos decorativos -- puramente visuais, atrás do conteúdo (z-index). */
+  header::before {
+    content: ""; position: absolute; right: -50px; top: -70px; width: 190px; height: 190px; border-radius: 50%;
+    border: 20px solid rgba(15,253,201,0.16); pointer-events: none;
+  }
+  header::after {
+    content: ""; position: absolute; right: 120px; bottom: -90px; width: 120px; height: 120px; border-radius: 50%;
+    border: 12px solid rgba(255,255,255,0.10); pointer-events: none;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; z-index: 1; }
+  /* Logo real da Cobli dentro de um círculo verde-menta -- pedido do Luiz
+     ("só mantém o C que tá da cobli, pode por ele dentro deste verdinho, mas
+     mostrando como é hoje"): o SVG em si não muda de cor (fica exatamente
+     como já era, currentColor = var(--royal)), só ganhou um fundo circular
+     mint atrás pra ficar legível no header escuro. */
+  .brand-logo-badge {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--green);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; z-index: 1;
+  }
+  .brand svg { width: 20px; height: 22px; flex-shrink: 0; }
+  .brand-text { z-index: 1; }
+  .brand-text h1 { font-size: 16px; margin: 0; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+  .brand-text p { font-size: 12px; margin: 2px 0 0; color: rgba(255,255,255,0.68); }
+  .header-sync {
+    z-index: 1; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+    background: rgba(15,253,201,0.18); color: var(--green); padding: 6px 13px; border-radius: var(--radius-pill);
+    border: 1px solid rgba(15,253,201,0.35);
+  }
+  .header-sync svg { width: 12px; height: 12px; }
+  .header-sync.stale { background: rgba(255,183,77,0.18); color: #FFB74D; border-color: rgba(255,183,77,0.4); }
+  /* Bloco de usuário -- agora mora no rodapé da sidebar (ver
+     .sidebar-user-block abaixo), não mais no header. As classes .who-name/
+     .role-badge continuam existindo (mesmos ids no JS), só reestilizadas pro
+     fundo navy da sidebar. */
+  .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .who-name { font-size: 12.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .role-badge {
-    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-pill);
-    background: var(--royal-soft-2); color: var(--royal); text-transform: uppercase; letter-spacing: 0.02em;
+    font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: var(--radius-pill);
+    background: rgba(15,253,201,0.18); color: var(--green); text-transform: uppercase; letter-spacing: 0.02em;
+    white-space: nowrap; align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
   }
+  .sidebar-avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: var(--indigo);
+    font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .sidebar-user-block {
+    margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.14);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .sidebar-user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  /* Especificidade maior que ".sidebar .btn.ghost" (width:100%, mais abaixo
+     no CSS) de propósito -- senão o "Sair" herda largura 100% e espreme o
+     nome/cargo (flex:1) até sumir. */
+  .sidebar .sidebar-user-block .btn.ghost { width: auto; padding: 5px 10px; font-size: 11px; flex-shrink: 0; }
 
   html, body { height: 100%; }
   #app { display: flex; flex-direction: column; height: 100vh; }
@@ -108,6 +158,7 @@
   .btn:hover { opacity: 0.88; }
   .btn.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
   .btn.ghost:hover { background: var(--paper-2); opacity: 1; }
+  .btn.danger { background: var(--risk); }
   #login-msg { font-size: 13px; color: var(--ink-mute); margin-top: 8px; }
 
   /* KPI cards -- compactos de propósito: precisam sobrar espaço vertical
@@ -501,7 +552,10 @@
      barra de rolagem lateral mesmo sem conteúdo realmente mais largo que a
      sidebar. `min-width: 216px` também tirado -- deixava a margem pro
      scrollbar vertical apertada demais. */
-  .sidebar-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-y: auto; overflow-x: hidden; }
+  /* Rodada 17: flex:1/min-height:0 -- necessário pro bloco de usuário
+     (margin-top:auto, ver .sidebar-user-block) conseguir ser empurrado até o
+     rodapé de verdade da sidebar, mesmo com pouco conteúdo acima dele. */
+  .sidebar-content { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 4px; min-width: 0; overflow-y: auto; overflow-x: hidden; }
   /* Rodada 16 (2026-08-27): "duas barras na pesquisa não rola" (pedido do
      Luiz) -- quando um painel .msel-panel (com seu próprio scroll interno,
      max-height:220px) abre perto do fim da sidebar, a barra de rolagem DELE
@@ -547,6 +601,22 @@
   }
   .sidebar-filters { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-filters select, .sidebar-filters input[type=text] { width: 100%; }
+  /* Rodada 17 (2026-08-27): pedido do Luiz -- as caixas brancas sólidas de
+     busca/filtro destoavam do resto (ficavam "cruas" sobre o navy). Trocado
+     por um tratamento "vidro fosco" -- fundo translúcido claro + texto
+     branco -- em vez de branco sólido OU translúcido com texto escuro (essa
+     2ª opção já tinha sido tentada antes pro .priority-pill e ficou
+     ilegível, ver comentário mais abaixo -- a diferença aqui é manter o
+     TEXTO claro, não a cor original). */
+  .sidebar-filters input[type=text],
+  .sidebar .msel-btn {
+    background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); color: #fff;
+  }
+  .sidebar-filters input[type=text]::placeholder { color: rgba(255,255,255,0.5); }
+  .sidebar .msel-btn:hover { background: rgba(255,255,255,0.16); }
+  .sidebar .msel-caret { color: rgba(255,255,255,0.65); }
+  .sidebar .search-clear-btn, .sidebar .msel-clear-btn { color: rgba(255,255,255,0.65); }
+  .sidebar .search-clear-btn:hover, .sidebar .msel-clear-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
   .sidebar .sync-badge {
     width: 100%; box-sizing: border-box; justify-content: center;
     font-weight: 700; font-size: 12.5px; border-width: 1.5px;
@@ -627,6 +697,16 @@
     background: #fff; color: var(--ink-soft); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .priority-pill:hover { background: var(--paper-2); }
+  /* Rodada 17 (2026-08-27): mesmo tratamento "vidro fosco" do resto dos
+     filtros da sidebar (ver .sidebar-filters acima) pro estado NÃO
+     selecionado -- o branco sólido ficava destoando visualmente dos outros
+     controles depois da correção. O estado ATIVO continua sólido/branco de
+     propósito (ver .priority-pill.active logo abaixo) -- precisa continuar
+     bem diferente do inativo pra marcar seleção com clareza. */
+  .sidebar .priority-pill {
+    background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.85);
+  }
+  .sidebar .priority-pill:hover { background: rgba(255,255,255,0.16); }
   /* Rodada 16 (2026-08-27): a versão anterior (fundo var(--royal-soft-2),
      translúcido, com texto var(--royal)) ficava ilegível em cima do navy da
      sidebar -- "quando seleciona um o nome nem dá para ler" (pedido do
@@ -685,6 +765,59 @@
   /* Rodada 12: trunca motivo+observação concatenados (podem ficar longos) --
      mesmo padrão de .client-name. Texto completo disponível no title. */
   .tratativa-text { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+
+  /* Rodada 17 (2026-08-27): tooltip próprio (substitui o atributo `title`
+     nativo do navegador -- cinza, sem estilo, não dá pra mudar fonte/cor).
+     Pedido do Luiz: "deixa a dica de ferramenta que já tem para o popup de
+     registrar tratativa e concluir neste padrão também" (mesmo padrão visual
+     escolhido pra célula de completude sem dado -- opção B, pílula com
+     ícone). Componente genérico (.tt-wrap/.tt-box), usado em 3 lugares:
+     coluna "Concluir" da tabela, indicador de clique-pra-tratativa, e a
+     célula de Completude sem dado (ver .info-pill abaixo, que reusa .tt-box). */
+  .tt-wrap { position: relative; display: inline-flex; }
+  .tt-box {
+    display: none; position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+    background: var(--indigo); color: #fff; font-size: 11.5px; font-weight: 400; line-height: 1.4;
+    padding: 8px 10px; border-radius: 8px; width: max-content; max-width: 220px;
+    box-shadow: 0 6px 18px rgba(7,7,78,0.28); z-index: 15; text-align: left;
+  }
+  .tt-wrap:hover .tt-box { display: block; }
+  .tt-icon {
+    width: 15px; height: 15px; border-radius: 50%; background: var(--paper-2); color: var(--ink-mute);
+    display: inline-flex; align-items: center; justify-content: center; cursor: help; flex-shrink: 0;
+  }
+  .tt-icon svg { width: 10px; height: 10px; }
+  .tt-icon:hover { background: var(--royal-soft-2); color: var(--royal); }
+
+  /* Célula do checkbox "Concluir" -- checkbox + ícone de dica (linha
+     clicável) lado a lado, cada um com seu próprio tooltip escuro. */
+  .ack-cell { display: flex; align-items: center; gap: 6px; }
+
+  /* Célula de Completude sem dado (classe fora da regra de completude por
+     deal, ex. Serviço avulso/Visita Técnica) -- pedido do Luiz: opção B do
+     mockup (pílula cinza + ícone, tooltip explica o motivo em vez de só um
+     "-" mudo). */
+  .info-pill {
+    display: inline-flex; align-items: center; gap: 5px; color: var(--ink-mute); background: var(--paper-2);
+    padding: 4px 9px; border-radius: var(--radius-pill); font-size: 11.5px; cursor: help; transition: background .15s, color .15s;
+  }
+  .info-pill:hover { background: var(--royal-soft-2); color: var(--royal); }
+  .info-pill svg { width: 12px; height: 12px; }
+
+  /* Aba Evolução -- blocos de barra (Rodada 17, substitui o gráfico de
+     evolução por grau ao longo do tempo). Um bloco pra Completude (dentro do
+     prazo x prazo encerrado) e um pro Basic Value (nota alta x baixa, sem
+     prazo -- ver renderEvolucao() no JS). */
+  .evo-bar-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .evo-bar-title { font-size: 14px; font-weight: 700; margin: 0 0 2px; color: var(--ink); }
+  .evo-bar-sub { font-size: 12px; color: var(--ink-mute); margin: 0 0 16px; }
+  .evo-bar-stat { margin-bottom: 14px; }
+  .evo-bar-stat:last-child { margin-bottom: 0; }
+  .evo-bar-stat-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 5px; }
+  .evo-bar-stat-head b { font-size: 16px; }
+  .evo-bar-track { height: 11px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
+  .evo-bar-fill { height: 100%; border-radius: 999px; transition: width .3s ease; }
+
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(7,7,78,0.35); z-index: 50;
     display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -694,6 +827,16 @@
     padding: 24px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto;
   }
   .modal-card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
+
+  /* Rodada 17: popup de confirmação de "Concluir" -- variante centralizada
+     do .modal-card, com ícone de alerta no topo. */
+  .confirm-modal-card { max-width: 340px; text-align: center; }
+  .confirm-modal-icon {
+    width: 46px; height: 46px; border-radius: 50%; background: rgba(199,54,44,0.12); color: var(--risk);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;
+  }
+  .confirm-modal-icon svg { width: 24px; height: 24px; }
+  .confirm-modal-desc { font-size: 13px; color: var(--ink-mute); margin: 8px 0 0; line-height: 1.5; }
 
   /* Rodada 15 (2026-08-27): popup de Tratativa virou popup de Detalhes --
      contatos (pra copiar rápido) + histórico de tratativas -- pedido do Luiz. */
@@ -735,17 +878,21 @@
 <div id="app" style="display:none">
   <header>
     <div class="brand">
+      <div class="brand-logo-badge">
       <svg viewBox="0 0 1100.05 1214.25" style="color: var(--royal)" fill="currentColor"><path d="M530.24,400.11c21.82-8.1,44.81-12.67,68.31-13.59,35.67-1.4,70.01,5.53,102.08,20.55,3.79,1.77,7.77,2.61,11.69,2.61,10.37,0,20.31-5.88,25.01-15.89,6.47-13.8,.52-30.23-13.28-36.7-39.57-18.54-83.71-27.43-127.65-25.73-29.35,1.14-58.07,6.86-85.38,16.99-14.29,5.3-21.57,21.19-16.27,35.47,5.3,14.29,21.19,21.57,35.48,16.27Z"></path><path d="M800.24,272.45c-13.19-7.63-30.08-3.12-37.7,10.08-7.63,13.19-3.12,30.07,10.08,37.7,41.55,24.02,78.1,57.48,105.7,96.76,5.37,7.65,13.92,11.73,22.6,11.73,5.48,0,11.02-1.63,15.84-5.02,12.47-8.76,15.48-25.98,6.71-38.45-32.18-45.79-74.79-84.8-123.23-112.81Z"></path><path d="M1099.95,908.94c-2.96-76.18-67.12-135.53-143.3-132.57-36.24,1.41-68.65,16.69-92.38,40.5-1.52,1.17-2.94,2.51-4.23,4.03-59.91,70.83-147.4,113.52-240.04,117.13-88.4,3.46-172.82-27.75-237.76-87.82-64.93-60.07-102.58-141.83-106.02-230.22-3.44-88.39,27.75-172.82,87.82-237.76,60.07-64.93,141.83-102.58,230.22-106.02,34.19-1.33,68.09,2.55,100.75,11.52,14.69,4.04,29.88-4.6,33.92-19.3,3.87-14.06-3.89-28.55-17.45-33.31-22.61-6.36-46.01-10.72-70.01-12.85-.11,0-.22-.02-.33-.03-3-.26-6.01-.49-9.04-.68-.26-.02-.52-.04-.78-.05-6.16-.38-12.35-.61-18.58-.7-.7,0-1.4-.01-2.1-.02-2.34-.02-4.69-.02-7.04,0-.83,0-1.66,.01-2.48,.03-2.85,.05-5.71,.12-8.57,.22-.14,0-.28,0-.43,.01-103.12,4.01-198.5,47.94-268.58,123.69-.19,.21-.38,.43-.57,.64-1.96,2.13-3.9,4.27-5.81,6.44-1.29,1.46-2.54,2.94-3.8,4.42-.78,.92-1.58,1.82-2.36,2.74-1.66,1.97-3.28,3.97-4.89,5.97-.35,.43-.71,.86-1.06,1.29-1.83,2.29-3.63,4.6-5.4,6.93-.11,.15-.23,.29-.34,.44-7.55,9.93-14.59,20.16-21.1,30.67h0c-40.13,64.78-60.13,139.99-57.11,217.83,.59,15.23-11.27,28.06-26.5,28.65-.37,.01-.73,.02-1.09,.02-14.75,0-26.98-11.66-27.56-26.52-4.07-104.59,28.25-205.02,91.56-286.81,.15-.19,.29-.38,.44-.57,2.69-3.46,5.43-6.89,8.23-10.29,.55-.67,1.1-1.35,1.65-2.02,.85-1.01,1.71-2.01,2.56-3.02,.9-1.06,1.78-2.12,2.69-3.17,.39-.45,.79-.88,1.18-1.33,1.16-1.33,2.33-2.64,3.5-3.96,1.3-1.46,2.6-2.91,3.92-4.34,.46-.5,.89-1,1.35-1.5,.58-.62,1.17-1.22,1.75-1.84,1.46-1.56,2.92-3.1,4.39-4.64,1.01-1.05,2.02-2.08,3.03-3.12,1.47-1.5,2.96-2.99,4.45-4.47,1.1-1.09,2.2-2.17,3.3-3.24,1.37-1.33,2.75-2.65,4.14-3.96,1.29-1.22,2.58-2.43,3.88-3.63,1.15-1.07,2.32-2.12,3.48-3.17,1.57-1.42,3.15-2.84,4.74-4.24,.82-.72,1.64-1.43,2.46-2.14,1.97-1.71,3.95-3.4,5.95-5.07,.33-.27,.66-.54,.99-.81,60.83-50.56,133.54-83.49,211.77-95.85,.23-.04,.45-.07,.68-.1,3.16-.49,6.33-.96,9.5-1.39,.68-.09,1.36-.17,2.03-.25,2.76-.36,5.53-.71,8.3-1.02,.07,0,.14-.02,.21-.03,15.15-1.68,26.07-15.32,24.39-30.46-1.65-14.95-14.97-25.75-29.88-24.43-1.42,.16-2.83,.31-4.25,.48-1.12,.13-2.23,.27-3.35,.41-72.82,9.16-142.86,34.29-204.67,73.72-28.94,18.47-55.84,39.87-80.28,63.77-.35,.35-.71,.7-1.06,1.04-5.01,4.92-9.9,9.95-14.7,15.08-.87,.93-1.74,1.87-2.61,2.81-1.3,1.41-2.59,2.82-3.87,4.24-1.84,2.05-3.67,4.11-5.47,6.18-3.31,3.8-6.55,7.66-9.75,11.55-.23,.28-.46,.55-.68,.83-1.33,1.63-2.64,3.27-3.95,4.92-.44,.56-.89,1.11-1.33,1.67-1.12,1.42-2.22,2.85-3.33,4.28-.64,.83-1.28,1.66-1.91,2.49-.92,1.2-1.82,2.41-2.73,3.63-.83,1.11-1.65,2.22-2.47,3.34-.71,.97-1.43,1.95-2.13,2.93-1,1.39-2,2.79-2.99,4.19-.53,.75-1.06,1.5-1.58,2.25-1.15,1.65-2.29,3.31-3.42,4.97-.37,.55-.75,1.1-1.12,1.65-1.25,1.85-2.48,3.71-3.7,5.57-7.87,12.01-15.24,24.37-22.05,37.06-7.21,13.43-23.94,18.46-37.37,11.26-13.43-7.21-18.47-23.94-11.25-37.37,44.7-83.23,110.43-154.09,190.07-204.9,37-23.6,76.64-42.58,117.98-56.68,.53-.18,1.07-.36,1.6-.54,1.82-.61,3.64-1.22,5.47-1.82,1.44-.47,2.89-.93,4.34-1.39,1.05-.33,2.11-.67,3.16-1,2.54-.79,5.08-1.56,7.64-2.31,.05-.02,.1-.03,.15-.05,31.55-9.31,64.31-15.88,98.01-19.43,.06,0,.13-.01,.2-.02,2.82-.3,5.66-.57,8.49-.82,.24-.02,.49-.05,.73-.07,2.68-.23,5.36-.45,8.05-.65,.36-.03,.73-.06,1.09-.08,2.71-.19,5.43-.37,8.15-.52,.3-.02,.6-.04,.89-.06,3.02-.17,6.04-.31,9.07-.43,4.48-.17,8.97-.29,13.46-.35,1.92-.03,3.83-.02,5.74-.02,2.55-.01,5.1-.03,7.66,0,2.19,.02,4.37,.08,6.55,.12,2.32,.05,4.64,.09,6.96,.17,2.12,.07,4.22,.17,6.33,.26,2.47,.11,4.93,.23,7.39,.37,1.85,.11,3.7,.23,5.55,.36,2.84,.19,5.69,.41,8.52,.64,1.42,.12,2.83,.24,4.25,.37,3.44,.31,6.87,.66,10.3,1.04,.81,.09,1.61,.18,2.42,.27,4.24,.49,8.47,1.02,12.69,1.6,.02,0,.04,0,.05,0,1.49,.21,2.99,.39,4.47,.6,15.08,2.21,29.1-8.22,31.31-23.29,2.21-15.08-8.21-29.1-23.29-31.31-36.98-5.43-74.83-7.45-112.49-5.98C421.49,6.77,271.6,75.8,161.47,194.84,51.34,313.88-5.83,468.68,.47,630.72c6.3,162.04,75.33,311.94,194.37,422.06,113.11,104.64,258.48,161.47,411.71,161.47,8.03,0,16.11-.16,24.18-.47,86.03-3.35,168.48-24.23,245.08-62.06,69.93-34.55,131.67-81.53,183.72-139.74,26.29-26.26,41.98-62.98,40.42-103.04Z"></path><path d="M449.27,413.4c-10.88-10.68-28.35-10.52-39.03,.36-53.06,54.05-81.81,128.44-78.87,204.09,5.77,148.42,128.35,265.25,275.62,265.24,3.6,0,7.23-.07,10.86-.21,43.56-1.7,84.87-13.19,122.77-34.17,13.33-7.38,18.16-24.17,10.78-37.51-7.38-13.33-24.18-18.16-37.51-10.78-30.28,16.76-63.32,25.95-98.19,27.3-58.91,2.29-115.22-18.5-158.5-58.54-43.29-40.05-68.39-94.55-70.68-153.48-2.39-61.42,20.02-119.4,63.1-163.28,10.68-10.88,10.52-28.35-.36-39.03Z"></path><path d="M978.61,356.07c3.03,4.08,6.59,7.84,9.75,11.81,5.45,6.84,13.48,10.4,21.6,10.4,6.03,0,12.1-1.97,17.18-6.02,11.92-9.5,13.88-26.86,4.38-38.78-3.56-4.47-7.43-8.79-10.97-13.28-92.07-116.85-237.77-195.61-366.63-207.65-15.17-1.42-28.63,9.74-30.04,24.91-1.42,15.18,9.73,28.63,24.91,30.04,114.5,10.7,253.61,85.88,329.82,188.57Z"></path><path d="M776.54,77.3c67.12,22.26,158.55,72.18,228.77,142.86,4.68,4.71,11.14,6.61,17.29,6.8,7.97,.24,15.99-2.95,21.64-9.43,10.03-11.48,7.89-27.91-2.63-38.94-60.91-63.83-174.22-127.7-246.69-153.32-14.37-5.08-30.14,2.45-35.22,16.82-5.08,14.37,2.35,30.42,16.82,35.22Z"></path></svg>
+      </div>
       <div class="brand-text">
         <h1>Basic Value — Acompanhamento de Instalações</h1>
         <p>Cobli · Onboarding · SMB · ICP</p>
       </div>
     </div>
-    <div class="who">
-      <span class="who-name" id="who-name"></span>
-      <span class="role-badge" id="who-role"></span>
-      <button class="btn ghost" onclick="logout()">Sair</button>
-    </div>
+    <!-- Rodada 17: sincronização subiu pro header (era na sidebar) -- mesmo
+         id (#last-sync) e função renderLastSync(), só reestilizado como
+         pílula mint pro fundo escuro (ver .header-sync). -->
+    <span class="header-sync" id="last-sync">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+      <span id="last-sync-text">carregando...</span>
+    </span>
   </header>
 
   <!-- Redesign de layout -- Opção A (sidebar), 2026-08-12: abas e filtros
@@ -809,6 +956,16 @@
                 <button type="button" class="msel-clear-btn" id="responsavel-filter-clear" onclick="event.stopPropagation(); mselClear('responsavel')" title="Limpar filtro" style="display:none">×</button>
                 <div class="msel-panel" id="responsavel-filter-panel"></div>
               </div>
+              <!-- Rodada 17 (2026-08-27): filtro por classe (Primeira
+                   compra/Upsell/Troca/etc.), pedido do Luiz ("coloca mais um
+                   filtro por classe também"). Mesmo componente .msel de
+                   sempre, visível pra todo mundo (não é restrito por papel,
+                   diferente de squad/gestor/responsável). -->
+              <div class="msel" id="classe-filter-wrap">
+                <button type="button" class="msel-btn" onclick="toggleMsel('classe')"><span class="msel-btn-text">Todas as classes</span><span class="msel-caret">▾</span></button>
+                <button type="button" class="msel-clear-btn" id="classe-filter-clear" onclick="event.stopPropagation(); mselClear('classe')" title="Limpar filtro" style="display:none">×</button>
+                <div class="msel-panel" id="classe-filter-panel"></div>
+              </div>
             </div>
           </div>
 
@@ -829,16 +986,19 @@
             <div class="priority-suboptions" id="priority-suboptions"></div>
           </div>
 
-          <!-- Rodada 15 (2026-08-27): botão "Atualizar" removido -- não
-               tocava no banco, só recarregava a mesma leitura (pedido do
-               Luiz: "não precisa né, pq clicando nele não vai alterar nada
-               já que não muda o banco"). Fica só o status, colorido conforme
-               a idade da sincronização (ver renderLastSync()). -->
-          <div class="sidebar-block">
-            <span class="sync-badge" id="last-sync">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
-              <span id="last-sync-text">carregando...</span>
-            </span>
+          <!-- Rodada 17 (2026-08-27): badge de sincronização subiu pro
+               header (ver #last-sync lá em cima) -- pedido do Luiz. No lugar
+               dele, o bloco de usuário desceu pro rodapé da sidebar (nome,
+               cargo e "Sair" saíram do header -- ver .sidebar-user-block no
+               CSS). margin-top:auto empurra esse bloco pro fim do
+               .sidebar-content flex, mesmo com pouco conteúdo acima. -->
+          <div class="sidebar-user-block">
+            <span class="sidebar-avatar" id="who-avatar"></span>
+            <div class="sidebar-user-info">
+              <span class="who-name" id="who-name"></span>
+              <span class="role-badge" id="who-role"></span>
+            </div>
+            <button class="btn ghost" onclick="logout()">Sair</button>
           </div>
         </div>
       </aside>
@@ -1023,6 +1183,24 @@
   </div>
 </div>
 
+<!-- Rodada 17 (2026-08-27): popup de confirmação de "Concluir" -- pedido do
+     Luiz ("o popup de concluir ta bem feio, coloca também no centro mais
+     bonito"), substitui o confirm() nativo do navegador. Mesmo padrão visual
+     de .modal-overlay/.modal-card já usado no popup de Detalhes/Tratativa. -->
+<div class="modal-overlay" id="ack-confirm-overlay" style="display:none" onclick="if(event.target===this) resolveAckConfirm(false)">
+  <div class="modal-card confirm-modal-card">
+    <div class="confirm-modal-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+    </div>
+    <h3 style="text-align:center">Concluir ticket?</h3>
+    <p class="confirm-modal-desc">Esta ação irá tirar o ticket da visão. Tem certeza que deseja concluir?</p>
+    <div class="form-actions" style="justify-content:center; gap:10px; margin-top:18px">
+      <button class="btn ghost" type="button" onclick="resolveAckConfirm(false)">Cancelar</button>
+      <button class="btn danger" type="button" onclick="resolveAckConfirm(true)">Concluir</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================================
 // CONFIGURAÇÃO — a anon key é feita para ser pública (a segurança de verdade
@@ -1074,6 +1252,7 @@ const state = {
   squadFilter: [],
   gestorFilter: [],       // Rodada 2: filtro de "Gestor" (gestor_geral) -- guarda a(s) squad(s) do(s) gestor(es) selecionado(s)
   responsavelFilter: [],  // Rodada 2: filtro de "Responsável"/"Usuário" (gestor_squad e gestor_geral)
+  classeFilter: [],       // Rodada 17 (2026-08-27): filtro por classe_instalacao, pedido do Luiz
   riskFilterActive: false,
   productsByTicket: {},
   searchQuery: "",             // Rodada 3: busca unificada de cliente/empresa (aba Tickets)
@@ -1229,6 +1408,9 @@ async function onLoggedIn() {
 
   document.getElementById("who-name").textContent = member ? member.name : currentUser.email;
   document.getElementById("who-role").textContent = member ? labelRole(member.role) : "sem cadastro";
+  // Rodada 17 (2026-08-27): iniciais pro avatar do bloco de usuário (rodapé
+  // da sidebar) -- primeira letra do primeiro e do último nome, maiúsculas.
+  document.getElementById("who-avatar").textContent = initials(member ? member.name : currentUser.email);
 
   if (member && (member.role === "gestor_squad" || member.role === "gestor_geral")) {
     document.getElementById("tab-admin").style.display = "block";
@@ -1265,6 +1447,19 @@ async function onLoggedIn() {
 
 function labelRole(role) {
   return { colaborador: "Colaborador", gestor_squad: "Gestor de squad", gestor_geral: "Gestor geral" }[role] || role;
+}
+// Rodada 17 (2026-08-27): iniciais pro avatar do bloco de usuário na base da
+// sidebar -- primeira letra do primeiro e do último nome; se só tiver uma
+// palavra (ou vier um e-mail, quando o membro ainda não tem nome cadastrado),
+// usa as duas primeiras letras.
+function initials(nameOrEmail) {
+  if (!nameOrEmail) return "?";
+  const namePart = String(nameOrEmail).split("@")[0].trim();
+  const parts = namePart.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return namePart.slice(0, 2).toUpperCase();
 }
 function labelSquad(squad) {
   return { onboarding: "Onboarding", smb: "SMB", icp: "ICP" }[squad] || "Sem squad";
@@ -1310,7 +1505,6 @@ function switchTab(tab) {
   document.getElementById("panel-principal").style.display = tab === "principal" ? "flex" : "none";
   document.getElementById("panel-evolucao").style.display = tab === "evolucao" ? "flex" : "none";
   document.getElementById("panel-admin").style.display = tab === "admin" ? "flex" : "none";
-  if (tab === "evolucao") loadEvolucao();
   if (tab === "admin") loadTeamTable();
 }
 
@@ -1355,7 +1549,11 @@ async function loadDashboard() {
 
   try {
     state.allRows = await fetchAllPages((from, to) =>
-      sb.from("v_dashboard").select("*").order("createdate", { ascending: true }).range(from, to)
+      // Rodada 17 (2026-08-27): pedido do Luiz -- ordem padrão (sem clicar em
+      // nenhuma coluna) passa a ser do ticket mais recente pro mais antigo,
+      // em vez do mais antigo primeiro ("ordena por data de abertura, o mais
+      // recente, tá ao contrário").
+      sb.from("v_dashboard").select("*").order("createdate", { ascending: false }).range(from, to)
     );
   } catch (error) {
     wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
@@ -1383,6 +1581,7 @@ async function loadDashboard() {
 
   state.productsByTicket = await loadProductsFor(state.allRows.map(d => d.ticket_id));
   populateResponsavelOptions();
+  populateClasseOptions();
 
   renderAll();
 }
@@ -1403,11 +1602,13 @@ async function loadDashboard() {
 // continua mutuamente exclusiva, ver togglePriorityCategory()).
 const MSEL_STATE_KEY = {
   gestor: "gestorFilter", squad: "squadFilter", responsavel: "responsavelFilter",
+  classe: "classeFilter",
   pcqtd: "priorityCompletudeFaixaQtd", pcdias: "priorityCompletudeFaixaDias",
   pbvqtd: "priorityBVFaixaQtd", pbvmrr: "priorityBVFaixaMrr",
 };
 const MSEL_ALL_LABEL = {
   gestor: "Todos os gestores", squad: "Todas as squads", responsavel: "Todos os responsáveis",
+  classe: "Todas as classes",
   pcqtd: "Todas", pcdias: "Todos (ordenado por mais perto de vencer)",
   pbvqtd: "Todas", pbvmrr: "Todos (ordenado por MRR)",
 };
@@ -1532,6 +1733,17 @@ function populateResponsavelOptions() {
   renderMselOptions("responsavel", names.map(n => ({ value: n, label: n })));
 }
 
+// Rodada 17 (2026-08-27): filtro por classe (Primeira venda/Primeira compra/
+// Troca/Upsell/Downgrade/Serviço avulso/Visita Técnica/etc.), pedido do Luiz
+// ("e coloca mais um filtro por classe também"). Diferente de Gestor/Squad,
+// esse filtro vale pra todos os papéis (não é role-gated) -- por isso não
+// verifica wrap.style.display aqui.
+function populateClasseOptions() {
+  const values = Array.from(new Set(state.allRows.map(r => r.classe_instalacao).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  renderMselOptions("classe", values.map(v => ({ value: v, label: v })));
+}
+
 // Rodada 2: opções do filtro de "Gestor" (só gestor_geral) -- lista quem tem
 // papel gestor_squad em team_members. Selecionar um gestor filtra o
 // dashboard pela squad daquele gestor (hoje um gestor = uma squad; se um dia
@@ -1553,6 +1765,12 @@ function applyFilters() {
   }
   if (state.responsavelFilter.length) {
     rows = rows.filter(r => state.responsavelFilter.includes(r.owner_name));
+  }
+  // Rodada 17 (2026-08-27): filtro por classe (pedido do Luiz), vale pra
+  // todos os papéis -- entra antes do squadFiltered pra também refletir nos
+  // KPIs/gráficos agregados.
+  if (state.classeFilter.length) {
+    rows = rows.filter(r => state.classeFilter.includes(r.classe_instalacao));
   }
   const squadFiltered = rows;
   if (state.riskFilterActive) {
@@ -1910,6 +2128,7 @@ function renderAll() {
   const companies = distinctCompanies(squadFiltered);
   renderKpis(squadFiltered, companies);
   renderGradeDistribution(companies);
+  renderEvolucao(squadFiltered, companies);
   renderTable(displayRows);
 }
 
@@ -2166,244 +2385,95 @@ function renderGradeDistribution(companies) {
 }
 
 // ---------------------------------------------------------------------------
-// ABA: EVOLUÇÃO B.V. (Rodada 3, item 5)
+// ABA: EVOLUÇÃO B.V. (Rodada 17, 2026-08-27 -- redesenho completo)
 // ---------------------------------------------------------------------------
-// Por hora sempre "geral" (não segmentado por squad/usuário) -- o Luiz pediu
-// pra deixar assim por enquanto e ajustar depois, quando tivermos um jeito
-// confiável de identificar a squad "da época" de cada ticket.
-//
-// Histórico: o Databricks já guarda o Basic Value por `event_week` desde
-// 2025-10-27 -- rodamos um backfill único (supabase/backfill-evolucao.sql)
-// puxando essa série semanal completa pra bv_grade_snapshots. Dali em diante,
-// cada abertura da aba por um gestor_geral grava um snapshot novo do dia
-// (maybeCaptureSnapshotIfGestorGeral), então o gráfico segue crescendo com
-// pontos novos conforme as sincronizações manuais forem acontecendo.
-//
-// Paleta (correção 2026-08-12): trocada a rampa ordinal verde pela MESMA
-// paleta de status (risco/aviso/ok) usada em .grade-pill -- pedido do Luiz
-// (a direção certa era levar a paleta de status pro gráfico, não o
-// contrário -- ver comentário em .grade-pill no CSS). g4=--ok-text,
-// g3=verde-azulado intermediário (#3F7D69), g2=--warn, g1=laranja mais
-// escuro (#A3652E), g0=--risk, sem_dado=--ink-mute.
-const EVO_RAMP = { "4": "#0E7D5F", "3": "#3F7D69", "2": "#B7791F", "1": "#A3652E", "0": "#C7362C", sem_dado: "#8288A3" };
-const EVO_LABELS = { "4": "Nota 4 · completo", "3": "Nota 3", "2": "Nota 2", "1": "Nota 1", "0": "Nota 0 · não iniciado", sem_dado: "Sem dado" };
-const EVO_ORDER = ["4", "3", "2", "1", "0", "sem_dado"];
-// Rodada 6 (2026-08-11): rótulo de dado direto no gráfico (antes só aparecia
-// no tooltip, a pedido do Luiz). Cor do texto por segmento, pra manter
-// contraste -- os graus mais altos (4/3/2) têm fill escuro (texto branco);
-// os mais claros (1/0) e "sem_dado" (cinza claro) usam texto escuro.
-const EVO_LABEL_TEXT = { "4": "#fff", "3": "#fff", "2": "#fff", "1": "#0b2a1f", "0": "#0b2a1f", sem_dado: "#4A4F73" };
+// Antes esta aba mostrava um gráfico de evolução por semana/mês (snapshot
+// diário salvo em bv_grade_snapshots). Pedido do Luiz: trocar por uma FOTO DE
+// HOJE, em barras (escolha dele no mockup: "3 os dois de barras"), com dois
+// blocos -- quantos clientes já expirou o prazo de bater a meta de
+// completude x quantos ainda estão no prazo, e o mesmo pro Basic Value. Como
+// Basic Value não tem prazo de verdade (não vence), o Luiz escolheu (via
+// AskUserQuestion) separar por nota alta (3-4, "saudável") x nota baixa
+// (0-2, "precisa de atenção") em vez de um "vencido/não vencido" que não
+// existe pra esse dado.
+// Os dois blocos usam squadFiltered/companies que renderAll() já calcula --
+// isso já respeita o RLS/role do usuário logado (colaborador só vê os
+// próprios tickets, gestor_squad só a squad, gestor_geral tudo), então não
+// precisa de nenhuma lógica nova de squad aqui. A tabela bv_grade_snapshots
+// continua existindo no Supabase, só não tem mais nada gravando/lendo dela
+// nesta aba.
+function renderEvolucao(rows, companies) {
+  const wrap = document.getElementById("evolucao-wrap");
+  if (!wrap) return;
 
-let evoRawRows = [];
-let evoMode = "weekly";       // "weekly" | "monthly"
-let evoWeeklyRange = 5;       // 5 | 10 | "all" -- só se aplica no modo "weekly"
+  // --- Bloco 1: Completude de Instalação (dentro do prazo x prazo encerrado) ---
+  // Elegível = tem uma regra de prazo de completude aplicável: classe
+  // "Troca" (regra própria de 60 dias corridos desde a ABERTURA do ticket,
+  // pedido do Luiz -- ver completudeInstalacaoHtml) ou qualquer outra classe
+  // com completude_dentro_do_prazo já calculado pela sincronização. Serviço
+  // avulso/Visita Técnica (e tickets genuinamente sem dado) ficam de fora da
+  // base -- não têm prazo de completude, então não faz sentido contar como
+  // "no prazo" nem como "fora do prazo".
+  let compDentro = 0, compFora = 0;
+  rows.forEach(r => {
+    if (r.classe_instalacao === "Troca") {
+      if (r.dias_aberto == null) return;
+      if (60 - r.dias_aberto < 0) compFora++; else compDentro++;
+      return;
+    }
+    if (r.completude_dentro_do_prazo === true) compDentro++;
+    else if (r.completude_dentro_do_prazo === false) compFora++;
+  });
+  const compTotal = compDentro + compFora;
+  const compDentroPct = compTotal ? Math.round((compDentro / compTotal) * 100) : 0;
+  const compForaPct = compTotal ? 100 - compDentroPct : 0;
 
-function todayDateStr() {
-  const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
-
-// Só gestor_geral grava o snapshot -- é o único papel cujo state.allRows
-// representa de verdade "todas as empresas" (bypass de RLS); se um
-// colaborador/gestor_squad gravasse, o snapshot ficaria incompleto (só o
-// próprio recorte) e corromperia o histórico geral.
-async function maybeCaptureSnapshotIfGestorGeral() {
-  if (!currentMember || currentMember.role !== "gestor_geral") return;
-  const today = todayDateStr();
-  const { data: existing } = await sb.from("bv_grade_snapshots").select("grade").eq("snapshot_date", today).limit(1);
-  if (existing && existing.length) return; // já capturado hoje
-
-  const companies = distinctCompanies(state.allRows);
-  const total = companies.length;
-  if (!total) return;
-  const buckets = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, sem_dado: 0 };
+  // --- Bloco 2: Basic Value (nota alta 3-4 x nota baixa 0-2), por EMPRESA ---
+  // Mesmo nível de agregação do bloco "Empresas por Basic Value de
+  // instalação" já existente (ver renderGradeDistribution/distinctCompanies)
+  // -- uma empresa com vários tickets conta 1 vez só.
+  let bvAlta = 0, bvBaixa = 0, bvSemDado = 0;
   companies.forEach(c => {
     const g = c.instalation_completeness_grade;
-    const key = String(g);
-    if (g == null || !(key in buckets)) buckets.sem_dado++;
-    else buckets[key]++;
+    if (g == null) { bvSemDado++; return; }
+    if (g >= 3) bvAlta++; else bvBaixa++;
   });
+  const bvTotal = bvAlta + bvBaixa;
+  const bvAltaPct = bvTotal ? Math.round((bvAlta / bvTotal) * 100) : 0;
+  const bvBaixaPct = bvTotal ? 100 - bvAltaPct : 0;
 
-  const rows = Object.keys(buckets).map(grade => ({
-    snapshot_date: today, grade, company_count: buckets[grade], total_companies: total,
-  }));
-  const { error } = await sb.from("bv_grade_snapshots").insert(rows);
-  if (error) console.error("Erro ao gravar snapshot de evolução:", error.message);
-}
-
-async function loadEvolucao() {
-  const wrap = document.getElementById("evolucao-wrap");
-  wrap.innerHTML = '<div class="muted" style="padding:20px">Carregando...</div>';
-
-  await maybeCaptureSnapshotIfGestorGeral();
-
-  const { data, error } = await sb.from("bv_grade_snapshots").select("*").order("snapshot_date", { ascending: true });
-  if (error) {
-    wrap.innerHTML = '<div id="empty-state">Erro ao carregar: ' + escapeHtml(error.message) + "</div>";
-    return;
-  }
-  evoRawRows = data || [];
-  renderEvolucaoChart();
-}
-
-function setEvoMode(mode) {
-  evoMode = mode;
-  renderEvolucaoChart();
-}
-
-function setEvoRange(v) {
-  evoWeeklyRange = v === "all" ? "all" : Number(v);
-  renderEvolucaoChart();
-}
-
-function renderEvolucaoChart() {
-  const wrap = document.getElementById("evolucao-wrap");
-  const rows = evoRawRows;
-
-  if (!rows.length) {
-    wrap.innerHTML = `
-      <div class="evo-card">
-        <h3>Evolução do Basic Value de instalação</h3>
-        <p class="form-desc">Ainda não há histórico registrado. Rode o backfill (supabase/backfill-evolucao.sql) pra trazer o histórico semanal do Databricks, ou abra esta aba como gestor geral pra começar a acumular um snapshot novo por dia.</p>
-        <div class="evo-empty">Sem dados ainda.</div>
-      </div>`;
-    return;
-  }
-
-  const byDate = new Map();
-  rows.forEach(r => {
-    if (!byDate.has(r.snapshot_date)) byDate.set(r.snapshot_date, {});
-    byDate.get(r.snapshot_date)[r.grade] = r;
-  });
-  const allDates = Array.from(byDate.keys()).sort();
-
-  let dates, byGroup, labelFormat;
-  if (evoMode === "monthly") {
-    const byMonth = new Map();
-    allDates.forEach(d => {
-      const ym = d.slice(0, 7);
-      if (!byMonth.has(ym) || d > byMonth.get(ym)) byMonth.set(ym, d);
-    });
-    const months = Array.from(byMonth.keys()).sort();
-    dates = months;
-    byGroup = new Map(months.map(ym => [ym, byDate.get(byMonth.get(ym))]));
-    labelFormat = (ym) => new Date(ym + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-  } else {
-    dates = evoWeeklyRange === "all" ? allDates : allDates.slice(-evoWeeklyRange);
-    byGroup = byDate;
-    labelFormat = (d) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  }
-
-  const W = 900, H = 260, padL = 20, padR = 12, padT = 10, padB = 28;
-  const chartW = W - padL - padR, chartH = H - padT - padB;
-  const groupW = chartW / dates.length;
-  const barW = Math.min(48, groupW * 0.55);
-
-  let bars = "";
-  dates.forEach((key, i) => {
-    const groupData = byGroup.get(key) || {};
-    const total = EVO_ORDER.reduce((sum, g) => sum + (groupData[g] ? groupData[g].company_count : 0), 0) || 1;
-    let yCursor = padT + chartH;
-    const cx = padL + groupW * i + groupW / 2;
-    EVO_ORDER.forEach(g => {
-      const count = groupData[g] ? groupData[g].company_count : 0;
-      if (!count) return;
-      const segH = (count / total) * chartH;
-      const y = yCursor - segH;
-      bars += `<rect x="${(cx - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${segH.toFixed(1)}" fill="${EVO_RAMP[g]}"
-        data-date="${key}" data-grade="${g}" data-count="${count}" data-total="${total}" class="evo-bar-seg"></rect>`;
-      if (segH >= 16) {
-        const pct = Math.round((count / total) * 100);
-        const midY = y + segH / 2 + 3.5;
-        bars += `<text x="${cx.toFixed(1)}" y="${midY.toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${EVO_LABEL_TEXT[g]}" pointer-events="none">${pct}%</text>`;
-      }
-      yCursor = y;
-    });
-    const label = labelFormat(key);
-    bars += `<text x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#8288A3">${label}</text>`;
-  });
-
-  const legend = EVO_ORDER.map(g => `<span class="evo-legend-item"><span class="evo-legend-dot" style="background:${EVO_RAMP[g]}"></span>${EVO_LABELS[g]}</span>`).join("");
-
-  const noteHistorico = (allDates.length < 3 && (Date.now() - new Date(allDates[0] + "T00:00:00").getTime()) < 14 * 86400000)
-    ? `<p class="form-desc" style="margin-top:14px">Histórico começou a ser registrado em ${new Date(allDates[0] + "T00:00:00").toLocaleDateString("pt-BR")} -- rode o backfill (supabase/backfill-evolucao.sql) pra trazer o histórico semanal completo do Databricks.</p>`
-    : "";
-
-  const rangeSelect = evoMode === "weekly" ? `
-    <select class="evo-range-select" onchange="setEvoRange(this.value)">
-      <option value="5" ${evoWeeklyRange === 5 ? "selected" : ""}>Últimas 5 semanas</option>
-      <option value="10" ${evoWeeklyRange === 10 ? "selected" : ""}>Últimas 10 semanas</option>
-      <option value="all" ${evoWeeklyRange === "all" ? "selected" : ""}>Todo o período</option>
-    </select>` : "";
+  const compNote = compTotal
+    ? `${compTotal} ticket(s) elegível(is) para completude de instalação -- Serviço avulso e Visita Técnica não entram nessa métrica.`
+    : "Nenhum ticket elegível para completude de instalação no filtro atual.";
+  const bvNote = bvTotal
+    ? `${bvTotal} empresa(s) com nota de instalação${bvSemDado ? ` (${bvSemDado} ainda sem nota)` : ""}.`
+    : "Nenhuma empresa com nota de instalação no filtro atual.";
 
   wrap.innerHTML = `
-    <div class="evo-card">
-      <h3>Evolução do Basic Value de instalação</h3>
-      <p class="form-desc">% de empresas em cada grau de instalação. Visão geral (todas as squads juntas) por enquanto -- segmentação por squad/usuário entra numa próxima rodada.</p>
-      <div class="evo-controls">
-        <div class="evo-toggle">
-          <button class="${evoMode === "weekly" ? "active" : ""}" onclick="setEvoMode('weekly')">Semanal</button>
-          <button class="${evoMode === "monthly" ? "active" : ""}" onclick="setEvoMode('monthly')">Mensal</button>
-        </div>
-        ${rangeSelect}
+    <div class="evo-bar-card">
+      <p class="evo-bar-title">Completude de Instalação</p>
+      <p class="evo-bar-sub">${escapeHtml(compNote)}</p>
+      <div class="evo-bar-stat">
+        <div class="evo-bar-stat-head"><span>Dentro do prazo</span><b style="color:var(--ok-text)">${compDentro} <span style="font-weight:600;font-size:12px">(${compDentroPct}%)</span></b></div>
+        <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${compDentroPct}%;background:var(--ok-text)"></div></div>
       </div>
-      <div class="evo-chart-wrap">
-        <svg class="evo-chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução da distribuição de empresas por grau de Basic Value de instalação" style="width:100%;height:auto">${bars}</svg>
-        <div class="evo-tooltip" id="evo-tooltip"></div>
+      <div class="evo-bar-stat">
+        <div class="evo-bar-stat-head"><span>Prazo encerrado</span><b style="color:var(--risk)">${compFora} <span style="font-weight:600;font-size:12px">(${compForaPct}%)</span></b></div>
+        <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${compForaPct}%;background:var(--risk)"></div></div>
       </div>
-      <div class="evo-legend">${legend}</div>
-      ${noteHistorico}
-      <span class="evo-table-toggle" onclick="toggleEvoTable()">ver como tabela</span>
-      <div class="evo-table-wrap" id="evo-table-wrap" style="display:none"></div>
+    </div>
+    <div class="evo-bar-card">
+      <p class="evo-bar-title">Basic Value</p>
+      <p class="evo-bar-sub">${escapeHtml(bvNote)}</p>
+      <div class="evo-bar-stat">
+        <div class="evo-bar-stat-head"><span>Nota alta (3-4) -- saudável</span><b style="color:var(--ok-text)">${bvAlta} <span style="font-weight:600;font-size:12px">(${bvAltaPct}%)</span></b></div>
+        <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${bvAltaPct}%;background:var(--ok-text)"></div></div>
+      </div>
+      <div class="evo-bar-stat">
+        <div class="evo-bar-stat-head"><span>Nota baixa (0-2) -- precisa de atenção</span><b style="color:var(--risk)">${bvBaixa} <span style="font-weight:600;font-size:12px">(${bvBaixaPct}%)</span></b></div>
+        <div class="evo-bar-track"><div class="evo-bar-fill" style="width:${bvBaixaPct}%;background:var(--risk)"></div></div>
+      </div>
     </div>`;
-
-  attachEvoTooltip();
-  renderEvoTable(dates, byGroup, labelFormat);
-}
-
-function attachEvoTooltip() {
-  const svg = document.querySelector(".evo-chart-svg");
-  const tooltip = document.getElementById("evo-tooltip");
-  if (!svg || !tooltip) return;
-  svg.querySelectorAll(".evo-bar-seg").forEach(seg => {
-    seg.addEventListener("mousemove", (e) => {
-      const rect = svg.parentElement.getBoundingClientRect();
-      const pct = Math.round((Number(seg.dataset.count) / Number(seg.dataset.total)) * 100);
-      const rawKey = seg.dataset.date;
-      const dateLabel = rawKey.length === 7
-        ? new Date(rawKey + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
-        : new Date(rawKey + "T00:00:00").toLocaleDateString("pt-BR");
-      const gradeLabel = EVO_LABELS[seg.dataset.grade] || seg.dataset.grade;
-      tooltip.textContent = `${dateLabel} · ${gradeLabel}: ${seg.dataset.count} empresa(s) (${pct}%)`;
-      tooltip.style.left = (e.clientX - rect.left) + "px";
-      tooltip.style.top = (e.clientY - rect.top) + "px";
-      tooltip.classList.add("show");
-    });
-    seg.addEventListener("mouseleave", () => tooltip.classList.remove("show"));
-  });
-}
-
-function toggleEvoTable() {
-  const el = document.getElementById("evo-table-wrap");
-  el.style.display = el.style.display === "none" ? "block" : "none";
-}
-
-function renderEvoTable(keys, byGroup, labelFormat) {
-  const el = document.getElementById("evo-table-wrap");
-  if (!el) return;
-  let html = "<table><thead><tr><th>Período</th>" + EVO_ORDER.map(g => `<th>${EVO_LABELS[g]}</th>`).join("") + "</tr></thead><tbody>";
-  keys.forEach(key => {
-    const groupData = byGroup.get(key) || {};
-    const total = EVO_ORDER.reduce((sum, g) => sum + (groupData[g] ? groupData[g].company_count : 0), 0) || 1;
-    html += `<tr><td>${labelFormat(key)}</td>` +
-      EVO_ORDER.map(g => {
-        const count = groupData[g] ? groupData[g].company_count : 0;
-        const pct = Math.round((count / total) * 100);
-        return `<td>${count} (${pct}%)</td>`;
-      }).join("") + "</tr>";
-  });
-  html += "</tbody></table>";
-  el.innerHTML = html;
 }
 
 function toggleRiskFilter() {
@@ -2511,11 +2581,17 @@ function renderTable(data) {
     // de detalhes/tratativa (antes só a célula "Tratativa" abria) -- pedido
     // do Luiz. onRowClick ignora cliques em link/checkbox pra não capturar
     // esses cliques (ver onRowClick()).
-    html += `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')" title="Clique para registrar tratativa">
-      <td>
-        <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
-          onchange="onAckTicket('${row.ticket_id}', this)"
-          title="Marcar como concluído -- some da lista permanentemente a partir do próximo carregamento" />
+    html += `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')">
+      <td class="ack-cell">
+        <span class="tt-wrap">
+          <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
+            onchange="onAckTicket('${row.ticket_id}', this)" />
+          <span class="tt-box">Marcar como concluído -- some da lista permanentemente a partir do próximo carregamento</span>
+        </span>
+        <span class="tt-wrap">
+          <span class="tt-icon">${TT_INFO_ICON_SVG}</span>
+          <span class="tt-box">Clique em qualquer lugar da linha para registrar tratativa</span>
+        </span>
       </td>
       <td>
         <div class="client-name" title="${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
@@ -2555,8 +2631,24 @@ function renderTable(data) {
 // Rodada 15 (2026-08-27): confirmação antes de concluir -- pedido do Luiz
 // ("ao apertar um pop para confirmar, esta ação irá tirar o ticket da
 // visão..."), porque a marcação é permanente (não dá pra desmarcar hoje).
+// Rodada 17 (2026-08-27): popup de confirmação customizado (ver
+// #ack-confirm-overlay no HTML) no lugar do confirm() nativo do navegador --
+// pedido do Luiz ("o popup de concluir ta bem feio, coloca também no centro
+// mais bonito"). askAckConfirm() abre o modal e devolve uma Promise<boolean>
+// que resolveAckConfirm() resolve quando o usuário clica em Cancelar/
+// Concluir (ou fecha clicando fora do card).
+let _ackConfirmResolve = null;
+function askAckConfirm() {
+  document.getElementById("ack-confirm-overlay").style.display = "flex";
+  return new Promise(resolve => { _ackConfirmResolve = resolve; });
+}
+function resolveAckConfirm(value) {
+  document.getElementById("ack-confirm-overlay").style.display = "none";
+  if (_ackConfirmResolve) { _ackConfirmResolve(value); _ackConfirmResolve = null; }
+}
+
 async function onAckTicket(ticketId, checkbox) {
-  if (!confirm("Esta ação irá tirar o ticket da visão. Tem certeza que deseja concluir?")) {
+  if (!(await askAckConfirm())) {
     checkbox.checked = false;
     return;
   }
@@ -3015,9 +3107,45 @@ function fmtCurrency(n) { return n == null ? "-" : "R$ " + Number(n).toLocaleStr
 // deixando isso claro) ou se cada ticket deveria mostrar o status da SUA
 // PRÓPRIA venda (precisaria vincular ticket -> deal_id na query, mudança
 // maior no pipeline do Databricks).
+// Rodada 17 (2026-08-27): ícone usado no .info-pill (célula sem dado de
+// completude) e no .tt-icon genérico (mesmo "i" de informação nos dois).
+const TT_INFO_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
+
+// Pílula cinza + ícone + tooltip escuro explicando o motivo (opção B do
+// mockup, pedido do Luiz) -- substitui o "-" mudo de antes pra classes que
+// não entram na métrica de completude por deal (Serviço avulso/Visita
+// Técnica) ou que genuinamente não têm dado.
+function infoPillHtml(reason) {
+  return `<span class="tt-wrap"><span class="info-pill">${TT_INFO_ICON_SVG}Não se aplica</span><span class="tt-box">${escapeHtml(reason)}</span></span>`;
+}
+
 function completudeInstalacaoHtml(row) {
+  const classe = row.classe_instalacao;
+
+  // Rodada 17 (2026-08-27): "Troca" não tem deal de instalação, então não
+  // tem completude_qtd_completude/pct -- mas tem uma regra própria: 60 dias
+  // CORRIDOS desde a ABERTURA do ticket pra concluir (pedido do Luiz: "para
+  // troca não tem completude por deal, mas consideramos também 60 dias para
+  // realizar a conclusão depois de criado, daria para fazer essa regra e
+  // considerar também?"). Sem percentual aqui (não existe "instalado/a
+  // instalar" pra Troca), só o status de prazo, com tooltip explicando a
+  // regra (pra não parecer que "sumiu" o dado de completude sem motivo).
+  if (classe === "Troca") {
+    if (row.dias_aberto == null) {
+      return infoPillHtml('Classe "Troca" não entra na métrica de completude de instalação por deal, e este ticket não tem data de abertura disponível para calcular o prazo de 60 dias.');
+    }
+    const restantes = 60 - row.dias_aberto;
+    const badge = restantes < 0
+      ? `<span class="badge risk">Prazo encerrado</span>`
+      : `<span class="badge ok">Dentro do prazo${restantes > 0 ? ` -- faltam ${Math.ceil(restantes)}d` : ""}</span>`;
+    return `<span class="tt-wrap">${badge}<span class="tt-box">Classe "Troca" não tem completude por deal -- aqui o prazo é de 60 dias corridos desde a abertura do ticket.</span></span>`;
+  }
+
   if (row.completude_qtd_completude == null || row.completude_qtd_completude === 0) {
-    return '<span class="muted">-</span>';
+    const reason = (classe === "Serviço avulso" || classe === "Visita Técnica")
+      ? `Classe "${classe}" não entra na métrica de completude de instalação.`
+      : "Este ticket não possui dados de completude de instalação disponíveis.";
+    return infoPillHtml(reason);
   }
   const pct = Math.round((row.completude_pct || 0) * 100);
   const faltam = row.completude_qtd_falta || 0;
