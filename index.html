@@ -939,6 +939,18 @@
   tr.company-group-row { cursor: pointer; background: var(--paper-2); }
   tr.company-group-row:hover { background: var(--royal-soft); }
   tr.company-group-row td { padding: 10px 14px; }
+  /* Rodada 18f (2026-08-28): destaque de cor por quantidade de tratativas
+     (filtro "Tratativas realizadas", ver toggleTratativaFilter()) -- 2
+     tratativas = amarelo leve, 3+ = vermelho suave (caso crítico, pedido do
+     Luiz pra sinalizar "solicitar apoio para alguém do time"). Reaproveita os
+     mesmos tokens --warn-soft/--risk-soft já usados nos badges de
+     prazo/prioridade, pra manter a paleta consistente. Especificidade igual à
+     de "tbody tr:hover td" (mesma soma tbody+tr+td) e definida depois no
+     arquivo, então vence o hover padrão em repouso -- ao passar o mouse,
+     volta pro hover normal (--royal-soft), o que é aceitável aqui. */
+  tbody tr.row-tratativa-2 td { background: var(--warn-soft); }
+  tbody tr.row-tratativa-3 td { background: var(--risk-soft); }
+  .tratativa-count-badge { display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700; margin-left: 6px; }
   .company-group-head { display: flex; align-items: center; gap: 10px; }
   .company-group-chevron { display: inline-block; transition: transform .15s; color: var(--ink-mute); font-size: 11px; }
   .company-group-chevron.open { transform: rotate(90deg); }
@@ -1070,6 +1082,22 @@
                 <input type="checkbox" id="group-by-company-checkbox" onchange="toggleGroupByCompany()" />
                 <span>Agrupar por empresa</span>
               </label>
+              <!-- Rodada 18f (2026-08-28): "Tratativas realizadas" -- pedido do
+                   Luiz: filtro igual ao de "Agrupar por empresa" (só muda o
+                   que aparece na tabela de Tickets), mas mostra só tickets com
+                   pelo menos 1 tratativa registrada, com a linha destacada
+                   por cor conforme a QUANTIDADE de tratativas (1 = sem cor,
+                   2 = amarelo leve, 3+ = vermelho suave -- pedido dele: "3
+                   seria o caso crítico para solicitar apoio para alguém do
+                   time"). O botão "Exportar" (motivos + datas de cada
+                   tratativa, junto com os dados normais do ticket) só
+                   aparece quando este filtro está ligado -- ver
+                   toggleTratativaFilter()/exportTratativasCsv(). -->
+              <label class="group-by-toggle">
+                <input type="checkbox" id="tratativa-filter-checkbox" onchange="toggleTratativaFilter()" />
+                <span>Tratativas realizadas</span>
+              </label>
+              <button type="button" class="btn ghost" id="tratativa-export-btn" style="display:none; margin-top:6px; font-size:12px; width:100%" onclick="exportTratativasCsv()">⬇ Exportar tratativas (CSV)</button>
             </div>
           </div>
 
@@ -1400,6 +1428,17 @@ const state = {
   responsavelFilter: [],  // Rodada 2: filtro de "Responsável"/"Usuário" (gestor_squad e gestor_geral)
   classeFilter: [],       // Rodada 17 (2026-08-27): filtro por classe_instalacao, pedido do Luiz
   groupByCompany: false,  // Rodada 18 (2026-08-27/28): "agrupar por empresa" na sidebar, pedido do Luiz
+  // Rodada 18f (2026-08-28): "Tratativas realizadas" -- pedido do Luiz, filtro
+  // igual em espírito ao "agrupar por empresa" (só muda o que aparece na
+  // tabela de Tickets, nunca os KPIs/agregados -- ver applyFilters()), mas
+  // filtra pra só tickets com >=1 tratativa registrada em ticket_checks, com
+  // destaque de cor por QUANTIDADE (ver tratativaRowClass()). O histórico
+  // completo por ticket (não só o último, que já vem em row.status_tratativa/
+  // row.observacao) é carregado sob demanda -- ver loadTratativaCountsBulk() --
+  // só quando o checkbox é ligado pela 1a vez, guardado aqui.
+  filterTratativa: false,
+  tratativaHistoryByTicket: {},   // ticket_id -> array de {status_tratativa, observacao, updated_at, user_email}, mais recente primeiro
+  tratativaHistoryLoaded: false, // evita recarregar do banco toda vez que o checkbox é religado
   activeTab: "principal", // Rodada 18b (2026-08-27, fix pós-entrega): qual aba está ativa -- usado por renderAll() pra filtrar os cards de indicadores quando a aba Completude está ativa (pedido do Luiz: "também filtrar os cards quando entrar nela")
   riskFilterActive: false,
   productsByTicket: {},
@@ -2054,6 +2093,15 @@ function applyFilters() {
   } else if (state.priorityCategory === "basic_value") {
     // "MRR": padrão ordena por MRR decrescente.
     rows = rows.slice().sort((a, b) => (Number(b.mrr) || 0) - (Number(a.mrr) || 0));
+  }
+  // Rodada 18f (2026-08-28): filtro "Tratativas realizadas" -- pedido do
+  // Luiz. Igual aos outros filtros de exibição, só afeta displayRows (a
+  // tabela de Tickets), nunca squadFiltered (KPIs/agregados). Só some algo
+  // de fato depois que o histórico bulk termina de carregar (ver
+  // toggleTratativaFilter()) -- antes disso o mapa está vazio e o filtro
+  // esconderia tudo por engano, por isso a guarda tratativaHistoryLoaded.
+  if (state.filterTratativa && state.tratativaHistoryLoaded) {
+    rows = rows.filter(r => (state.tratativaHistoryByTicket[r.ticket_id] || []).length > 0);
   }
   return { squadFiltered, displayRows: rows };
 }
@@ -2851,6 +2899,17 @@ function ticketRowHtml(row) {
   const squadBadge = squadBadgeHtml(row);
   const isAcked = state.justAcked.has(row.ticket_id);
 
+  // Rodada 18f (2026-08-28): destaque por quantidade de tratativas -- só
+  // calcula/aplica quando o filtro "Tratativas realizadas" está ligado (ver
+  // state.filterTratativa), porque é quando o histórico bulk
+  // (tratativaHistoryByTicket) está de fato carregado; fora desse filtro a
+  // linha renderiza igual a sempre, sem custo extra.
+  const tratCount = state.filterTratativa ? (state.tratativaHistoryByTicket[row.ticket_id] || []).length : 0;
+  const tratRowClass = tratCount >= 3 ? "row-tratativa-3" : (tratCount === 2 ? "row-tratativa-2" : "");
+  const tratBadge = (state.filterTratativa && tratCount >= 2)
+    ? `<span class="tratativa-count-badge" style="background:${tratCount >= 3 ? "var(--risk-soft)" : "var(--warn-soft)"};color:${tratCount >= 3 ? "var(--risk)" : "var(--warn)"}" data-tt="${tratCount} tratativas registradas${tratCount >= 3 ? " -- caso crítico, considerar pedir apoio do time" : ""}">${tratCount}x${tratCount >= 3 ? " ⚠" : ""}</span>`
+    : "";
+
   const accessoryProducts = state.productsByTicket[row.ticket_id] || [];
   const chips = [];
   // Rodada 16 (2026-08-27): removido o chip "Nx Rastreador" derivado de
@@ -2876,14 +2935,14 @@ function ticketRowHtml(row) {
   // de detalhes/tratativa (antes só a célula "Tratativa" abria) -- pedido
   // do Luiz. onRowClick ignora cliques em link/checkbox pra não capturar
   // esses cliques (ver onRowClick()).
-  return `<tr class="clickable-row ${isAcked ? "row-acked" : ""}" onclick="onRowClick(event, '${row.ticket_id}')" data-tt="Clique em qualquer lugar da linha para registrar tratativa">
+  return `<tr class="clickable-row ${isAcked ? "row-acked" : ""} ${tratRowClass}" onclick="onRowClick(event, '${row.ticket_id}')" data-tt="Clique em qualquer lugar da linha para registrar tratativa">
       <td class="ack-cell">
         <input type="checkbox" class="ack-checkbox" ${isAcked ? "checked disabled" : ""}
           onchange="onAckTicket('${row.ticket_id}', this)"
           data-tt="Marcar como concluído -- some da lista permanentemente a partir do próximo carregamento" />
       </td>
       <td>
-        <div class="client-name" title="${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}</div>
+        <div class="client-name" title="${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}">${escapeHtml(row.display_name || row.subject_raw || row.ticket_id)}${tratBadge}</div>
         <div class="meta-line">
           <a href="${hubspotTicketUrl(row.ticket_id)}" target="_blank" rel="noopener" title="Abrir no HubSpot">Ticket ${row.ticket_id}</a>
           · ${escapeHtml(row.owner_name || "-")}
@@ -3157,6 +3216,120 @@ async function loadProductsFor(ticketIds) {
     });
   }
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// Rodada 18f (2026-08-28): filtro "Tratativas realizadas" -- pedido do Luiz
+// ("um botão igual o de agrupar por empresa, agrupando por ticket que tem
+// tratativa realizado, dai diferenciar em cores os clientes, sem cor nenhum 1
+// tratativa, amarelinho leve duas, e vermelho suave 3 tratativa, este com 3
+// seria o caso crítico para solicitar apoio para alguém do time"). Mesmo
+// espírito do "agrupar por empresa": um toggle na sidebar que muda o que
+// aparece na tabela de Tickets, sem mexer nos KPIs/agregados.
+//
+// ticket_checks já guarda TODO o histórico (append-only, nunca update -- ver
+// nota na Rodada 15/loadTratativaHistory) -- só nunca tinha sido carregado em
+// bloco pra todos os tickets de uma vez, só um-a-um ao abrir o popup de
+// Detalhes. loadTratativaCountsBulk() faz esse carregamento em lote (mesmo
+// padrão de paginação por 200 ids de loadProductsFor(), acima), guardando o
+// histórico completo por ticket -- não só a contagem -- porque o botão
+// Exportar também precisa dos motivos/datas de cada tratativa, não só de
+// quantas existem.
+// ---------------------------------------------------------------------------
+async function loadTratativaCountsBulk(ticketIds) {
+  const map = {};
+  if (!ticketIds.length) return map;
+  for (let i = 0; i < ticketIds.length; i += 200) {
+    const batch = ticketIds.slice(i, i + 200);
+    const rows = await fetchAllPages((from, to) =>
+      sb.from("ticket_checks").select("ticket_id,status_tratativa,observacao,updated_at,user_email")
+        .in("ticket_id", batch).order("updated_at", { ascending: true }).range(from, to)
+    );
+    rows.forEach(h => {
+      map[h.ticket_id] = map[h.ticket_id] || [];
+      map[h.ticket_id].push(h);
+    });
+  }
+  return map;
+}
+
+async function toggleTratativaFilter() {
+  state.filterTratativa = !state.filterTratativa;
+  const exportBtn = document.getElementById("tratativa-export-btn");
+  if (state.filterTratativa && !state.tratativaHistoryLoaded) {
+    // Carrega o histórico de todos os tickets do usuário (state.allRows já
+    // vem escopado pelo RLS -- ver applyFilters()), não só os visíveis no
+    // momento, pra não precisar recarregar de novo se outro filtro mudar
+    // depois com o toggle já ligado.
+    const ids = state.allRows.map(r => r.ticket_id);
+    state.tratativaHistoryByTicket = await loadTratativaCountsBulk(ids);
+    state.tratativaHistoryLoaded = true;
+  }
+  if (exportBtn) exportBtn.style.display = state.filterTratativa ? "block" : "none";
+  renderAll();
+}
+
+// CSV com os dados normais do ticket (cliente, responsável, squad, produto/
+// classe, MRR) + colunas dinâmicas Tratativa 1/2/3.../N (motivo + data cada
+// uma, em ordem cronológica -- "se tiver 2 trazer as duas, etc", pedido do
+// Luiz), uma coluna a mais pra cada tratativa a mais que o ticket com mais
+// histórico entre os exportados tiver. Só exporta o que está na tabela
+// (displayRows, já filtrado por "Tratativas realizadas" + qualquer outro
+// filtro ativo).
+function csvEscape(v) {
+  const s = v == null ? "" : String(v);
+  return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function exportTratativasCsv() {
+  const { displayRows } = applyFilters();
+  if (!displayRows.length) { alert("Nenhum ticket com tratativa registrada no filtro atual pra exportar."); return; }
+  const withHistory = displayRows.map(r => ({
+    row: r,
+    hist: state.tratativaHistoryByTicket[r.ticket_id] || [],
+  }));
+  const maxTratativas = Math.max(1, ...withHistory.map(x => x.hist.length));
+  const header = [
+    "Cliente/Empresa", "Ticket", "Responsável", "Squad", "Classe", "MRR", "Qtd. tratativas",
+  ];
+  for (let i = 1; i <= maxTratativas; i++) {
+    header.push(`Tratativa ${i} - Motivo`, `Tratativa ${i} - Data`);
+  }
+  const lines = [header.map(csvEscape).join(";")];
+  withHistory.forEach(({ row: r, hist }) => {
+    const line = [
+      r.display_name || r.subject_raw || r.ticket_id,
+      r.ticket_id,
+      r.owner_name || "-",
+      labelSquad(r.owner_squad || "sem_squad"),
+      r.classe_instalacao || "-",
+      r.mrr != null ? Number(r.mrr).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "-",
+      hist.length,
+    ];
+    for (let i = 0; i < maxTratativas; i++) {
+      const h = hist[i];
+      if (h) {
+        const dt = new Date(h.updated_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+        line.push(h.status_tratativa || "(sem motivo)", dt);
+      } else {
+        line.push("", "");
+      }
+    }
+    lines.push(line.map(csvEscape).join(";"));
+  });
+  // BOM (﻿) pra acentuação abrir certo no Excel; separador ";" (padrão
+  // pt-BR do Excel) em vez de "," -- por isso csvEscape() também trata ";"
+  // como caractere que precisa de aspas.
+  const csvContent = "﻿" + lines.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `tratativas_${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function saveTratativa(ticketId, status, observacao) {
