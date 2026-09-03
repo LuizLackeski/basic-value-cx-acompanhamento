@@ -945,7 +945,7 @@
   tr.company-group-row:hover { background: var(--royal-soft); }
   tr.company-group-row td { padding: 10px 14px; }
   /* Rodada 18f (2026-08-28): destaque de cor por quantidade de tratativas
-     (filtro "Tratativas realizadas", ver toggleTratativaFilter()) -- 2
+     (pill "Tratativas" em Prioridades, ver togglePriorityCategory()) -- 2
      tratativas = amarelo leve, 3+ = vermelho suave (caso crítico, pedido do
      Luiz pra sinalizar "solicitar apoio para alguém do time"). Reaproveita os
      mesmos tokens --warn-soft/--risk-soft já usados nos badges de
@@ -1090,44 +1090,35 @@
             </div>
           </div>
 
-          <!-- Rodada 18g (2026-09-03): "Tratativas" virou bloco próprio na
-               sidebar (antes vivia dentro de Filtros) -- pedido do Luiz:
-               "acho que pode ser um bloco a parte de tratativas, em para
-               ficar organizado, ai pode entrar no junto com prioridades, pq
-               são casos urgentes sem retorno". O checkbox continua com o
-               mesmo comportamento de sempre (filtra a tabela de Tickets pra
-               só tickets com >=1 tratativa registrada, com destaque de cor
-               por quantidade -- ver toggleTratativaFilter()/ticketRowHtml()).
-               Duas opções de exportação quando ligado: o detalhado (1 linha
-               POR TRATATIVA, ver exportTratativasCsv()) e o resumo por
-               cliente (1 linha por empresa -- contagem total + motivo/
-               observação do último registro, pra "facilitar reportar para os
-               responsáveis" -- ver exportTratativaResumoCsv()). -->
-          <div class="sidebar-block">
-            <p class="sidebar-section-title">Tratativas</p>
-            <label class="group-by-toggle">
-              <input type="checkbox" id="tratativa-filter-checkbox" onchange="toggleTratativaFilter()" />
-              <span>Tratativas realizadas</span>
-            </label>
-            <div id="tratativa-actions" style="display:none; margin-top:8px">
-              <button type="button" class="btn ghost" id="tratativa-export-btn" style="font-size:12px; width:100%; margin-bottom:6px" onclick="exportTratativasCsv()">⬇ Exportar detalhado (CSV)</button>
-              <button type="button" class="btn ghost" id="tratativa-resumo-btn" style="font-size:12px; width:100%" onclick="exportTratativaResumoCsv()">📋 Gerar resumo por cliente (CSV)</button>
-            </div>
-          </div>
-
           <!-- Filtros de Prioridade hierárquicos (Rodada 9, 2026-08-12) --
-               dois pills mutuamente exclusivos; selecionar um filtra a tabela
+               pills mutuamente exclusivos; selecionar um filtra a tabela
                de Tickets (só empresas com dado não-nulo naquela categoria),
                ordena do caso mais urgente pro menos urgente por padrão, e
-               revela 2 grupos de sub-opções abaixo (ver
-               renderPrioritySubOptions()). Faixas de quantidade/dias abaixo
-               são um PONTO DE PARTIDA ajustável -- o Luiz pode pedir
-               recalibração depois de ver os dados reais. -->
+               revela sub-opções abaixo (ver renderPrioritySubOptions()).
+               Faixas de quantidade/dias abaixo são um PONTO DE PARTIDA
+               ajustável -- o Luiz pode pedir recalibração depois de ver os
+               dados reais.
+
+               Rodada 18g, correção (2026-09-03) -- "Tratativas" virou um
+               3º pill AQUI dentro (pedido do Luiz: "eu disse separado ali o
+               bloco da tratativa, mesmo padrão, clica e abre os filtros e
+               resumo"), no lugar do bloco próprio que eu tinha colocado
+               antes do Prioridades. Mesmo mecanismo de mutual exclusão de
+               togglePriorityCategory()/renderPriorityPills() já usado por
+               Completude/Basic Value -- clicar no pill "Tratativas" filtra a
+               tabela pra só tickets com >=1 tratativa registrada (com
+               destaque de cor por quantidade, ver ticketRowHtml()) e abre,
+               nas sub-opções, os 2 botões: exportar detalhado (CSV, 1 linha
+               por tratativa) e gerar resumo por cliente (texto pronto pra
+               copiar, ver gerarResumoTratativas()/copyTratativaResumo()). O
+               checkbox antigo (#tratativa-filter-checkbox) saiu -- o próprio
+               pill agora liga/desliga o filtro. -->
           <div class="sidebar-block">
             <p class="sidebar-section-title">Prioridades</p>
             <div class="priority-pills">
               <button type="button" class="priority-pill" id="pp-completude" onclick="togglePriorityCategory('completude')">Completude de Instalação</button>
               <button type="button" class="priority-pill" id="pp-basic_value" onclick="togglePriorityCategory('basic_value')">Basic Value</button>
+              <button type="button" class="priority-pill" id="pp-tratativa" onclick="togglePriorityCategory('tratativa')">Tratativas</button>
             </div>
             <div class="priority-suboptions" id="priority-suboptions"></div>
           </div>
@@ -1376,6 +1367,25 @@
     <div class="form-actions" style="justify-content:center; gap:10px; margin-top:18px">
       <button class="btn ghost" type="button" onclick="closePrazoRiscoPopup()">Ver depois</button>
       <button class="btn" type="button" onclick="goToPrazoTab()">Ver agora</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rodada 18g, ajuste (2026-09-03): pedido do Luiz -- "o gerar resumo da
+     tratativa é para gerar o texto direto já, e eu copiar, sem precisar
+     exportar". Antes esse botão baixava um CSV; agora abre este popup com o
+     texto já formatado (ver gerarResumoTratativas()) numa textarea readonly,
+     e um botão "Copiar" que usa a Clipboard API (com fallback
+     execCommand("copy") pra navegador mais velho/sem permissão) -- ver
+     copyTratativaResumo(). Mesmo padrão visual .modal-overlay/.modal-card. -->
+<div class="modal-overlay" id="tratativa-resumo-overlay" style="display:none" onclick="if(event.target===this) closeTratativaResumoModal()">
+  <div class="modal-card" style="max-width:560px">
+    <h3>Resumo de tratativas por cliente</h3>
+    <p class="form-desc">Texto pronto pra copiar e colar (Slack, e-mail, etc).</p>
+    <textarea id="tratativa-resumo-textarea" readonly onclick="this.select()" style="width:100%; min-height:320px; font-family:inherit; font-size:13px; line-height:1.5; white-space:pre-wrap; margin-top:10px; box-sizing:border-box"></textarea>
+    <div class="form-actions" style="margin-top:14px">
+      <button class="btn ghost" type="button" onclick="closeTratativaResumoModal()">Fechar</button>
+      <button class="btn" type="button" id="tratativa-resumo-copy-btn" onclick="copyTratativaResumo()">📋 Copiar</button>
     </div>
   </div>
 </div>
@@ -2112,7 +2122,7 @@ function applyFilters() {
   // Luiz. Igual aos outros filtros de exibição, só afeta displayRows (a
   // tabela de Tickets), nunca squadFiltered (KPIs/agregados). Só some algo
   // de fato depois que o histórico bulk termina de carregar (ver
-  // toggleTratativaFilter()) -- antes disso o mapa está vazio e o filtro
+  // togglePriorityCategory()) -- antes disso o mapa está vazio e o filtro
   // esconderia tudo por engano, por isso a guarda tratativaHistoryLoaded.
   // Rodada 18g (2026-09-03), fix pós-entrega (pedido do Luiz: "quando
   // selecionado só vai trazer o que tiver ainda aberto os tickets... não
@@ -2236,8 +2246,28 @@ function passesMrrFilter(mrr, faixaArr, p) {
 
 // Rodada 16 (2026-08-27), correção no mesmo dia: voltou a ser exclusivo
 // (null | "completude" | "basic_value") -- ver comentário em state.
+//
+// Rodada 18g (2026-09-03): "tratativa" entrou como 3º valor possível --
+// pedido do Luiz de deixar o bloco de Tratativas "mesmo padrão, clica e
+// abre" dos outros 2 pills de Prioridades. Ativar o pill "Tratativas" agora
+// FAZ o que o checkbox antigo fazia (liga state.filterTratativa, carrega o
+// histórico em lote na 1ª vez -- ver loadTratativaCountsBulk()) e mostra os
+// botões de exportar/gerar resumo nas sub-opções; trocar pra
+// completude/basic_value (ou fechar o pill) desliga o filtro de novo.
 function togglePriorityCategory(cat) {
   state.priorityCategory = state.priorityCategory === cat ? null : cat;
+  state.filterTratativa = state.priorityCategory === "tratativa";
+  if (state.filterTratativa && !state.tratativaHistoryLoaded) {
+    // Carrega o histórico de todos os tickets do usuário (state.allRows já
+    // vem escopado pelo RLS -- ver applyFilters()) só na 1ª vez que o pill é
+    // aberto, pra não recarregar do banco toda vez que ele é religado.
+    const ids = state.allRows.map(r => r.ticket_id);
+    loadTratativaCountsBulk(ids).then(map => {
+      state.tratativaHistoryByTicket = map;
+      state.tratativaHistoryLoaded = true;
+      renderAll();
+    });
+  }
   renderPriorityPills();
   renderPrioritySubOptions();
   renderAll();
@@ -2246,8 +2276,10 @@ function togglePriorityCategory(cat) {
 function renderPriorityPills() {
   const elCompletude = document.getElementById("pp-completude");
   const elBv = document.getElementById("pp-basic_value");
+  const elTrat = document.getElementById("pp-tratativa");
   if (elCompletude) elCompletude.classList.toggle("active", state.priorityCategory === "completude");
   if (elBv) elBv.classList.toggle("active", state.priorityCategory === "basic_value");
+  if (elTrat) elTrat.classList.toggle("active", state.priorityCategory === "tratativa");
 }
 
 // Funções (não strings pré-computadas!) -- cada uma lê state.* NA HORA em
@@ -2291,6 +2323,13 @@ const PRIORITY_SUBOPTIONS_HTML = {
           <div class="msel-panel" id="pbvmrr-filter-panel"></div>
         </div>
       </label>`,
+  // Rodada 18g (2026-09-03): sub-opções do pill "Tratativas" -- sem msel
+  // (não é um filtro de faixa), só a explicação + os 2 botões de ação que
+  // antes viviam no bloco #tratativa-actions à parte.
+  tratativa: () => `
+      <p class="priority-note">Mostra só tickets com pelo menos 1 tratativa registrada, com destaque de cor por quantidade (2 = atenção, 3+ = caso crítico). Tickets já concluídos na sessão não entram.</p>
+      <button type="button" class="btn ghost" id="tratativa-export-btn" style="font-size:12px; width:100%; margin-bottom:6px" onclick="exportTratativasCsv()">⬇ Exportar detalhado (CSV)</button>
+      <button type="button" class="btn ghost" id="tratativa-resumo-btn" style="font-size:12px; width:100%" onclick="gerarResumoTratativas()">📋 Gerar resumo por cliente</button>`,
 };
 
 // Rodada 16 (2026-08-27): mostra as sub-opções da categoria ATIVA (só uma por
@@ -3285,21 +3324,9 @@ async function loadTratativaCountsBulk(ticketIds) {
   return map;
 }
 
-async function toggleTratativaFilter() {
-  state.filterTratativa = !state.filterTratativa;
-  const actionsWrap = document.getElementById("tratativa-actions");
-  if (state.filterTratativa && !state.tratativaHistoryLoaded) {
-    // Carrega o histórico de todos os tickets do usuário (state.allRows já
-    // vem escopado pelo RLS -- ver applyFilters()), não só os visíveis no
-    // momento, pra não precisar recarregar de novo se outro filtro mudar
-    // depois com o toggle já ligado.
-    const ids = state.allRows.map(r => r.ticket_id);
-    state.tratativaHistoryByTicket = await loadTratativaCountsBulk(ids);
-    state.tratativaHistoryLoaded = true;
-  }
-  if (actionsWrap) actionsWrap.style.display = state.filterTratativa ? "block" : "none";
-  renderAll();
-}
+// Rodada 18g (2026-09-03): o toggle antigo (checkbox + #tratativa-actions)
+// saiu -- o filtro agora liga/desliga junto com o pill "Tratativas" de
+// Prioridades, ver togglePriorityCategory().
 
 // Helpers de CSV compartilhados pelos 2 exports de tratativa (detalhado e
 // resumo por cliente) -- BOM pra acentuação abrir certo no Excel, separador
@@ -3360,22 +3387,59 @@ function exportTratativasCsv() {
   downloadCsv(`tratativas_detalhado_${new Date().toISOString().slice(0, 10)}.csv`, header, dataRows);
 }
 
-// Rodada 18g (2026-09-03), pedido novo do Luiz: "poderia ter uma opção de
-// gerar um resumo com a quantidade de tratativa por cliente, o motivo e
+// Rodada 18g (2026-09-03), pedido do Luiz: "poderia ter uma opção de gerar
+// um resumo com a quantidade de tratativa por cliente, o motivo e
 // observação do último registro, assim já facilita reportar para os
 // responsáveis". Agrupa por EMPRESA (company_id, mesmo critério de
 // groupedTableHtml()) em vez de por ticket -- soma as tratativas de TODOS os
 // tickets da empresa e traz motivo/observação/data/autor só do registro mais
 // recente entre eles (não o histórico inteiro -- é um resumo, não o
 // detalhado).
-function exportTratativaResumoCsv() {
+//
+// Ajuste no mesmo dia (mensagem seguinte do Luiz): "o gerar resumo da
+// tratativa é para gerar o texto direto já, e eu copiar, sem precisar
+// exportar" -- trocado de export CSV pra montar um texto (bullet por
+// cliente) e abrir um popup com ele numa textarea, pronto pra copiar/colar
+// (ver copyTratativaResumo() e o modal #tratativa-resumo-overlay no HTML).
+//
+// Mais um ajuste no mesmo dia (o Luiz deu o exemplo: "teve 3 tentativa de
+// contato, em 18, 20 e 21/08, último registro xxx") -- o resumo precisa
+// listar TODAS as datas das tentativas, não só a contagem + a última. Daí
+// guardamos g.datas (todas as datas de tratativa da empresa, de todos os
+// tickets) e formatamos com joinComEAntesDoUltimo()/formatarDatasResumo()
+// abaixo: dias soltos quando é tudo no mesmo mês (ex. "18, 20 e 21/08"), ou
+// dd/mm completo em cada data quando cruza mês (ex. "28/07, 02 e 05/08").
+function joinComEAntesDoUltimo(arr) {
+  if (arr.length <= 1) return arr.join("");
+  return arr.slice(0, -1).join(", ") + " e " + arr[arr.length - 1];
+}
+function formatarDatasResumo(isoList) {
+  // Dedup por dia (YYYY-MM-DD) e ordena cronologicamente antes de formatar.
+  const porDia = new Map();
+  isoList.forEach(iso => {
+    const d = new Date(iso);
+    const key = d.toISOString().slice(0, 10);
+    if (!porDia.has(key)) porDia.set(key, d);
+  });
+  const datas = Array.from(porDia.values()).sort((a, b) => a - b);
+  if (!datas.length) return "";
+  const mesmoMes = datas.every(d => d.getMonth() === datas[0].getMonth() && d.getFullYear() === datas[0].getFullYear());
+  const partes = datas.map((d, i) => {
+    const dia = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    if (mesmoMes && i < datas.length - 1) return dia; // só o dia, o mês vem só na última (ex. "18, 20 e 21/08")
+    return `${dia}/${mm}`;
+  });
+  return joinComEAntesDoUltimo(partes);
+}
+function gerarResumoTratativas() {
   const { displayRows } = applyFilters();
   if (!displayRows.length) { alert("Nenhum ticket com tratativa registrada no filtro atual pra gerar resumo."); return; }
   const groups = new Map();
   displayRows.forEach(r => {
     const key = r.company_id || `_sem_empresa_${r.ticket_id}`;
     if (!groups.has(key)) {
-      groups.set(key, { label: r.display_name || r.subject_raw || r.ticket_id, responsaveis: new Set(), squads: new Set(), tickets: 0, tratativas: 0, ultima: null });
+      groups.set(key, { label: r.display_name || r.subject_raw || r.ticket_id, responsaveis: new Set(), squads: new Set(), tickets: 0, tratativas: 0, datas: [], ultima: null });
     }
     const g = groups.get(key);
     g.responsaveis.add(r.owner_name || "-");
@@ -3384,24 +3448,59 @@ function exportTratativaResumoCsv() {
     const hist = state.tratativaHistoryByTicket[r.ticket_id] || [];
     g.tratativas += hist.length;
     hist.forEach(h => {
+      g.datas.push(h.updated_at);
       if (!g.ultima || new Date(h.updated_at) > new Date(g.ultima.updated_at)) g.ultima = h;
     });
   });
-  const header = ["Cliente/Empresa", "Responsável(is)", "Squad(s)", "Qtd. tickets", "Qtd. tratativas (total)", "Motivo do último registro", "Observação do último registro", "Registrado por (último)", "Data do último registro"];
-  const dataRows = Array.from(groups.values())
-    .sort((a, b) => b.tratativas - a.tratativas) // mais tratativas primeiro -- os casos mais urgentes no topo
-    .map(g => [
-      g.label,
-      Array.from(g.responsaveis).join(", "),
-      Array.from(g.squads).join(", "),
-      g.tickets,
-      g.tratativas,
-      g.ultima ? (g.ultima.status_tratativa || "(sem motivo)") : "-",
-      g.ultima ? (g.ultima.observacao || "") : "-",
-      g.ultima ? (g.ultima.user_email || "-") : "-",
-      g.ultima ? fmtTratativaDate(g.ultima.updated_at) : "-",
-    ]);
-  downloadCsv(`tratativas_resumo_por_cliente_${new Date().toISOString().slice(0, 10)}.csv`, header, dataRows);
+  const list = Array.from(groups.values())
+    .filter(g => g.tratativas > 0)
+    .sort((a, b) => b.tratativas - a.tratativas); // mais tratativas primeiro -- os casos mais urgentes no topo
+  if (!list.length) { alert("Nenhum ticket com tratativa registrada no filtro atual pra gerar resumo."); return; }
+  const totalTratativas = list.reduce((s, g) => s + g.tratativas, 0);
+  const hojeFmt = new Date().toLocaleDateString("pt-BR");
+  const linhas = [
+    `Resumo de tratativas - ${hojeFmt} (${list.length} cliente${list.length === 1 ? "" : "s"}, ${totalTratativas} tratativa${totalTratativas === 1 ? "" : "s"})`,
+    "",
+  ];
+  list.forEach(g => {
+    const datasStr = formatarDatasResumo(g.datas);
+    linhas.push(`• ${g.label} — teve ${g.tratativas} tentativa${g.tratativas === 1 ? "" : "s"} de contato (${g.tickets} ticket${g.tickets === 1 ? "" : "s"})${datasStr ? `, em ${datasStr}` : ""}. Responsável: ${Array.from(g.responsaveis).join(", ")} — Squad: ${Array.from(g.squads).join(", ")}`);
+    if (g.ultima) {
+      const obs = g.ultima.observacao ? ` — "${g.ultima.observacao}"` : "";
+      linhas.push(`  Último registro: ${g.ultima.status_tratativa || "(sem motivo)"}${obs} (por ${g.ultima.user_email || "-"} em ${fmtTratativaDate(g.ultima.updated_at)})`);
+    }
+    linhas.push("");
+  });
+  document.getElementById("tratativa-resumo-textarea").value = linhas.join("\n").trim();
+  document.getElementById("tratativa-resumo-overlay").style.display = "flex";
+}
+
+function closeTratativaResumoModal() {
+  document.getElementById("tratativa-resumo-overlay").style.display = "none";
+}
+
+function copyTratativaResumo() {
+  const ta = document.getElementById("tratativa-resumo-textarea");
+  const btn = document.getElementById("tratativa-resumo-copy-btn");
+  const showCopied = () => {
+    if (!btn) return;
+    const original = btn.textContent;
+    btn.textContent = "✓ Copiado!";
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  };
+  const fallbackCopy = () => {
+    ta.removeAttribute("readonly");
+    ta.focus();
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) { /* nada mais a fazer, o texto já está selecionado pro usuário copiar manualmente */ }
+    ta.setAttribute("readonly", "readonly");
+    showCopied();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(showCopied).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
 }
 
 async function saveTratativa(ticketId, status, observacao) {
