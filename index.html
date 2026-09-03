@@ -842,6 +842,11 @@
     font-size: 11.5px; font-weight: 400; line-height: 1.4; padding: 8px 10px; border-radius: 8px;
     width: max-content; max-width: 220px; box-shadow: 0 6px 18px rgba(7,7,78,0.28); text-align: left;
     pointer-events: none;
+    /* Rodada 18g (2026-09-03): pre-line pra suportar tooltips com múltiplas
+       linhas (ex.: histórico de tratativas na badge "Nx") sem quebrar os
+       tooltips de sempre, que continuam texto corrido normal (\n só existe
+       nos novos, de resto o white-space normal já colapsava tudo igual). */
+    white-space: pre-line;
   }
   .tt-icon {
     width: 15px; height: 15px; border-radius: 50%; background: var(--paper-2); color: var(--ink-mute);
@@ -1082,22 +1087,31 @@
                 <input type="checkbox" id="group-by-company-checkbox" onchange="toggleGroupByCompany()" />
                 <span>Agrupar por empresa</span>
               </label>
-              <!-- Rodada 18f (2026-08-28): "Tratativas realizadas" -- pedido do
-                   Luiz: filtro igual ao de "Agrupar por empresa" (só muda o
-                   que aparece na tabela de Tickets), mas mostra só tickets com
-                   pelo menos 1 tratativa registrada, com a linha destacada
-                   por cor conforme a QUANTIDADE de tratativas (1 = sem cor,
-                   2 = amarelo leve, 3+ = vermelho suave -- pedido dele: "3
-                   seria o caso crítico para solicitar apoio para alguém do
-                   time"). O botão "Exportar" (motivos + datas de cada
-                   tratativa, junto com os dados normais do ticket) só
-                   aparece quando este filtro está ligado -- ver
-                   toggleTratativaFilter()/exportTratativasCsv(). -->
-              <label class="group-by-toggle">
-                <input type="checkbox" id="tratativa-filter-checkbox" onchange="toggleTratativaFilter()" />
-                <span>Tratativas realizadas</span>
-              </label>
-              <button type="button" class="btn ghost" id="tratativa-export-btn" style="display:none; margin-top:6px; font-size:12px; width:100%" onclick="exportTratativasCsv()">⬇ Exportar tratativas (CSV)</button>
+            </div>
+          </div>
+
+          <!-- Rodada 18g (2026-09-03): "Tratativas" virou bloco próprio na
+               sidebar (antes vivia dentro de Filtros) -- pedido do Luiz:
+               "acho que pode ser um bloco a parte de tratativas, em para
+               ficar organizado, ai pode entrar no junto com prioridades, pq
+               são casos urgentes sem retorno". O checkbox continua com o
+               mesmo comportamento de sempre (filtra a tabela de Tickets pra
+               só tickets com >=1 tratativa registrada, com destaque de cor
+               por quantidade -- ver toggleTratativaFilter()/ticketRowHtml()).
+               Duas opções de exportação quando ligado: o detalhado (1 linha
+               POR TRATATIVA, ver exportTratativasCsv()) e o resumo por
+               cliente (1 linha por empresa -- contagem total + motivo/
+               observação do último registro, pra "facilitar reportar para os
+               responsáveis" -- ver exportTratativaResumoCsv()). -->
+          <div class="sidebar-block">
+            <p class="sidebar-section-title">Tratativas</p>
+            <label class="group-by-toggle">
+              <input type="checkbox" id="tratativa-filter-checkbox" onchange="toggleTratativaFilter()" />
+              <span>Tratativas realizadas</span>
+            </label>
+            <div id="tratativa-actions" style="display:none; margin-top:8px">
+              <button type="button" class="btn ghost" id="tratativa-export-btn" style="font-size:12px; width:100%; margin-bottom:6px" onclick="exportTratativasCsv()">⬇ Exportar detalhado (CSV)</button>
+              <button type="button" class="btn ghost" id="tratativa-resumo-btn" style="font-size:12px; width:100%" onclick="exportTratativaResumoCsv()">📋 Gerar resumo por cliente (CSV)</button>
             </div>
           </div>
 
@@ -2100,8 +2114,16 @@ function applyFilters() {
   // de fato depois que o histórico bulk termina de carregar (ver
   // toggleTratativaFilter()) -- antes disso o mapa está vazio e o filtro
   // esconderia tudo por engano, por isso a guarda tratativaHistoryLoaded.
+  // Rodada 18g (2026-09-03), fix pós-entrega (pedido do Luiz: "quando
+  // selecionado só vai trazer o que tiver ainda aberto os tickets... não
+  // pode trazer o que já saiu deste status pq foi resolvido"): "Concluir"
+  // (ver onAckTicket()) só marca state.justAcked NESTA sessão -- o ticket
+  // continua em state.allRows (só fica esmaecido, ver .row-acked) até o
+  // próximo carregamento. Sem este filtro extra, um ticket concluído durante
+  // a sessão continuava aparecendo (e sendo exportado) no filtro/export de
+  // tratativas, o que não faz sentido pra reportar como "caso em aberto".
   if (state.filterTratativa && state.tratativaHistoryLoaded) {
-    rows = rows.filter(r => (state.tratativaHistoryByTicket[r.ticket_id] || []).length > 0);
+    rows = rows.filter(r => (state.tratativaHistoryByTicket[r.ticket_id] || []).length > 0 && !state.justAcked.has(r.ticket_id));
   }
   return { squadFiltered, displayRows: rows };
 }
@@ -2906,9 +2928,19 @@ function ticketRowHtml(row) {
   // linha renderiza igual a sempre, sem custo extra.
   const tratCount = state.filterTratativa ? (state.tratativaHistoryByTicket[row.ticket_id] || []).length : 0;
   const tratRowClass = tratCount >= 3 ? "row-tratativa-3" : (tratCount === 2 ? "row-tratativa-2" : "");
-  const tratBadge = (state.filterTratativa && tratCount >= 2)
-    ? `<span class="tratativa-count-badge" style="background:${tratCount >= 3 ? "var(--risk-soft)" : "var(--warn-soft)"};color:${tratCount >= 3 ? "var(--risk)" : "var(--warn)"}" data-tt="${tratCount} tratativas registradas${tratCount >= 3 ? " -- caso crítico, considerar pedir apoio do time" : ""}">${tratCount}x${tratCount >= 3 ? " ⚠" : ""}</span>`
-    : "";
+  // Rodada 18g (2026-09-03), fix pós-entrega (pedido do Luiz: "dá para deixar
+  // ali junto a data que foi registrado e por quem para não precisar entrar
+  // nos detalhes"): tooltip da badge ganhou 1 linha por tratativa (mais
+  // recente primeiro, até 5 pra não virar um tooltip gigante) com
+  // data · quem · motivo, pra dar pra ver sem abrir o popup de Detalhes.
+  let tratBadge = "";
+  if (state.filterTratativa && tratCount >= 2) {
+    const hist = (state.tratativaHistoryByTicket[row.ticket_id] || []).slice().reverse();
+    const tip = hist.slice(0, 5).map(h =>
+      `${new Date(h.updated_at).toLocaleDateString("pt-BR")} · ${h.user_email || "-"} · ${h.status_tratativa || "(sem motivo)"}`
+    ).join("\n") + (tratCount >= 3 ? "\n-- caso crítico, considerar pedir apoio do time" : "");
+    tratBadge = `<span class="tratativa-count-badge" style="background:${tratCount >= 3 ? "var(--risk-soft)" : "var(--warn-soft)"};color:${tratCount >= 3 ? "var(--risk)" : "var(--warn)"}" data-tt="${escapeHtml(tip)}">${tratCount}x${tratCount >= 3 ? " ⚠" : ""}</span>`;
+  }
 
   const accessoryProducts = state.productsByTicket[row.ticket_id] || [];
   const chips = [];
@@ -3255,7 +3287,7 @@ async function loadTratativaCountsBulk(ticketIds) {
 
 async function toggleTratativaFilter() {
   state.filterTratativa = !state.filterTratativa;
-  const exportBtn = document.getElementById("tratativa-export-btn");
+  const actionsWrap = document.getElementById("tratativa-actions");
   if (state.filterTratativa && !state.tratativaHistoryLoaded) {
     // Carrega o histórico de todos os tickets do usuário (state.allRows já
     // vem escopado pelo RLS -- ver applyFilters()), não só os visíveis no
@@ -3265,71 +3297,111 @@ async function toggleTratativaFilter() {
     state.tratativaHistoryByTicket = await loadTratativaCountsBulk(ids);
     state.tratativaHistoryLoaded = true;
   }
-  if (exportBtn) exportBtn.style.display = state.filterTratativa ? "block" : "none";
+  if (actionsWrap) actionsWrap.style.display = state.filterTratativa ? "block" : "none";
   renderAll();
 }
 
-// CSV com os dados normais do ticket (cliente, responsável, squad, produto/
-// classe, MRR) + colunas dinâmicas Tratativa 1/2/3.../N (motivo + data cada
-// uma, em ordem cronológica -- "se tiver 2 trazer as duas, etc", pedido do
-// Luiz), uma coluna a mais pra cada tratativa a mais que o ticket com mais
-// histórico entre os exportados tiver. Só exporta o que está na tabela
-// (displayRows, já filtrado por "Tratativas realizadas" + qualquer outro
-// filtro ativo).
+// Helpers de CSV compartilhados pelos 2 exports de tratativa (detalhado e
+// resumo por cliente) -- BOM pra acentuação abrir certo no Excel, separador
+// ";" (padrão pt-BR do Excel, por isso csvEscape() trata ";" como caractere
+// que precisa de aspas também, não só "," e quebra de linha).
 function csvEscape(v) {
   const s = v == null ? "" : String(v);
   return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
-function exportTratativasCsv() {
-  const { displayRows } = applyFilters();
-  if (!displayRows.length) { alert("Nenhum ticket com tratativa registrada no filtro atual pra exportar."); return; }
-  const withHistory = displayRows.map(r => ({
-    row: r,
-    hist: state.tratativaHistoryByTicket[r.ticket_id] || [],
-  }));
-  const maxTratativas = Math.max(1, ...withHistory.map(x => x.hist.length));
-  const header = [
-    "Cliente/Empresa", "Ticket", "Responsável", "Squad", "Classe", "MRR", "Qtd. tratativas",
-  ];
-  for (let i = 1; i <= maxTratativas; i++) {
-    header.push(`Tratativa ${i} - Motivo`, `Tratativa ${i} - Data`);
-  }
-  const lines = [header.map(csvEscape).join(";")];
-  withHistory.forEach(({ row: r, hist }) => {
-    const line = [
-      r.display_name || r.subject_raw || r.ticket_id,
-      r.ticket_id,
-      r.owner_name || "-",
-      labelSquad(r.owner_squad || "sem_squad"),
-      r.classe_instalacao || "-",
-      r.mrr != null ? Number(r.mrr).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "-",
-      hist.length,
-    ];
-    for (let i = 0; i < maxTratativas; i++) {
-      const h = hist[i];
-      if (h) {
-        const dt = new Date(h.updated_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
-        line.push(h.status_tratativa || "(sem motivo)", dt);
-      } else {
-        line.push("", "");
-      }
-    }
-    lines.push(line.map(csvEscape).join(";"));
-  });
-  // BOM (﻿) pra acentuação abrir certo no Excel; separador ";" (padrão
-  // pt-BR do Excel) em vez de "," -- por isso csvEscape() também trata ";"
-  // como caractere que precisa de aspas.
+function downloadCsv(filename, headerRow, dataRows) {
+  const lines = [headerRow.map(csvEscape).join(";")]
+    .concat(dataRows.map(line => line.map(csvEscape).join(";")));
   const csvContent = "﻿" + lines.join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const today = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `tratativas_${today}.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+function fmtTratativaDate(iso) {
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+// Rodada 18g (2026-09-03), fix pós-entrega (pedido do Luiz: "acho que é
+// melhor colocar em linhas as tratativas, e não colunas, repetir por linha" +
+// "dá para deixar ali junto a data que foi registrado e por quem"): formato
+// long (1 linha POR TRATATIVA, repetindo os dados do ticket em cada uma) no
+// lugar do formato wide anterior (1 linha por ticket, colunas Tratativa
+// 1/2/3...). Também ganhou a coluna "Registrado por" (user_email de quem
+// salvou aquela tratativa).
+function exportTratativasCsv() {
+  const { displayRows } = applyFilters();
+  if (!displayRows.length) { alert("Nenhum ticket com tratativa registrada no filtro atual pra exportar."); return; }
+  const header = ["Cliente/Empresa", "Ticket", "Responsável", "Squad", "Classe", "MRR", "Nº da tratativa", "Motivo", "Observação", "Registrado por", "Data do registro"];
+  const dataRows = [];
+  displayRows.forEach(r => {
+    const hist = state.tratativaHistoryByTicket[r.ticket_id] || [];
+    hist.forEach((h, i) => {
+      dataRows.push([
+        r.display_name || r.subject_raw || r.ticket_id,
+        r.ticket_id,
+        r.owner_name || "-",
+        labelSquad(r.owner_squad || "sem_squad"),
+        r.classe_instalacao || "-",
+        r.mrr != null ? Number(r.mrr).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "-",
+        i + 1,
+        h.status_tratativa || "(sem motivo)",
+        h.observacao || "",
+        h.user_email || "-",
+        fmtTratativaDate(h.updated_at),
+      ]);
+    });
+  });
+  downloadCsv(`tratativas_detalhado_${new Date().toISOString().slice(0, 10)}.csv`, header, dataRows);
+}
+
+// Rodada 18g (2026-09-03), pedido novo do Luiz: "poderia ter uma opção de
+// gerar um resumo com a quantidade de tratativa por cliente, o motivo e
+// observação do último registro, assim já facilita reportar para os
+// responsáveis". Agrupa por EMPRESA (company_id, mesmo critério de
+// groupedTableHtml()) em vez de por ticket -- soma as tratativas de TODOS os
+// tickets da empresa e traz motivo/observação/data/autor só do registro mais
+// recente entre eles (não o histórico inteiro -- é um resumo, não o
+// detalhado).
+function exportTratativaResumoCsv() {
+  const { displayRows } = applyFilters();
+  if (!displayRows.length) { alert("Nenhum ticket com tratativa registrada no filtro atual pra gerar resumo."); return; }
+  const groups = new Map();
+  displayRows.forEach(r => {
+    const key = r.company_id || `_sem_empresa_${r.ticket_id}`;
+    if (!groups.has(key)) {
+      groups.set(key, { label: r.display_name || r.subject_raw || r.ticket_id, responsaveis: new Set(), squads: new Set(), tickets: 0, tratativas: 0, ultima: null });
+    }
+    const g = groups.get(key);
+    g.responsaveis.add(r.owner_name || "-");
+    g.squads.add(labelSquad(r.owner_squad || "sem_squad"));
+    g.tickets += 1;
+    const hist = state.tratativaHistoryByTicket[r.ticket_id] || [];
+    g.tratativas += hist.length;
+    hist.forEach(h => {
+      if (!g.ultima || new Date(h.updated_at) > new Date(g.ultima.updated_at)) g.ultima = h;
+    });
+  });
+  const header = ["Cliente/Empresa", "Responsável(is)", "Squad(s)", "Qtd. tickets", "Qtd. tratativas (total)", "Motivo do último registro", "Observação do último registro", "Registrado por (último)", "Data do último registro"];
+  const dataRows = Array.from(groups.values())
+    .sort((a, b) => b.tratativas - a.tratativas) // mais tratativas primeiro -- os casos mais urgentes no topo
+    .map(g => [
+      g.label,
+      Array.from(g.responsaveis).join(", "),
+      Array.from(g.squads).join(", "),
+      g.tickets,
+      g.tratativas,
+      g.ultima ? (g.ultima.status_tratativa || "(sem motivo)") : "-",
+      g.ultima ? (g.ultima.observacao || "") : "-",
+      g.ultima ? (g.ultima.user_email || "-") : "-",
+      g.ultima ? fmtTratativaDate(g.ultima.updated_at) : "-",
+    ]);
+  downloadCsv(`tratativas_resumo_por_cliente_${new Date().toISOString().slice(0, 10)}.csv`, header, dataRows);
 }
 
 async function saveTratativa(ticketId, status, observacao) {
@@ -3827,28 +3899,35 @@ function infoPillHtml(reason) {
 function completudeInstalacaoHtml(row) {
   const classe = row.classe_instalacao;
 
-  // Rodada 17 (2026-08-27): "Troca" não tem deal de instalação, então não
-  // tem completude_qtd_completude/pct -- mas tem uma regra própria: 60 dias
-  // CORRIDOS desde a ABERTURA do ticket pra concluir (pedido do Luiz: "para
-  // troca não tem completude por deal, mas consideramos também 60 dias para
-  // realizar a conclusão depois de criado, daria para fazer essa regra e
-  // considerar também?"). Sem percentual aqui (não existe "instalado/a
-  // instalar" pra Troca), só o status de prazo, com tooltip explicando a
-  // regra (pra não parecer que "sumiu" o dado de completude sem motivo).
-  if (classe === "Troca") {
+  // Rodada 18g (2026-09-03), fix pós-entrega (achado real do Luiz: "os
+  // prazos da troca ainda não funcionou, tá pegando a data de abertura do
+  // ticket ainda... sem a quantidade que falta para atingir 80% e os
+  // dias"): até aqui, "Troca" tinha um branch especial que SEMPRE mostrava
+  // um badge por tempo (60 dias desde a ABERTURA DO TICKET), nunca lendo
+  // completude_pct/completude_qtd_falta/completude_dias_restantes_prazo --
+  // mesmo depois da Rodada 18e/18f terem corrigido o sync pra também
+  // calcular esses campos por deal pra Troca (via
+  // gold.cubo_supply.supply_cube + distribuicao_geografica_de_dispositivos).
+  // Ou seja: mesmo com o dado certo no banco, a tela nunca olhava pra ele.
+  //
+  // Fix: Troca agora só usa o badge de prazo-por-tempo (tempo desde a
+  // ABERTURA DO TICKET, aproximado) como FALLBACK, quando o deal ainda não
+  // tem completude_qtd_completude/pct calculado (caso comum hoje -- ver
+  // achado da Rodada 18g: a maioria dos deals de Troca testados nem tem
+  // linha em gold.cubo_contratos.fct_contract_products ainda, gap de dado
+  // upstream, fora do alcance do notebook). Quando o dado por deal EXISTE
+  // (completude_qtd_completude > 0), Troca cai no MESMO caminho geral das
+  // outras classes logo abaixo -- % real, "+N para 80%" e dias a partir da
+  // assinatura do deal, não mais da abertura do ticket.
+  if (classe === "Troca" && (row.completude_qtd_completude == null || row.completude_qtd_completude === 0)) {
     if (row.dias_aberto == null) {
-      return infoPillHtml('Classe "Troca" não entra na métrica de completude de instalação por deal, e este ticket não tem data de abertura disponível para calcular o prazo de 60 dias.');
+      return infoPillHtml('Classe "Troca" ainda não tem completude por deal calculada pra este ticket, e ele não tem data de abertura disponível pra estimar o prazo de 60 dias.');
     }
     const restantes = 60 - row.dias_aberto;
-    const tip = 'Classe "Troca" não tem completude por deal -- aqui o prazo é de 60 dias corridos desde a abertura do ticket.';
-    // Rodada 18d (2026-08-27): removida a condição "restantes > 0" que escondia
-    // o contador exatamente no dia do limite (restantes === 0) -- pedido do
-    // Luiz: "perto disso não deve ficar sem informação". Formato também
-    // trocado de "-- faltam Nd" para "+Nd", igual ao padrão já usado em
-    // "+N para 80%"/"+N para nota 3" na mesma linha.
+    const tip = 'Classe "Troca" ainda não tem completude por deal calculada pra este ticket (dado do envio/instalação ainda não disponível) -- estimativa baseada nos 60 dias corridos desde a ABERTURA DO TICKET, não da assinatura do deal. Assim que o dado por deal existir, este badge passa a mostrar o percentual real automaticamente.';
     const badge = restantes < 0
-      ? `<span class="badge risk" data-tt="${escapeHtml(tip)}">Prazo encerrado</span>`
-      : `<span class="badge ok" data-tt="${escapeHtml(tip)}">Dentro do prazo +${Math.ceil(restantes)}d</span>`;
+      ? `<span class="badge risk" data-tt="${escapeHtml(tip)}">Prazo encerrado (estimado)</span>`
+      : `<span class="badge" style="background:var(--warn-soft);color:var(--warn)" data-tt="${escapeHtml(tip)}">~Dentro do prazo +${Math.ceil(restantes)}d</span>`;
     return badge;
   }
 
